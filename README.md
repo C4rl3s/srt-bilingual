@@ -36,12 +36,22 @@ srt-bilingual/
 ```bash
 cd backend
 uv sync                                   # instala dependencias en .venv
+cp .env.example .env                      # y edita MEDIA_FOLDERS con tus carpetas
+uv run alembic upgrade head               # crea la base de datos SQLite
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
 - API: http://localhost:8000
 - Health: http://localhost:8000/health
 - Docs (OpenAPI): http://localhost:8000/docs
+
+Endpoints disponibles:
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `POST` | `/scan` | Recorre las carpetas de `MEDIA_FOLDERS` e inventaría los `.srt` |
+| `GET` | `/subtitles` | Lista los subtítulos. Filtros: `?estado=` y `?idioma=` |
+| `GET` | `/subtitles/{id}` | Detalle de un subtítulo |
 
 Tests:
 
@@ -64,7 +74,7 @@ en el puerto 8000.
 ## Estado del proyecto
 
 - [x] **Fase 0** — Esqueleto del proyecto y conexión front↔back (`/health`).
-- [ ] **Fase 1** — Modelos SQLite, scanner de carpetas, parser SRT y conteo de caracteres.
+- [x] **Fase 1** — Modelos SQLite, scanner de carpetas, parser SRT y conteo de caracteres.
 - [ ] **Fase 2** — Listado en React de subtítulos traducidos/pendientes.
 - [ ] **Fase 3** — Traducción multi-proveedor (DeepL) y generación del `.srt` bilingüe.
 - [ ] **Fase 4** — Tracking de cuotas por proveedor.

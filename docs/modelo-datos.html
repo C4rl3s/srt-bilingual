@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; }
+  img, svg { max-width: 100%; }
+</style>
+<title>srt-bilingual · Modelo de datos</title>
+
+<style>
+  /* ---------------------------------------------------------------
+     Tokens. Neutro con sesgo azul frío (el mundo del reproductor de
+     vídeo), acento ámbar tomado del amarillo clásico de subtítulo.
+     Los colores de estado son semánticos y no compiten con el acento.
+  ----------------------------------------------------------------*/
+  :root {
+    --ground: #fcfcfd;
+    --surface: #f3f4f8;
+    --surface-2: #e8eaf0;
+    --line: #d8dbe4;
+    --line-soft: #e6e8ef;
+    --ink: #181a21;
+    --ink-2: #4b5060;
+    --ink-3: #797f90;
+    --accent: #a8780a;
+    --accent-bright: #d09b12;
+    --accent-wash: rgba(208, 155, 18, 0.12);
+    --ok: #0d7a68;
+    --ok-wash: rgba(13, 122, 104, 0.12);
+    --warn: #9a6a0a;
+    --warn-wash: rgba(154, 106, 10, 0.12);
+    --bad: #ad3d28;
+    --bad-wash: rgba(173, 61, 40, 0.12);
+    --shadow: 0 1px 2px rgba(20, 24, 38, 0.05), 0 8px 24px -12px rgba(20, 24, 38, 0.16);
+
+    --sans: ui-sans-serif, system-ui, "Segoe UI Variable Text", "Segoe UI", Roboto, sans-serif;
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", "Roboto Mono", monospace;
+    --hangul: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #121319;
+      --surface: #191b22;
+      --surface-2: #21242d;
+      --line: #2d313c;
+      --line-soft: #23262f;
+      --ink: #e9eaef;
+      --ink-2: #a8adbc;
+      --ink-3: #757b8c;
+      --accent: #e0ab35;
+      --accent-bright: #f0bc47;
+      --accent-wash: rgba(224, 171, 53, 0.14);
+      --ok: #3bb8a0;
+      --ok-wash: rgba(59, 184, 160, 0.14);
+      --warn: #d9a63f;
+      --warn-wash: rgba(217, 166, 63, 0.14);
+      --bad: #e37a63;
+      --bad-wash: rgba(227, 122, 99, 0.14);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+    }
+  }
+
+  /* El conmutador del visor manda sobre la preferencia del sistema. */
+  :root[data-theme="light"] {
+    --ground: #fcfcfd;
+    --surface: #f3f4f8;
+    --surface-2: #e8eaf0;
+    --line: #d8dbe4;
+    --line-soft: #e6e8ef;
+    --ink: #181a21;
+    --ink-2: #4b5060;
+    --ink-3: #797f90;
+    --accent: #a8780a;
+    --accent-bright: #d09b12;
+    --accent-wash: rgba(208, 155, 18, 0.12);
+    --ok: #0d7a68;
+    --ok-wash: rgba(13, 122, 104, 0.12);
+    --warn: #9a6a0a;
+    --warn-wash: rgba(154, 106, 10, 0.12);
+    --bad: #ad3d28;
+    --bad-wash: rgba(173, 61, 40, 0.12);
+    --shadow: 0 1px 2px rgba(20, 24, 38, 0.05), 0 8px 24px -12px rgba(20, 24, 38, 0.16);
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #121319;
+    --surface: #191b22;
+    --surface-2: #21242d;
+    --line: #2d313c;
+    --line-soft: #23262f;
+    --ink: #e9eaef;
+    --ink-2: #a8adbc;
+    --ink-3: #757b8c;
+    --accent: #e0ab35;
+    --accent-bright: #f0bc47;
+    --accent-wash: rgba(224, 171, 53, 0.14);
+    --ok: #3bb8a0;
+    --ok-wash: rgba(59, 184, 160, 0.14);
+    --warn: #d9a63f;
+    --warn-wash: rgba(217, 166, 63, 0.14);
+    --bad: #e37a63;
+    --bad-wash: rgba(227, 122, 99, 0.14);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 2.5rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3rem, 6vw, 4.75rem);
+  }
+
+  /* ---- tipografía base ---- */
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+
+  h1 {
+    font-size: clamp(2.1rem, 5.5vw, 3.1rem);
+    line-height: 1.06;
+    letter-spacing: -0.028em;
+    font-weight: 700;
+  }
+
+  h2 {
+    font-size: clamp(1.35rem, 3vw, 1.7rem);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    font-weight: 650;
+  }
+
+  h3 {
+    font-size: 1.02rem;
+    letter-spacing: -0.006em;
+    font-weight: 650;
+  }
+
+  p { margin: 0; }
+  a { color: var(--accent); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  code, .mono { font-family: var(--mono); }
+
+  code {
+    font-size: 0.88em;
+    background: var(--surface-2);
+    border-radius: 3px;
+    padding: 0.1em 0.36em;
+  }
+
+  /* ---- masthead ---- */
+  .masthead { display: flex; flex-direction: column; gap: 1.4rem; }
+
+  .masthead p {
+    font-family: var(--serif);
+    font-size: clamp(1.02rem, 2.2vw, 1.16rem);
+    line-height: 1.62;
+    color: var(--ink-2);
+    max-width: 60ch;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    font-family: var(--mono);
+    font-size: 0.735rem;
+  }
+
+  .meta span {
+    border: 1px solid var(--line);
+    border-radius: 100px;
+    padding: 0.24rem 0.7rem;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+
+  .meta span.is-live {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+    background: var(--accent-wash);
+    color: var(--accent);
+  }
+
+  /* ---- bloque SRT del hero ---- */
+  .cue {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: clamp(1.2rem, 3vw, 1.75rem);
+    display: grid;
+    gap: 0.9rem;
+    overflow-x: auto;
+  }
+
+  .cue-lines { display: grid; gap: 0.18rem; font-family: var(--mono); font-size: 0.95rem; }
+  .cue-index, .cue-time { color: var(--ink-3); font-size: 0.82rem; letter-spacing: 0.01em; }
+  .cue-src { color: var(--ink); }
+  .cue-dst { color: var(--accent); font-family: var(--hangul); font-size: 1.02rem; }
+
+  .cue-note {
+    font-size: 0.85rem;
+    color: var(--ink-2);
+    border-top: 1px solid var(--line-soft);
+    padding-top: 0.85rem;
+    max-width: 68ch;
+  }
+
+  /* ---- callout ---- */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-wash);
+    border-radius: 0 8px 8px 0;
+    padding: 1.1rem 1.3rem;
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .callout strong { font-size: 1.05rem; letter-spacing: -0.01em; }
+  .callout p { color: var(--ink-2); font-size: 0.94rem; max-width: 68ch; }
+
+  /* ---- secciones ---- */
+  .section { display: flex; flex-direction: column; gap: 1.5rem; }
+  .section > .lede { color: var(--ink-2); max-width: 68ch; font-size: 0.97rem; }
+  .section-head { display: flex; flex-direction: column; gap: 0.4rem; }
+
+  /* ---- diagrama de relación ---- */
+  .er {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: clamp(0.6rem, 2vw, 1.4rem);
+  }
+
+  .entity {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .entity-name {
+    font-family: var(--mono);
+    font-size: 0.86rem;
+    font-weight: 600;
+    padding: 0.7rem 0.95rem;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+  }
+
+  .entity ul { list-style: none; margin: 0; padding: 0.55rem 0; }
+
+  .entity li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.2rem 0.95rem;
+    font-family: var(--mono);
+    font-size: 0.79rem;
+    color: var(--ink-2);
+  }
+
+  .entity li .key {
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    border-radius: 3px;
+    padding: 0 0.28rem;
+    flex: none;
+  }
+
+  .entity li .key.is-plain { color: var(--ink-3); border-color: transparent; }
+  .entity li .more { color: var(--ink-3); font-style: italic; }
+
+  .rel { display: grid; justify-items: center; gap: 0.3rem; color: var(--ink-3); }
+  .rel-line { width: clamp(28px, 7vw, 72px); height: 1px; background: var(--line); }
+  .rel-label { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.08em; white-space: nowrap; }
+  .rel-cascade { font-family: var(--mono); font-size: 0.62rem; color: var(--bad); letter-spacing: 0.04em; }
+
+  @media (max-width: 620px) {
+    .er { grid-template-columns: 1fr; }
+    .rel { padding: 0.4rem 0; }
+    .rel-line { width: 1px; height: 26px; }
+  }
+
+  /* ---- tablas de referencia ---- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+
+  table { border-collapse: collapse; width: 100%; font-size: 0.87rem; min-width: 560px; }
+
+  thead th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 500;
+    padding: 0.72rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+
+  tbody td { padding: 0.62rem 0.9rem; border-bottom: 1px solid var(--line-soft); vertical-align: top; color: var(--ink-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child { font-family: var(--mono); font-size: 0.82rem; color: var(--ink); white-space: nowrap; }
+  td.type { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-3); white-space: nowrap; }
+  td.nul { font-family: var(--mono); font-size: 0.78rem; text-align: center; font-variant-numeric: tabular-nums; }
+  td.nul.yes { color: var(--ink-3); }
+  td.nul.no { color: var(--ink-2); }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    border-radius: 3px;
+    padding: 0.06rem 0.32rem;
+    margin-left: 0.35rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    color: var(--accent);
+    vertical-align: 1px;
+  }
+
+  /* ---- estados ---- */
+  .states { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 0.9rem; }
+
+  .state {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 1rem 1.1rem;
+    display: grid;
+    gap: 0.5rem;
+    border-top: 3px solid var(--state);
+  }
+
+  .state.pending { --state: var(--warn); }
+  .state.translated { --state: var(--ok); }
+  .state.error { --state: var(--bad); }
+
+  .state-name {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    color: var(--state);
+    background: var(--state-wash);
+    justify-self: start;
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .state.pending .state-name { --state-wash: var(--warn-wash); }
+  .state.translated .state-name { --state-wash: var(--ok-wash); }
+  .state.error .state-name { --state-wash: var(--bad-wash); }
+
+  .state p { font-size: 0.88rem; color: var(--ink-2); }
+
+  /* ---- decisiones ---- */
+  .decisions { display: grid; gap: 1rem; }
+
+  .decision {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 1.2rem 1.35rem;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .decision p { font-family: var(--serif); font-size: 0.97rem; line-height: 1.62; color: var(--ink-2); max-width: 72ch; }
+
+  .cost {
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+    font-size: 0.87rem;
+    color: var(--ink-2);
+    border-top: 1px dashed var(--line);
+    padding-top: 0.7rem;
+  }
+
+  .cost b {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    flex: none;
+    padding-top: 0.12rem;
+  }
+
+  /* ---- pendiente (fase 4): el estilo codifica que aún no existe ---- */
+  .ghost {
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 1.3rem 1.4rem;
+    display: grid;
+    gap: 1rem;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 9px,
+      var(--line-soft) 9px,
+      var(--line-soft) 10px
+    );
+  }
+
+  .ghost-inner { display: grid; gap: 0.85rem; }
+  .ghost .table-wrap { border-style: dashed; }
+
+  /* ---- comandos ---- */
+  .cmds { display: grid; gap: 0.5rem; }
+
+  .cmd {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.9rem;
+    align-items: baseline;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    overflow-x: auto;
+  }
+
+  .cmd span:last-child { font-family: var(--sans); font-size: 0.8rem; color: var(--ink-3); white-space: nowrap; }
+
+  @media (max-width: 560px) {
+    .cmd { grid-template-columns: 1fr; gap: 0.25rem; }
+    .cmd span:last-child { white-space: normal; }
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.3rem;
+    font-size: 0.83rem;
+    color: var(--ink-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.4rem;
+  }
+
+  footer .mono { font-size: 0.78rem; }
+</style>
+</head>
+<body>
+
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow">srt-bilingual · backend · fase 1</div>
+    <h1>Modelo de datos</h1>
+    <p>
+      Dos tablas sobre SQLite que hacen de índice de tu biblioteca: qué subtítulos
+      hay, cuánto texto tienen y cuáles ya están traducidos. Nada más, y a propósito.
+    </p>
+    <div class="meta">
+      <span>SQLite</span>
+      <span>SQLAlchemy 2.0</span>
+      <span class="is-live">migración 4684c713e94f</span>
+      <span>2 tablas · 22 columnas</span>
+      <span>+1 tabla prevista en Fase 4</span>
+    </div>
+  </header>
+
+  <section class="cue" aria-label="Ejemplo de bloque bilingüe generado">
+    <div class="cue-lines">
+      <div class="cue-index">12</div>
+      <div class="cue-time">00:01:23,400 --&gt; 00:01:25,900</div>
+      <div class="cue-src">Nunca me lo dijiste.</div>
+      <div class="cue-dst">넌 나에게 말한 적이 없어.</div>
+    </div>
+    <p class="cue-note">
+      Esto es lo que el sistema produce: el bloque original con su traducción debajo,
+      reutilizando las marcas de tiempo tal cual. El esquema de la base de datos existe
+      para una sola cosa — saber qué ficheros ya tienen esto y cuáles no.
+    </p>
+  </section>
+
+  <div class="callout">
+    <strong>El disco es la fuente de verdad; la base de datos es un índice reconstruible.</strong>
+    <p>
+      Todo lo que hay en estas tablas se regenera borrando el <code>.db</code>, aplicando
+      las migraciones y lanzando un escaneo. Ninguna decisión depende de un dato que solo
+      exista en la base: un subtítulo está traducido porque su <code>.bilingue.srt</code>
+      está en disco, no porque una fila lo afirme.
+    </p>
+  </div>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="eyebrow">Relación</div>
+      <h2>Una carpeta, muchos subtítulos</h2>
+    </div>
+
+    <div class="er">
+      <div class="entity">
+        <div class="entity-name">library_folder</div>
+        <ul>
+          <li><span class="key">PK</span> id</li>
+          <li><span class="key">UK</span> ruta</li>
+          <li><span class="key is-plain">·</span> ultimo_escaneo</li>
+          <li><span class="key is-plain">·</span> <span class="more">+ 2 timestamps</span></li>
+        </ul>
+      </div>
+
+      <div class="rel" aria-hidden="true">
+        <div class="rel-label">1 ── N</div>
+        <div class="rel-line"></div>
+        <div class="rel-cascade">ON DELETE CASCADE</div>
+      </div>
+
+      <div class="entity">
+        <div class="entity-name">subtitle_file</div>
+        <ul>
+          <li><span class="key">PK</span> id</li>
+          <li><span class="key">FK</span> carpeta_id</li>
+          <li><span class="key">UK</span> ruta</li>
+          <li><span class="key is-plain">·</span> estado</li>
+          <li><span class="key is-plain">·</span> num_caracteres</li>
+          <li><span class="key is-plain">·</span> <span class="more">+ 12 columnas</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="lede">
+      Quitar una carpeta de <code>MEDIA_FOLDERS</code> borra su fila en el siguiente
+      escaneo, y la cascada se lleva sus subtítulos. Volver a añadirla los redescubre
+      —incluido su estado <code>TRANSLATED</code>—, porque el bilingüe sigue en disco.
+    </p>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="eyebrow">Tabla</div>
+      <h2>library_folder</h2>
+      <p class="lede">
+        Espejo en base de datos de <code>MEDIA_FOLDERS</code>. Existe para colgar de ella
+        los subtítulos y para registrar cuándo se escaneó por última vez.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Columna</th><th>Tipo</th><th>Nulo</th><th>Para qué sirve</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>id<span class="tag">PK</span></td>
+            <td class="type">INTEGER</td>
+            <td class="nul no">no</td>
+            <td>Clave primaria autoincremental</td>
+          </tr>
+          <tr>
+            <td>ruta<span class="tag">UK</span></td>
+            <td class="type">VARCHAR</td>
+            <td class="nul no">no</td>
+            <td>Ruta absoluta ya resuelta con <code>Path.resolve()</code></td>
+          </tr>
+          <tr>
+            <td>ultimo_escaneo</td>
+            <td class="type">DATETIME</td>
+            <td class="nul yes">sí</td>
+            <td>Momento del último escaneo; nulo si nunca se escaneó</td>
+          </tr>
+          <tr>
+            <td>creado_en</td>
+            <td class="type">DATETIME</td>
+            <td class="nul no">no</td>
+            <td>Alta de la fila</td>
+          </tr>
+          <tr>
+            <td>actualizado_en</td>
+            <td class="type">DATETIME</td>
+            <td class="nul no">no</td>
+            <td>Se refresca sola vía <code>onupdate</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="eyebrow">Tabla</div>
+      <h2>subtitle_file</h2>
+      <p class="lede">
+        El inventario propiamente dicho: un <code>.srt</code> <strong>de origen</strong>.
+        Los ficheros <code>.bilingue.srt</code> no tienen fila propia — son un atributo del
+        original. El escáner los excluye como fuente para no traducir traducciones.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Columna</th><th>Tipo</th><th>Nulo</th><th>Para qué sirve</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>id<span class="tag">PK</span></td>
+            <td class="type">INTEGER</td>
+            <td class="nul no">no</td>
+            <td>Clave primaria</td>
+          </tr>
+          <tr>
+            <td>carpeta_id<span class="tag">FK</span></td>
+            <td class="type">INTEGER</td>
+            <td class="nul no">no</td>
+            <td>Carpeta a la que pertenece · <code>ON DELETE CASCADE</code></td>
+          </tr>
+          <tr>
+            <td>ruta<span class="tag">UK</span></td>
+            <td class="type">VARCHAR</td>
+            <td class="nul no">no</td>
+            <td>Ruta absoluta. Es la identidad del fichero</td>
+          </tr>
+          <tr>
+            <td>nombre</td>
+            <td class="type">VARCHAR</td>
+            <td class="nul no">no</td>
+            <td>Nombre del fichero, para mostrarlo sin partir la ruta</td>
+          </tr>
+          <tr>
+            <td>formato</td>
+            <td class="type">VARCHAR(3)</td>
+            <td class="nul no">no</td>
+            <td><code>SRT</code>. Reservado para VTT/ASS sin migrar el esquema</td>
+          </tr>
+          <tr>
+            <td>idioma_origen</td>
+            <td class="type">VARCHAR(7)</td>
+            <td class="nul no">no</td>
+            <td>Deducido del sufijo del nombre; <code>UNKNOWN</code> si no se reconoce</td>
+          </tr>
+          <tr>
+            <td>num_caracteres</td>
+            <td class="type">INTEGER</td>
+            <td class="nul no">no</td>
+            <td>Caracteres de <strong>texto</strong>, sin índices ni marcas de tiempo. Es la métrica que sostendrá el cálculo de cuota</td>
+          </tr>
+          <tr>
+            <td>num_bloques</td>
+            <td class="type">INTEGER</td>
+            <td class="nul no">no</td>
+            <td>Número de subtítulos (cues) del fichero</td>
+          </tr>
+          <tr>
+            <td>estado</td>
+            <td class="type">VARCHAR(10)</td>
+            <td class="nul no">no</td>
+            <td><code>PENDING</code> · <code>TRANSLATED</code> · <code>ERROR</code></td>
+          </tr>
+          <tr>
+            <td>ruta_bilingue</td>
+            <td class="type">VARCHAR</td>
+            <td class="nul yes">sí</td>
+            <td>Ruta del <code>.bilingue.srt</code> cuando existe</td>
+          </tr>
+          <tr>
+            <td>idioma_destino</td>
+            <td class="type">VARCHAR(7)</td>
+            <td class="nul yes">sí</td>
+            <td>Idioma al que se tradujo</td>
+          </tr>
+          <tr>
+            <td>proveedor</td>
+            <td class="type">VARCHAR</td>
+            <td class="nul yes">sí</td>
+            <td>Quién tradujo. Se rellena en Fase 3</td>
+          </tr>
+          <tr>
+            <td>mtime</td>
+            <td class="type">FLOAT</td>
+            <td class="nul no">no</td>
+            <td>Fecha de modificación del fichero (epoch)</td>
+          </tr>
+          <tr>
+            <td>tamano_bytes</td>
+            <td class="type">INTEGER</td>
+            <td class="nul no">no</td>
+            <td>Tamaño del fichero. Con <code>mtime</code>, decide si hay que reparsear</td>
+          </tr>
+          <tr>
+            <td>mensaje_error</td>
+            <td class="type">VARCHAR</td>
+            <td class="nul yes">sí</td>
+            <td>Mensaje del parser cuando el estado es <code>ERROR</code></td>
+          </tr>
+          <tr>
+            <td>creado_en</td>
+            <td class="type">DATETIME</td>
+            <td class="nul no">no</td>
+            <td>Alta de la fila</td>
+          </tr>
+          <tr>
+            <td>actualizado_en</td>
+            <td class="type">DATETIME</td>
+            <td class="nul no">no</td>
+            <td>Se refresca sola vía <code>onupdate</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="eyebrow">Índices</div>
+      <h2>Qué está indexado y por qué</h2>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Índice</th><th>Columna</th><th>Único</th><th>Por qué</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ix_library_folder_ruta</td>
+            <td class="type">ruta</td>
+            <td class="nul no">sí</td>
+            <td>Una carpeta no puede estar dos veces</td>
+          </tr>
+          <tr>
+            <td>ix_subtitle_file_ruta</td>
+            <td class="type">ruta</td>
+            <td class="nul no">sí</td>
+            <td>Identidad del fichero: el escaneo busca por ruta en cada pasada</td>
+          </tr>
+          <tr>
+            <td>ix_subtitle_file_carpeta_id</td>
+            <td class="type">carpeta_id</td>
+            <td class="nul yes">no</td>
+            <td>Recorrer los subtítulos de una carpeta</td>
+          </tr>
+          <tr>
+            <td>ix_subtitle_file_estado</td>
+            <td class="type">estado</td>
+            <td class="nul yes">no</td>
+            <td>El filtro <code>GET /subtitles?estado=</code> y el listado del frontend</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="eyebrow">Estados</div>
+      <h2>El estado es derivado, no autoritativo</h2>
+      <p class="lede">
+        Si borras un <code>.bilingue.srt</code>, el siguiente escaneo devuelve esa fila a
+        <code>PENDING</code>. Un fichero en <code>ERROR</code> no se comprueba contra el
+        bilingüe hasta que vuelva a parsear bien.
+      </p>
+    </div>
+
+    <div class="states">
+      <div class="state pending">
+        <div class="state-name">PENDING</div>
+        <h3>Inventariado, sin traducir</h3>
+        <p>Se parseó bien y se contaron sus caracteres, pero no hay versión bilingüe en disco.</p>
+      </div>
+      <div class="state translated">
+        <div class="state-name">TRANSLATED</div>
+        <h3>Bilingüe encontrado</h3>
+        <p>Existe el fichero <code>&lt;base&gt;.&lt;ORIGEN&gt;-&lt;DESTINO&gt;.bilingue.srt</code> junto al original.</p>
+      </div>
+      <div class="state error">
+        <div class="state-name">ERROR</div>
+        <h3>No se pudo leer</h3>
+        <p>El <code>.srt</code> está malformado. El escaneo sigue con los demás y el motivo queda en <code>mensaje_error</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="eyebrow">Decisiones</div>
+      <h2>Lo que se eligió, y lo que cuesta</h2>
+    </div>
+
+    <div class="decisions">
+      <article class="decision">
+        <h3>Los enums se guardan como texto, sin <code>CHECK</code></h3>
+        <p>
+          SQLAlchemy mapea <code>Enum</code> a <code>VARCHAR(n)</code> y, desde la 1.4, no
+          genera la restricción <code>CHECK</code> salvo que se pida expresamente con
+          <code>create_constraint=True</code>. La validación vive en Python: SQLAlchemy al
+          asignar y Pydantic al serializar.
+        </p>
+        <div class="cost">
+          <b>El coste</b>
+          <span>Un <code>UPDATE</code> hecho a mano por SQL puede meter un valor imposible sin que la base de datos proteste.</span>
+        </div>
+      </article>
+
+      <article class="decision">
+        <h3>Detección de cambios por <code>mtime</code> + tamaño, no por hash</h3>
+        <p>
+          Comparar dos números es mucho más barato que releer y hashear cada fichero en cada
+          escaneo, y para una biblioteca doméstica basta de sobra.
+        </p>
+        <div class="cost">
+          <b>El coste</b>
+          <span>Una edición que conserve exactamente fecha y tamaño pasaría desapercibida. Si algún día molesta, el sitio donde tocarlo es <code>scanner._escanear_carpeta</code>.</span>
+        </div>
+      </article>
+
+      <article class="decision">
+        <h3>Las fechas se guardan como UTC <em>naive</em></h3>
+        <p>
+          Las columnas se declaran <code>DateTime(timezone=True)</code> y se escriben con
+          <code>datetime.now(UTC)</code>, pero SQLite no almacena zona horaria: al leerlas
+          vuelven sin offset. Por eso la API devuelve <code>2026-07-30T19:16:14.850184</code>
+          y no <code>…+00:00</code>.
+        </p>
+        <div class="cost">
+          <b>La regla</b>
+          <span>Todo lo que hay en la base de datos es UTC. Convertir a hora local es responsabilidad del frontend.</span>
+        </div>
+      </article>
+
+      <article class="decision">
+        <h3>La ruta es la identidad, no el par (carpeta, nombre)</h3>
+        <p>
+          <code>ruta</code> es única globalmente, así que no hace falta un índice compuesto.
+          Renombrar o mover un fichero se ve como «desaparece uno y aparece otro»: el viejo
+          se borra por huérfano y el nuevo se da de alta.
+        </p>
+        <div class="cost">
+          <b>El coste</b>
+          <span>Se pierde el histórico de esa fila. Irrelevante mientras la base de datos sea un índice reconstruible.</span>
+        </div>
+      </article>
+
+      <article class="decision">
+        <h3>Borrado duro de carpetas, no baja lógica</h3>
+        <p>
+          No hay columna <code>activa</code>. Quitar una carpeta del <code>.env</code> borra
+          la fila y la cascada se lleva sus subtítulos.
+        </p>
+        <div class="cost">
+          <b>Por qué no duele</b>
+          <span>Volver a añadirla los redescubre, incluido lo ya traducido, porque el bilingüe sigue en disco.</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="eyebrow">Aún no existe</div>
+      <h2>provider_usage · Fase 4</h2>
+      <p class="lede">
+        Tabla todavía no creada. Registrará el consumo por proveedor y mes para elegir a
+        quién mandar cada traducción según la cuota libre restante.
+      </p>
+    </div>
+
+    <div class="ghost">
+      <div class="ghost-inner">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Columna</th><th>Idea</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>proveedor</td><td><code>DEEPL</code>, y los que vengan</td></tr>
+              <tr><td>periodo</td><td>Año-mes (<code>2026-07</code>)</td></tr>
+              <tr><td>caracteres_consumidos</td><td>Acumulado del mes</td></tr>
+              <tr><td>cuota_mensual</td><td>Límite del plan contratado</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lede">Clave única prevista: <code>(proveedor, periodo)</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="eyebrow">Migraciones</div>
+      <h2>Trabajar con el esquema</h2>
+    </div>
+
+    <div class="cmds">
+      <div class="cmd"><span>uv run alembic upgrade head</span><span>Aplicar</span></div>
+      <div class="cmd"><span>uv run alembic current</span><span>Ver revisión aplicada</span></div>
+      <div class="cmd"><span>uv run alembic revision --autogenerate -m "descripcion"</span><span>Generar tras tocar un modelo</span></div>
+      <div class="cmd"><span>uv run alembic downgrade -1</span><span>Deshacer la última</span></div>
+    </div>
+
+    <p class="lede">
+      <strong>Revisa siempre lo que genera <code>--autogenerate</code>.</strong> Detecta
+      tablas, columnas e índices, pero no adivina renombrados: un cambio mal interpretado
+      se traduce en borrar una columna y crear otra, perdiendo los datos por el camino.
+      Ten presente además que <code>alembic/env.py</code> toma la URL de
+      <code>app.config.settings</code>, no de <code>alembic.ini</code> — la línea
+      <code>sqlalchemy.url</code> del <code>.ini</code> sigue ahí, pero es inerte.
+    </p>
+  </section>
+
+  <footer>
+    <span>Refleja la migración <span class="mono">4684c713e94f</span></span>
+    <span>Fuente en el repo: <span class="mono">docs/modelo-datos.md</span></span>
+    <span>Modelos: <span class="mono">backend/app/models/</span></span>
+  </footer>
+
+</div>
+
+</body>
+</html>

@@ -1,11 +1,13 @@
 """Punto de entrada de la API de srt-bilingual.
 
-Fase 0: solo expone un endpoint de salud (`/health`) y habilita CORS para que el
-frontend de desarrollo (Vite, puerto 5173) pueda comunicarse con la API.
+Expone la salud (`/health`), el escaneo de carpetas (`/scan`) y la consulta de
+subtítulos (`/subtitles`). CORS habilitado para el frontend de desarrollo (Vite).
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.api import scan, subtitles
 
 app = FastAPI(
     title="srt-bilingual API",
@@ -32,3 +34,8 @@ app.add_middleware(
 def health() -> dict[str, str]:
     """Comprobación de salud usada por el frontend y por monitorización."""
     return {"status": "ok"}
+
+
+# Routers de dominio (sin prefijo `/api`: el proxy de Vite ya reescribe `/api/...`).
+app.include_router(scan.router)
+app.include_router(subtitles.router)
