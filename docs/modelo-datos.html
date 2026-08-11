@@ -533,6 +533,7 @@
         <ul>
           <li><span class="key">PK</span> id</li>
           <li><span class="key">UK</span> ruta</li>
+          <li><span class="key is-plain">·</span> activa</li>
           <li><span class="key is-plain">·</span> ultimo_escaneo</li>
           <li><span class="key is-plain">·</span> <span class="more">+ 2 timestamps</span></li>
         </ul>
@@ -558,9 +559,9 @@
     </div>
 
     <p class="lede">
-      Quitar una carpeta de <code>MEDIA_FOLDERS</code> borra su fila en el siguiente
-      escaneo, y la cascada se lleva sus subtítulos. Volver a añadirla los redescubre
-      —incluido su estado <code>TRANSLATED</code>—, porque el bilingüe sigue en disco.
+      Borrar una carpeta desde la interfaz borra su fila, y la cascada se lleva sus
+      subtítulos. Volver a añadirla los redescubre —incluido su estado
+      <code>TRANSLATED</code>—, porque el bilingüe sigue en disco.
     </p>
   </section>
 
@@ -569,8 +570,10 @@
       <div class="eyebrow">Tabla</div>
       <h2>library_folder</h2>
       <p class="lede">
-        Espejo en base de datos de <code>MEDIA_FOLDERS</code>. Existe para colgar de ella
-        los subtítulos y para registrar cuándo se escaneó por última vez.
+        Catálogo de las carpetas que se vigilan, gestionado desde la interfaz vía
+        <code>/folders</code>. Existe para colgar de ella los subtítulos, recordar si
+        entra en el escaneo y registrar cuándo se escaneó por última vez. Dos carpetas
+        no pueden solaparse: el alta rechaza una ruta que contenga a otra ya vigilada.
       </p>
     </div>
 
@@ -591,6 +594,12 @@
             <td class="type">VARCHAR</td>
             <td class="nul no">no</td>
             <td>Ruta absoluta ya resuelta con <code>Path.resolve()</code></td>
+          </tr>
+          <tr>
+            <td>activa</td>
+            <td class="type">BOOLEAN</td>
+            <td class="nul no">no</td>
+            <td>Si entra en el próximo escaneo · desmarcarla no borra nada</td>
           </tr>
           <tr>
             <td>ultimo_escaneo</td>
@@ -871,14 +880,29 @@
       </article>
 
       <article class="decision">
-        <h3>Borrado duro de carpetas, no baja lógica</h3>
+        <h3>Borrar una carpeta es borrar; desmarcarla, no</h3>
         <p>
-          No hay columna <code>activa</code>. Quitar una carpeta del <code>.env</code> borra
-          la fila y la cascada se lleva sus subtítulos.
+          Borrarla elimina la fila y la cascada se lleva sus subtítulos: no hay baja lógica
+          de datos. Poner <code>activa = false</code> solo la excluye del próximo escaneo,
+          y sus subtítulos siguen en la base de datos y en el árbol.
         </p>
         <div class="cost">
-          <b>Por qué no duele</b>
-          <span>Volver a añadirla los redescubre, incluido lo ya traducido, porque el bilingüe sigue en disco.</span>
+          <b>El coste</b>
+          <span>Lo de una carpeta desmarcada se queda desfasado si tocas esos ficheros por detrás, hasta que la vuelvas a marcar y escanees.</span>
+        </div>
+      </article>
+
+      <article class="decision">
+        <h3>El árbol de la biblioteca no se almacena</h3>
+        <p>
+          No hay <code>padre_id</code> ni tabla de jerarquía: la estructura se deriva de las
+          rutas de <code>subtitle_file</code>, partiéndolas por segmentos. La hoja es la
+          <b>obra</b> (capítulo o película), no el fichero: los <code>.srt</code> que
+          comparten nombre base se agrupan en una sola.
+        </p>
+        <div class="cost">
+          <b>Por qué compensa</b>
+          <span>Cuesta cero en esquema, llega a cualquier profundidad y se autocorrige cuando renombras carpetas en disco.</span>
         </div>
       </article>
     </div>

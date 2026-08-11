@@ -13,17 +13,19 @@ from app.models.subtitle_file import ArchivoSubtitulo
 from app.services.scanner import escanear
 from tests.conftest import escribir_srt
 
+Registrar = Callable[..., list[CarpetaBiblioteca]]
+
 
 def _subtitulos(db: Session) -> list[ArchivoSubtitulo]:
     return list(db.scalars(select(ArchivoSubtitulo).order_by(ArchivoSubtitulo.ruta)).all())
 
 
 def test_escaneo_inicial_inventaria_los_srt(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
     escribir_srt(tmp_path / "Pelicula.es.srt")
     escribir_srt(tmp_path / "series" / "Cap01.es.srt")  # también los subdirectorios
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
 
     resumen = escanear(db)
 
@@ -37,10 +39,10 @@ def test_escaneo_inicial_inventaria_los_srt(
 
 
 def test_segundo_escaneo_sin_cambios_no_reprocesa(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
     escribir_srt(tmp_path / "Pelicula.es.srt")
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
     escanear(db)
 
     resumen = escanear(db)
@@ -51,10 +53,10 @@ def test_segundo_escaneo_sin_cambios_no_reprocesa(
 
 
 def test_fichero_modificado_se_reprocesa(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
     ruta = escribir_srt(tmp_path / "Pelicula.es.srt")
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
     escanear(db)
 
     # Contenido más largo y mtime distinto: cambian tamaño y fecha.
@@ -69,11 +71,11 @@ def test_fichero_modificado_se_reprocesa(
 
 
 def test_detecta_como_traducido_si_existe_el_bilingue(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
     escribir_srt(tmp_path / "Pelicula.es.srt")
     bilingue = escribir_srt(tmp_path / "Pelicula.ES-KO.bilingue.srt")
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
 
     resumen = escanear(db)
 
@@ -87,11 +89,11 @@ def test_detecta_como_traducido_si_existe_el_bilingue(
 
 
 def test_vuelve_a_pendiente_si_desaparece_el_bilingue(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
     escribir_srt(tmp_path / "Pelicula.es.srt")
     bilingue = escribir_srt(tmp_path / "Pelicula.ES-KO.bilingue.srt")
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
     escanear(db)
 
     bilingue.unlink()
@@ -104,10 +106,10 @@ def test_vuelve_a_pendiente_si_desaparece_el_bilingue(
 
 
 def test_sin_idioma_de_origen_no_se_marca_traducido(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
     escribir_srt(tmp_path / "Pelicula.srt")  # sin sufijo → UNKNOWN
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
 
     escanear(db)
 
@@ -116,12 +118,10 @@ def test_sin_idioma_de_origen_no_se_marca_traducido(
     assert sub.estado is EstadoSubtitulo.PENDING
 
 
-def test_borra_los_huerfanos(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
-) -> None:
+def test_borra_los_huerfanos(db: Session, tmp_path: Path, registrar_carpetas: Registrar) -> None:
     ruta = escribir_srt(tmp_path / "Pelicula.es.srt")
     escribir_srt(tmp_path / "Otra.es.srt")
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
     escanear(db)
 
     ruta.unlink()
@@ -131,29 +131,68 @@ def test_borra_los_huerfanos(
     assert [s.nombre for s in _subtitulos(db)] == ["Otra.es.srt"]
 
 
-def test_quitar_una_carpeta_borra_sus_subtitulos_en_cascada(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+def test_borrar_la_carpeta_arrastra_sus_subtitulos(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
     carpeta_a = tmp_path / "a"
     carpeta_b = tmp_path / "b"
     escribir_srt(carpeta_a / "Pelicula.es.srt")
     escribir_srt(carpeta_b / "Otra.es.srt")
-    configurar_carpetas(carpeta_a, carpeta_b)
+    _, fila_b = registrar_carpetas(carpeta_a, carpeta_b)
     escanear(db)
 
-    configurar_carpetas(carpeta_a)  # se deja de vigilar `b`
-    resumen = escanear(db)
+    db.delete(fila_b)  # equivale a `DELETE /folders/{id}`
+    db.commit()
 
-    assert resumen.carpetas == 1
     assert len(db.scalars(select(CarpetaBiblioteca)).all()) == 1
     assert [s.nombre for s in _subtitulos(db)] == ["Pelicula.es.srt"]
 
 
+def test_una_carpeta_inactiva_no_se_escanea(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    escribir_srt(tmp_path / "Pelicula.es.srt")
+    registrar_carpetas(tmp_path, activa=False)
+
+    resumen = escanear(db)
+
+    assert resumen.carpetas == 0
+    assert _subtitulos(db) == []
+
+
+def test_escaneo_selectivo_ignora_las_demas_carpetas(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    carpeta_a = tmp_path / "a"
+    carpeta_b = tmp_path / "b"
+    escribir_srt(carpeta_a / "Pelicula.es.srt")
+    escribir_srt(carpeta_b / "Otra.es.srt")
+    fila_a, _ = registrar_carpetas(carpeta_a, carpeta_b)
+
+    resumen = escanear(db, carpeta_ids=[fila_a.id])
+
+    assert resumen.carpetas == 1
+    assert [s.nombre for s in _subtitulos(db)] == ["Pelicula.es.srt"]
+
+
+def test_escaneo_selectivo_alcanza_a_las_inactivas(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    """Pedir una carpeta por id manda sobre su casilla: es una orden explícita."""
+    escribir_srt(tmp_path / "Pelicula.es.srt")
+    (fila,) = registrar_carpetas(tmp_path, activa=False)
+
+    resumen = escanear(db, carpeta_ids=[fila.id])
+
+    assert resumen.carpetas == 1
+    assert resumen.total == 1
+
+
 def test_fichero_malformado_queda_en_error(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
     escribir_srt(tmp_path / "Roto.es.srt", "esto no es un subtítulo válido")
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
 
     resumen = escanear(db)
 
@@ -164,9 +203,9 @@ def test_fichero_malformado_queda_en_error(
 
 
 def test_carpeta_inexistente_no_rompe_el_escaneo(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
-    configurar_carpetas(tmp_path / "no-existe")
+    registrar_carpetas(tmp_path / "no-existe")
 
     resumen = escanear(db)
 
@@ -175,9 +214,9 @@ def test_carpeta_inexistente_no_rompe_el_escaneo(
 
 
 def test_el_escaneo_registra_la_fecha_de_ultimo_escaneo(
-    db: Session, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
 
     escanear(db)
 

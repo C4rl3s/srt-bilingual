@@ -1,8 +1,9 @@
 # Modelo de datos
 
-Esquema de la base de datos SQLite de srt-bilingual. Refleja la migración
-`4684c713e94f` (Fase 1). Si cambias un modelo en `backend/app/models/`, genera la
-migración **y actualiza este documento en el mismo commit**.
+Esquema de la base de datos SQLite de srt-bilingual. Refleja las migraciones
+`4684c713e94f` (Fase 1) y `bd028a52d162` (Fase 2, columna `activa`). Si cambias un
+modelo en `backend/app/models/`, genera la migración **y actualiza este documento en
+el mismo commit**.
 
 > **Este fichero es la fuente de verdad.** Al lado hay una versión visual del mismo
 > contenido, `modelo-datos.html`: es autocontenida (sin dependencias externas), así
@@ -30,6 +31,7 @@ erDiagram
     library_folder {
         int      id             PK "autoincremental"
         string   ruta           UK "ruta absoluta resuelta"
+        bool     activa            "entra en el proximo escaneo"
         datetime ultimo_escaneo    "NULL hasta el primer escaneo"
         datetime creado_en
         datetime actualizado_en
@@ -58,22 +60,26 @@ erDiagram
 
 ## `library_folder`
 
-Espejo en base de datos de la variable `MEDIA_FOLDERS` del `.env`. Existe para dos
-cosas: colgar de ella los subtítulos (y poder borrarlos en cascada al dejar de
-vigilar una carpeta) y registrar cuándo se escaneó por última vez.
+Catálogo de las carpetas que se vigilan. Existe para tres cosas: colgar de ella los
+subtítulos (y poder borrarlos en cascada al dejar de vigilar la carpeta), recordar
+si entra en el escaneo y registrar cuándo se escaneó por última vez.
 
 | Columna | Tipo SQLite | Nulo | Para qué sirve |
 |---|---|---|---|
 | `id` | `INTEGER` PK | no | Clave primaria |
 | `ruta` | `VARCHAR` | no | Ruta absoluta ya resuelta con `Path.resolve()`. **Única** |
+| `activa` | `BOOLEAN` | no | Si entra en el próximo escaneo. Desmarcarla no borra nada: sus subtítulos siguen inventariados y visibles |
 | `ultimo_escaneo` | `DATETIME` | sí | Momento del último escaneo; `NULL` si nunca se escaneó |
 | `creado_en` | `DATETIME` | no | Alta de la fila |
 | `actualizado_en` | `DATETIME` | no | Se refresca sola vía `onupdate` |
 
 **Índices:** `ix_library_folder_ruta` (ÚNICO) sobre `ruta`.
 
-Las carpetas no se dan de alta a mano: el escaneo las **reconcilia** contra
-`MEDIA_FOLDERS`. Quitar una ruta del `.env` borra su fila en el siguiente escaneo.
+Las carpetas se dan de alta y de baja desde la interfaz, vía `/folders`; el escaneo
+ya no las crea ni las borra, solo recorre las que se le indican. **Dos carpetas no
+pueden solaparse**: `POST /folders` rechaza con `409` una ruta que sea ancestro o
+descendiente de otra ya registrada, porque el escaneo es recursivo y el mismo `.srt`
+acabaría reclamado por las dos, chocando contra el índice único de `subtitle_file.ruta`.
 
 ## `subtitle_file`
 
@@ -158,10 +164,24 @@ mover un fichero se ve como "desaparece uno y aparece otro": el viejo se borra p
 huérfano y el nuevo se da de alta. Se pierde el histórico de esa fila, algo
 irrelevante mientras la BD sea un índice reconstruible.
 
-**5. Borrado duro de carpetas, no baja lógica.**
-No hay columna `activa`. Quitar una carpeta del `.env` borra la fila y la cascada
-se lleva sus subtítulos. Volver a añadirla los redescubre, incluido su estado
-`TRANSLATED`, porque el bilingüe sigue en disco.
+**5. Borrar una carpeta es borrar; desmarcarla, no.**
+Son dos operaciones distintas y conviene no confundirlas:
+
+- `DELETE /folders/{id}` borra la fila y la cascada se lleva sus subtítulos. No hay
+  baja lógica de datos. Volver a añadirla los redescubre, incluido su estado
+  `TRANSLATED`, porque el bilingüe sigue en disco.
+- `activa = false` solo la excluye del próximo escaneo. Sus subtítulos siguen en la
+  base de datos y en el árbol, con el estado del último escaneo. El coste: si tocas
+  esos ficheros por detrás, lo que ves se queda desfasado hasta que la vuelvas a
+  marcar y escanees.
+
+**6. El árbol de la biblioteca no se almacena.**
+No hay columna `padre_id` ni tabla de jerarquía. La estructura que muestra el
+frontend se **deriva** de las rutas de `subtitle_file`, partiéndolas por segmentos
+relativos a la carpeta que las contiene (`services/library_tree.py`). Sale gratis en
+esquema, llega a cualquier profundidad y se autocorrige cuando renombras carpetas en
+disco. La hoja del árbol es la **obra** (capítulo o película), no el fichero: los
+`.srt` que comparten `base_sin_idioma` se agrupan en una sola.
 
 ## Pendiente: `provider_usage` (Fase 4)
 

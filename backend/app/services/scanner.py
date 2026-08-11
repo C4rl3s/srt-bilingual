@@ -1,9 +1,11 @@
 """Escaneo de carpetas: descubre `.srt`, los parsea e inventaría en la base de datos.
 
 El disco es la fuente de verdad. Cada escaneo **reconcilia** la base de datos con
-lo que hay en disco: crea carpetas/subtítulos nuevos, reparsea los que cambiaron,
-borra los huérfanos y elimina las carpetas que ya no están configuradas (la cascada
-arrastra sus subtítulos). Lo ya traducido se redescubre por el `.bilingue.srt`.
+lo que hay en disco: da de alta los subtítulos nuevos, reparsea los que cambiaron y
+borra los huérfanos. Lo ya traducido se redescubre por el `.bilingue.srt`.
+
+Las carpetas ni se crean ni se borran aquí: de eso se encarga el CRUD de `/folders`.
+El escaneo se limita a recorrer las que se le indiquen.
 """
 
 from datetime import UTC, datetime
@@ -33,26 +35,20 @@ def _idioma_destino() -> Idioma:
         return Idioma.UNKNOWN
 
 
-def escanear(db: Session) -> ResumenEscaneo:
-    """Reconcilia la base de datos con el disco y devuelve un resumen del escaneo."""
+def escanear(db: Session, carpeta_ids: list[int] | None = None) -> ResumenEscaneo:
+    """Reconcilia con el disco las carpetas pedidas y devuelve un resumen.
+
+    Con `carpeta_ids` se escanean solo esas; sin él, todas las marcadas como activas.
+    """
     resumen = ResumenEscaneo()
-    configuradas = {str(Path(ruta).resolve()) for ruta in settings.carpetas}
 
-    # 1. Borrar carpetas que ya no están configuradas (cascada → sus subtítulos).
-    for carpeta in db.scalars(select(CarpetaBiblioteca)).all():
-        if carpeta.ruta not in configuradas:
-            db.delete(carpeta)
-    db.flush()
+    consulta = select(CarpetaBiblioteca).order_by(CarpetaBiblioteca.ruta)
+    if carpeta_ids is None:
+        consulta = consulta.where(CarpetaBiblioteca.activa)
+    else:
+        consulta = consulta.where(CarpetaBiblioteca.id.in_(carpeta_ids))
 
-    existentes = {c.ruta: c for c in db.scalars(select(CarpetaBiblioteca)).all()}
-
-    # 2. Crear (si faltan) y escanear cada carpeta configurada.
-    for ruta in sorted(configuradas):
-        carpeta = existentes.get(ruta)
-        if carpeta is None:
-            carpeta = CarpetaBiblioteca(ruta=ruta)
-            db.add(carpeta)
-            db.flush()
+    for carpeta in db.scalars(consulta).all():
         resumen.carpetas += 1
         _escanear_carpeta(db, carpeta, resumen)
         carpeta.ultimo_escaneo = _ahora()

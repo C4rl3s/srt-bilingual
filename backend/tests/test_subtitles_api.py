@@ -120,10 +120,10 @@ def test_obtener_subtitulo_inexistente_devuelve_404(client: TestClient) -> None:
 
 
 def test_scan_inventaria_y_devuelve_resumen(
-    client: TestClient, tmp_path: Path, configurar_carpetas: Callable[..., None]
+    client: TestClient, tmp_path: Path, registrar_carpetas: Callable[..., list[CarpetaBiblioteca]]
 ) -> None:
     escribir_srt(tmp_path / "Pelicula.es.srt")
-    configurar_carpetas(tmp_path)
+    registrar_carpetas(tmp_path)
 
     respuesta = client.post("/scan")
 
@@ -139,3 +139,19 @@ def test_scan_inventaria_y_devuelve_resumen(
     assert listado[0]["nombre"] == "Pelicula.es.srt"
     assert listado[0]["idioma_origen"] == "ES"
     assert listado[0]["num_caracteres"] == 18
+
+
+def test_scan_con_carpeta_ids_escanea_solo_esas(
+    client: TestClient, tmp_path: Path, registrar_carpetas: Callable[..., list[CarpetaBiblioteca]]
+) -> None:
+    carpeta_a = tmp_path / "a"
+    carpeta_b = tmp_path / "b"
+    escribir_srt(carpeta_a / "Pelicula.es.srt")
+    escribir_srt(carpeta_b / "Otra.es.srt")
+    fila_a, _ = registrar_carpetas(carpeta_a, carpeta_b)
+
+    respuesta = client.post("/scan", json={"carpeta_ids": [fila_a.id]})
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["carpetas"] == 1
+    assert [s["nombre"] for s in client.get("/subtitles").json()] == ["Pelicula.es.srt"]

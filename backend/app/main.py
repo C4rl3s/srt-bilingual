@@ -1,13 +1,15 @@
 """Punto de entrada de la API de srt-bilingual.
 
-Expone la salud (`/health`), el escaneo de carpetas (`/scan`) y la consulta de
-subtítulos (`/subtitles`). CORS habilitado para el frontend de desarrollo (Vite).
+Expone la salud (`/health`), la gestión de carpetas (`/folders`), el explorador de
+disco del selector (`/fs`), el escaneo (`/scan`), el árbol de la biblioteca
+(`/library`) y la consulta de subtítulos (`/subtitles`). CORS habilitado para el
+frontend de desarrollo (Vite).
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import scan, subtitles
+from app.api import filesystem, folders, library, scan, subtitles
 
 app = FastAPI(
     title="srt-bilingual API",
@@ -37,5 +39,8 @@ def health() -> dict[str, str]:
 
 
 # Routers de dominio (sin prefijo `/api`: el proxy de Vite ya reescribe `/api/...`).
+app.include_router(folders.router)
+app.include_router(filesystem.router)
 app.include_router(scan.router)
+app.include_router(library.router)
 app.include_router(subtitles.router)

@@ -4,8 +4,6 @@ Lee las variables de entorno (vía `.env`) con pydantic-settings y las expone co
 una instancia única `settings` importable desde el resto del backend.
 """
 
-from functools import cached_property
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,18 +19,9 @@ class Settings(BaseSettings):
     # --- Base de datos ---
     database_url: str = "sqlite:///./srt_bilingual.db"
 
-    # --- Carpetas a escanear (las mismas compartidas en Plex) ---
-    # Cadena con rutas separadas por ';' (formato documentado en .env.example).
-    media_folders: str = ""
-
     # --- Traducción (se usa en Fase 3) ---
     default_target_lang: str = "KO"
     deepl_api_key: str | None = None
-
-    @cached_property
-    def carpetas(self) -> list[str]:
-        """Lista de rutas a escanear, partiendo `media_folders` por ';'."""
-        return [ruta.strip() for ruta in self.media_folders.split(";") if ruta.strip()]
 
 
 settings = Settings()

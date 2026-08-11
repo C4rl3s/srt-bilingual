@@ -3,6 +3,12 @@
 from pydantic import BaseModel
 
 
+class PeticionEscaneo(BaseModel):
+    """Qué carpetas escanear. Sin `carpeta_ids` se escanean todas las activas."""
+
+    carpeta_ids: list[int] | None = None
+
+
 class ResumenEscaneo(BaseModel):
     """Resultado agregado de un escaneo (`POST /scan`).
 

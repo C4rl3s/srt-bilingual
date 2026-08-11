@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -15,15 +15,19 @@ def _ahora() -> datetime:
 class CarpetaBiblioteca(Base):
     """Carpeta del disco que se escanea en busca de subtítulos.
 
-    Las carpetas se declaran en `.env` (`MEDIA_FOLDERS`) y el scanner reconcilia
-    esta tabla con esa lista: crea las nuevas y **borra** las que ya no estén
-    (la cascada arrastra sus subtítulos). El disco es la fuente de verdad.
+    Las da de alta y de baja el usuario desde la interfaz (`/folders`). Dos carpetas
+    no pueden solaparse —ninguna puede ser ancestro de otra— porque el escaneo es
+    recursivo y el mismo `.srt` acabaría reclamado por las dos.
+
+    `activa` decide si entra en el próximo escaneo; desmarcarla no borra nada, sus
+    subtítulos siguen inventariados. Borrar la carpeta sí se los lleva por cascada.
     """
 
     __tablename__ = "library_folder"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ruta: Mapped[str] = mapped_column(String, unique=True, index=True)
+    activa: Mapped[bool] = mapped_column(Boolean, default=True)
     ultimo_escaneo: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_ahora)
     actualizado_en: Mapped[datetime] = mapped_column(

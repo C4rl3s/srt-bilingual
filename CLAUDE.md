@@ -52,10 +52,13 @@ srt-bilingual/
 │   │   ├── config.py          # settings vía .env (pydantic-settings)
 │   │   ├── db.py              # engine + sesión SQLAlchemy + get_db
 │   │   ├── models/            # tablas ORM: enums, library_folder, subtitle_file
-│   │   ├── schemas/           # Pydantic (DTOs request/response): scan, subtitle
-│   │   ├── api/               # routers: subtitles, scan (+ translate/usage en Fase 3-4)
+│   │   ├── schemas/           # Pydantic (DTOs request/response): scan, subtitle,
+│   │   │                      #   folder, tree
+│   │   ├── api/               # routers: subtitles, scan, folders, filesystem,
+│   │   │                      #   library (+ translate/usage en Fase 3-4)
 │   │   └── services/
 │   │       ├── scanner.py     # escaneo y reconciliación disco ↔ BD
+│   │       ├── library_tree.py # árbol derivado de las rutas de subtitle_file
 │   │       ├── subtitles/     # modelo (Bloque), naming, srt_parser
 │   │       ├── bilingual.py   # (Fase 3) genera el .srt bilingüe
 │   │       └── translation/
@@ -68,7 +71,11 @@ srt-bilingual/
 │   ├── .env.example
 │   └── pyproject.toml         # deps + config de pytest y ruff
 └── frontend/          # SPA React + Vite
-    ├── src/App.tsx
+    ├── src/
+    │   ├── App.tsx            # compone panel de carpetas + árbol
+    │   ├── types.ts           # espejo TS de los DTOs del backend
+    │   ├── api/client.ts      # envoltorio de fetch sobre /api/...
+    │   └── components/        # PanelCarpetas, SelectorCarpeta, ArbolSubtitulos
     └── vite.config.ts         # proxy /api -> http://localhost:8000
 ```
 
@@ -193,9 +200,16 @@ Plan de desarrollo aprobado en 6 fases.
   de carpetas, parser SRT + conteo de caracteres (limpiando índices y marcas de
   tiempo), detección de estado. Endpoints: `GET /subtitles`, `POST /scan`,
   `GET /subtitles/{id}`. 48 tests en verde y verificación e2e hecha
-  (2026-07-30). Bitácora: `docs/bitacora-fase1.md`. *(Sin commitear aún.)*
-- [ ] **Fase 2 — Frontend de consulta.** Listado usable (traducidos vs.
-  pendientes) con nº de caracteres, filtros/búsqueda y botón de "escanear".
+  (2026-07-30). Bitácora: `docs/bitacora-fase1.md`. Commit `4ebbc0f`.
+- [x] **Fase 2 — Gestión de carpetas + vista de estado.** Alta y baja de carpetas
+  desde la interfaz (explorador de disco servido por el backend), casilla por
+  carpeta para elegir cuáles entran en el escaneo (columna `activa`, persistida) y
+  botón de "Escanear". El resultado se muestra como un **árbol derivado de las
+  rutas** que llega hasta la obra (capítulo/película), con los idiomas disponibles
+  y si ya existe su versión dual. `MEDIA_FOLDERS` desaparece: `library_folder` pasa
+  a ser la única autoridad sobre qué se vigila. 79 tests en verde y verificación
+  e2e hecha (2026-08-11). Plan: `docs/plans/plan-fase2.md`. Bitácora:
+  `docs/bitacora-fase2.md`. *(Sin commitear aún.)*
 - [ ] **Fase 3 — Traducción + generación bilingüe.** Interfaz `Translator` +
   DeepL (batch), servicio `bilingual.py` reutilizando tiempos, selección de
   uno/varios subtítulos, registro de caracteres por trabajo. Traducción async vía
@@ -213,6 +227,11 @@ commit que el código que describe. Los HTML, autocontenidos (sin CDN) para abri
 con doble clic; los diagramas, Mermaid en markdown. Nada se publica fuera de la
 máquina sin pedírselo antes al usuario.
 
+Cada fase deja dos documentos: el **plan** en `docs/plans/plan-faseN.md` (qué se va
+a hacer, escrito antes de empezar) y la **bitácora** en `docs/bitacora-faseN.md`
+(qué acabó pasando, con decisiones y verificación). Un cambio de scope se refleja
+dentro del plan de esa fase, no en un fichero nuevo.
+
 ## Notas / deuda técnica
 
 - uv eligió **Python 3.14**. Si alguna librería futura (p. ej. MKV) no tuviera
@@ -226,5 +245,8 @@ máquina sin pedírselo antes al usuario.
 - `alembic.ini` conserva la línea `sqlalchemy.url` de la plantilla, pero es inerte:
   `alembic/env.py` la sobrescribe con `settings.database_url`.
 - `backend/README.md` está vacío y `frontend/README.md` es la plantilla de Vite.
-- Assets sobrantes de la plantilla en `frontend/` (`hero.png`, `react.svg`,
-  `vite.svg`, `public/icons.svg`): no los referencia nadie.
+- `GET /library/tree` reconstruye el árbol entero en memoria en cada petición. Para
+  una biblioteca doméstica sobra; si algún día pesa, el sitio donde paginar o cachear
+  es `services/library_tree.py`.
+- El explorador `/fs/browse` deja navegar todo el disco a propósito (lo necesita el
+  selector). Por eso el servidor debe escuchar solo en `127.0.0.1`.

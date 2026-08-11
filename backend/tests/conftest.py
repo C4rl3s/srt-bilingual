@@ -15,9 +15,9 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.models  # noqa: F401 — registra las tablas en Base.metadata
-from app.config import settings
 from app.db import Base, get_db
 from app.main import app as fastapi_app
+from app.models.library_folder import CarpetaBiblioteca
 
 # Contenido SRT válido reutilizado por varios tests: 2 bloques y 18 caracteres de
 # texto ("Hola, mundo." = 12 + "Adiós." = 6), sin contar índices ni marcas de tiempo.
@@ -64,22 +64,20 @@ def client(db: Session) -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def configurar_carpetas() -> Iterator[Callable[..., None]]:
-    """Permite fijar las carpetas a escanear (equivalente a `MEDIA_FOLDERS`).
+def registrar_carpetas(db: Session) -> Callable[..., list[CarpetaBiblioteca]]:
+    """Da de alta carpetas en la base de datos, como haría `POST /folders`.
 
-    `settings.carpetas` es un `cached_property`, así que además de cambiar
-    `media_folders` hay que invalidar el valor ya cacheado en el `__dict__`.
+    No resuelve las rutas a propósito: las guarda tal cual se las pasan, para que
+    los tests puedan comparar contra las rutas que ellos mismos construyen.
     """
-    original = settings.media_folders
 
-    def _configurar(*rutas: Path | str) -> None:
-        settings.media_folders = ";".join(str(ruta) for ruta in rutas)
-        settings.__dict__.pop("carpetas", None)
+    def _registrar(*rutas: Path | str, activa: bool = True) -> list[CarpetaBiblioteca]:
+        carpetas = [CarpetaBiblioteca(ruta=str(ruta), activa=activa) for ruta in rutas]
+        db.add_all(carpetas)
+        db.commit()
+        return carpetas
 
-    yield _configurar
-
-    settings.media_folders = original
-    settings.__dict__.pop("carpetas", None)
+    return _registrar
 
 
 def escribir_srt(destino: Path, contenido: str = SRT_EJEMPLO) -> Path:

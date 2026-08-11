@@ -15,10 +15,14 @@ from app.models.enums import SUFIJOS_IDIOMA, Idioma
 SUFIJO_BILINGUE = ".bilingue.srt"
 
 
-def _base_sin_idioma(ruta_origen: Path) -> str:
+def base_sin_idioma(ruta_origen: Path) -> str:
     """Nombre del original sin extensión `.srt` ni el sufijo de idioma de origen.
 
     `Pelicula.es.srt` → `Pelicula`; `Pelicula.srt` → `Pelicula`.
+
+    Es además la **clave de agrupación por obra**: los subtítulos de un mismo
+    capítulo en varios idiomas (`.es`, `.en`) comparten base, y así el árbol de la
+    biblioteca los presenta como una sola hoja.
     """
     tronco = ruta_origen.name[: -len(".srt")] if ruta_origen.suffix == ".srt" else ruta_origen.stem
     partes = tronco.split(".")
@@ -29,7 +33,7 @@ def _base_sin_idioma(ruta_origen: Path) -> str:
 
 def derivar_nombre_bilingue(ruta_origen: Path, origen: Idioma, destino: Idioma) -> Path:
     """Ruta determinista del bilingüe correspondiente a `ruta_origen`."""
-    base = _base_sin_idioma(ruta_origen)
+    base = base_sin_idioma(ruta_origen)
     nombre = f"{base}.{origen.value}-{destino.value}{SUFIJO_BILINGUE}"
     return ruta_origen.with_name(nombre)
 
