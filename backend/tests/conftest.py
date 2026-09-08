@@ -85,3 +85,10 @@ def escribir_srt(destino: Path, contenido: str = SRT_EJEMPLO) -> Path:
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_text(contenido, encoding="utf-8")
     return destino
+
+
+def escribir_video(destino: Path, contenido: bytes = b"\x1a\x45\xdf\xa3 mkv de mentira") -> Path:
+    """Crea un fichero de vídeo de pega. El escaneo no lo abre: solo lo inventaría."""
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_bytes(contenido)
+    return destino

@@ -61,7 +61,7 @@ Endpoints disponibles:
 | `DELETE` | `/folders/{id}` | Deja de vigilarla y borra sus subtítulos (cascada) |
 | `GET` | `/fs/roots` | Unidades disponibles, para el selector de carpetas |
 | `GET` | `/fs/browse` | Subdirectorios de una ruta, para navegar el disco |
-| `POST` | `/scan` | Escanea las carpetas marcadas (o las de `carpeta_ids`) |
+| `POST` | `/scan` | Escanea las carpetas marcadas: inventaría vídeos y `.srt` |
 | `GET` | `/library/tree` | Árbol de la biblioteca hasta la obra, con su estado |
 | `GET` | `/subtitles` | Lista los subtítulos. Filtros: `?estado=` y `?idioma=` |
 | `GET` | `/subtitles/{id}` | Detalle de un subtítulo |

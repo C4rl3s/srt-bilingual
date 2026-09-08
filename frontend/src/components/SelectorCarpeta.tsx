@@ -83,12 +83,27 @@ export function SelectorCarpeta({ onCerrar, onSeleccionar }: Props) {
           {!cargando &&
             entradas.map((entrada) => (
               <li key={entrada.ruta}>
-                <button className="entrada" onClick={() => abrir(entrada.ruta)}>
-                  📁 {entrada.nombre}
+                <button
+                  className={`entrada ${entrada.accesible ? '' : 'entrada--bloqueada'}`}
+                  onClick={() => abrir(entrada.ruta)}
+                  disabled={!entrada.accesible}
+                  title={entrada.motivo ?? undefined}
+                >
+                  {entrada.accesible ? '📁' : '🚫'} {entrada.nombre}
+                  {!entrada.accesible && <span className="entrada-motivo">{entrada.motivo}</span>}
                 </button>
               </li>
             ))}
         </ul>
+
+        {entradas.some((entrada) => !entrada.accesible) && (
+          <p className="nota">
+            Las carpetas marcadas con 🚫 son enlaces que apuntan fuera del recurso
+            compartido, así que no se pueden abrir desde este equipo (tampoco con el
+            Explorador de Windows). La solución está en el equipo que las comparte:
+            compartir directamente la carpeta de destino.
+          </p>
+        )}
 
         <footer className="modal-pie">
           <button className="boton-secundario" onClick={onCerrar}>

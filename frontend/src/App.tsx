@@ -100,6 +100,20 @@ function App() {
     }
   }
 
+  // Un árbol vacío puede significar tres cosas muy distintas, y decir siempre
+  // «añade una carpeta» era engañoso justo después de escanear.
+  const mensajeVacio = (() => {
+    if (carpetas.length === 0) return 'Todavía no vigilas ninguna carpeta.'
+    if (carpetas.every((carpeta) => carpeta.ultimo_escaneo === null)) {
+      return 'Carpetas añadidas pero sin escanear. Pulsa «Escanear» para inventariarlas.'
+    }
+    if (filtro !== 'TODOS') return 'Ningún resultado con este filtro.'
+    return (
+      'Escaneado, pero no se encontró nada. Si tus vídeos llevan los subtítulos ' +
+      'dentro del propio fichero (MKV), todavía no se leen: eso llega con el soporte MKV.'
+    )
+  })()
+
   return (
     <main className="app">
       <h1>srt-bilingual</h1>
@@ -112,9 +126,10 @@ function App() {
 
       {resumen && (
         <p className="aviso aviso--ok" onClick={() => setResumen(null)}>
-          {resumen.carpetas} carpeta(s): {resumen.nuevos} nuevos, {resumen.actualizados}{' '}
-          actualizados, {resumen.sin_cambios} sin cambios, {resumen.traducidos} con dual,{' '}
-          {resumen.errores} con error.
+          {resumen.carpetas} carpeta(s): {resumen.videos} vídeos y {resumen.total} subtítulos
+          ({resumen.nuevos} nuevos, {resumen.actualizados} actualizados,{' '}
+          {resumen.sin_cambios} sin cambios, {resumen.traducidos} con dual,{' '}
+          {resumen.errores} con error).
         </p>
       )}
 
@@ -142,7 +157,7 @@ function App() {
           </select>
         </header>
 
-        <ArbolSubtitulos arbol={arbol} cargando={cargandoArbol} />
+        <ArbolSubtitulos arbol={arbol} cargando={cargandoArbol} mensajeVacio={mensajeVacio} />
       </section>
 
       {selectorAbierto && (

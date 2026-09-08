@@ -38,3 +38,8 @@ class CarpetaBiblioteca(Base):
         back_populates="carpeta",
         cascade="all, delete-orphan",
     )
+
+    videos: Mapped[list["ArchivoMedia"]] = relationship(  # noqa: F821
+        back_populates="carpeta",
+        cascade="all, delete-orphan",
+    )

@@ -51,7 +51,8 @@ srt-bilingual/
 │   │   ├── main.py            # arranque FastAPI + CORS + /health + routers
 │   │   ├── config.py          # settings vía .env (pydantic-settings)
 │   │   ├── db.py              # engine + sesión SQLAlchemy + get_db
-│   │   ├── models/            # tablas ORM: enums, library_folder, subtitle_file
+│   │   ├── models/            # tablas ORM: enums, library_folder, subtitle_file,
+│   │   │                      #   media_file
 │   │   ├── schemas/           # Pydantic (DTOs request/response): scan, subtitle,
 │   │   │                      #   folder, tree
 │   │   ├── api/               # routers: subtitles, scan, folders, filesystem,
@@ -89,6 +90,8 @@ Esquema detallado (tablas, columnas, índices y diagrama): **`docs/modelo-datos.
 Resumen:
 
 - `library_folder` — carpetas a vigilar (las mismas compartidas en Plex). *(Fase 1)*
+- `media_file` — contenedores de vídeo inventariados (no se abren; sostienen el
+  árbol cuando no hay `.srt` al lado). *(Fase 2 bis)*
 - `subtitle_file` — ruta, idioma origen, nº caracteres (sin marcas de tiempo),
   nº bloques, estado (`PENDING`/`TRANSLATED`/`ERROR`), ruta del bilingüe generado,
   idioma destino, proveedor usado, `mtime`+tamaño (para no reparsear lo no cambiado),
@@ -209,7 +212,17 @@ Plan de desarrollo aprobado en 6 fases.
   y si ya existe su versión dual. `MEDIA_FOLDERS` desaparece: `library_folder` pasa
   a ser la única autoridad sobre qué se vigila. 79 tests en verde y verificación
   e2e hecha (2026-08-11). Plan: `docs/plans/plan-fase2.md`. Bitácora:
-  `docs/bitacora-fase2.md`. *(Sin commitear aún.)*
+  `docs/bitacora-fase2.md`. Commit `54d8839`.
+- [x] **Fase 2 bis — Inventario de vídeo y arreglos.** El escaneo inventaría también
+  los ficheros de vídeo (tabla `media_file`), en un solo recorrido del disco, y el
+  árbol se alimenta de vídeos + subtítulos, con un `estado_obra` por hoja
+  (`DUAL`/`PENDIENTE`/`SIN_SUBTITULOS`/`ERROR`). Así la biblioteca real —toda `.mkv`,
+  sin un solo `.srt`— se puede dibujar. El selector deja de ocultar en silencio las
+  carpetas que no puede abrir y los estados vacíos distinguen sin carpetas / sin
+  escanear / escaneado sin resultados. READMEs de backend y frontend escritos.
+  88 tests en verde y verificación e2e hecha (2026-08-11). Plan:
+  `docs/plans/plan-inventario-video-y-arreglos.md`. Bitácora:
+  `docs/bitacora-inventario-video-y-arreglos.md`.
 - [ ] **Fase 3 — Traducción + generación bilingüe.** Interfaz `Translator` +
   DeepL (batch), servicio `bilingual.py` reutilizando tiempos, selección de
   uno/varios subtítulos, registro de caracteres por trabajo. Traducción async vía
@@ -234,6 +247,21 @@ dentro del plan de esa fase, no en un fichero nuevo.
 
 ## Notas / deuda técnica
 
+**Hallazgos sobre la biblioteca real (2026-08-11), que condicionan el plan:**
+
+- La biblioteca del usuario (`\\192.168.1.130\Compartido\Anime`, montada en `Z:`) son
+  **215 `.mkv` y cero `.srt`**: los subtítulos van embebidos. Hasta la **Fase 5** la
+  app solo puede inventariar, no traducir nada de ahí.
+- **El recurso está montado en solo lectura** (`UnauthorizedAccessException` al
+  escribir). La convención de dejar el `.bilingue.srt` junto al original **fallará**
+  en esa carpeta. Antes de la Fase 3 hay que decidir: conseguir permiso de escritura
+  en el recurso, o añadir una carpeta de salida configurable. **Es un bloqueante.**
+- `Z:\Pelis` y `Z:\Series` son *junctions* que apuntan a `E:\Videos\...` del otro
+  equipo, fuera del recurso compartido: no se pueden abrir desde aquí con ningún
+  programa. El selector ya las muestra marcadas en vez de ocultarlas.
+
+**Deuda técnica:**
+
 - uv eligió **Python 3.14**. Si alguna librería futura (p. ej. MKV) no tuviera
   wheel para 3.14, fijar 3.12 con `uv python pin 3.12`.
 - Warning de deprecación de `TestClient`/httpx (sugiere `httpx2`). Inofensivo;
@@ -244,7 +272,6 @@ dentro del plan de esa fase, no en un fichero nuevo.
   respecto a los modelos; tras tocar un modelo, generar la migración y revisarla.
 - `alembic.ini` conserva la línea `sqlalchemy.url` de la plantilla, pero es inerte:
   `alembic/env.py` la sobrescribe con `settings.database_url`.
-- `backend/README.md` está vacío y `frontend/README.md` es la plantilla de Vite.
 - `GET /library/tree` reconstruye el árbol entero en memoria en cada petición. Para
   una biblioteca doméstica sobra; si algún día pesa, el sitio donde paginar o cachear
   es `services/library_tree.py`.

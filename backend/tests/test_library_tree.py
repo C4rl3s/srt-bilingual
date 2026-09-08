@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.models.enums import EstadoSubtitulo
 from app.models.library_folder import CarpetaBiblioteca
+from app.schemas.tree import EstadoObra
 from app.services.library_tree import construir_arbol
 from app.services.scanner import escanear
-from tests.conftest import escribir_srt
+from tests.conftest import escribir_srt, escribir_video
 
 Registrar = Callable[..., list[CarpetaBiblioteca]]
 
@@ -101,6 +102,73 @@ def test_filtrar_por_estado_poda_las_ramas_vacias(
     assert [nodo.nombre for nodo in raiz.hijos] == ["Breaking Bad"]
     assert raiz.num_obras == 1
     assert raiz.hijos[0].hijos[0].hijos[0].nombre == "BB.S01E01"
+
+
+def test_un_video_sin_subtitulos_aparece_como_hoja(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    """El caso de una biblioteca con los subtítulos embebidos en el MKV."""
+    escribir_video(tmp_path / "Gunbuster" / "Gunbuster - 01.mkv")
+    escribir_video(tmp_path / "Gunbuster" / "Gunbuster - 02.mkv")
+    registrar_carpetas(tmp_path)
+    escanear(db)
+
+    (raiz,) = construir_arbol(db)
+
+    serie = raiz.hijos[0]
+    assert [nodo.nombre for nodo in serie.hijos] == ["Gunbuster - 01", "Gunbuster - 02"]
+    assert all(nodo.estado_obra is EstadoObra.SIN_SUBTITULOS for nodo in serie.hijos)
+    assert all(nodo.tiene_video for nodo in serie.hijos)
+    assert raiz.num_obras == 2
+    assert raiz.num_sin_subtitulos == 2
+    assert raiz.num_dual == 0
+
+
+def test_el_video_y_su_subtitulo_hermano_son_una_sola_hoja(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    escribir_video(tmp_path / "Cap01.mkv")
+    escribir_srt(tmp_path / "Cap01.es.srt")
+    registrar_carpetas(tmp_path)
+    escanear(db)
+
+    (raiz,) = construir_arbol(db)
+
+    (hoja,) = raiz.hijos
+    assert hoja.nombre == "Cap01"
+    assert hoja.tiene_video is True
+    assert hoja.estado_obra is EstadoObra.PENDIENTE
+    assert len(hoja.subtitulo_ids) == 1
+
+
+def test_el_estado_dual_gana_al_video(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    escribir_video(tmp_path / "Cap01.mkv")
+    escribir_srt(tmp_path / "Cap01.es.srt")
+    escribir_srt(tmp_path / "Cap01.ES-KO.bilingue.srt")
+    registrar_carpetas(tmp_path)
+    escanear(db)
+
+    (raiz,) = construir_arbol(db)
+
+    (hoja,) = raiz.hijos
+    assert hoja.estado_obra is EstadoObra.DUAL
+    assert hoja.tiene_video is True
+
+
+def test_filtrar_por_estado_deja_fuera_los_videos_sin_subtitulos(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    escribir_video(tmp_path / "SinSubs.mkv")
+    escribir_video(tmp_path / "ConSubs.mkv")
+    escribir_srt(tmp_path / "ConSubs.es.srt")
+    registrar_carpetas(tmp_path)
+    escanear(db)
+
+    (raiz,) = construir_arbol(db, estado=EstadoSubtitulo.PENDING)
+
+    assert [nodo.nombre for nodo in raiz.hijos] == ["ConSubs"]
 
 
 def test_una_carpeta_sin_subtitulos_sigue_apareciendo(

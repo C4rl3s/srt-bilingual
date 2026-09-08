@@ -1,12 +1,28 @@
 """DTOs del árbol de la biblioteca.
 
-El árbol no se guarda en ninguna tabla: se **deriva** de las rutas de
+El árbol no se guarda en ninguna tabla: se **deriva** de las rutas de `media_file` y
 `subtitle_file` cada vez que se pide (ver `services/library_tree.py`).
 """
+
+from enum import Enum
 
 from pydantic import BaseModel
 
 from app.models.enums import Idioma
+
+
+class EstadoObra(str, Enum):
+    """Estado de un capítulo o película de cara a la interfaz.
+
+    No es lo mismo que `EstadoSubtitulo`: aquel describe un fichero `.srt` suelto y
+    este resume la obra entera, incluido el caso de no tener ningún subtítulo
+    externo (lo normal cuando viajan dentro del MKV).
+    """
+
+    DUAL = "DUAL"  # ya existe el .bilingue.srt
+    PENDIENTE = "PENDIENTE"  # hay subtítulos externos, ninguno traducido
+    SIN_SUBTITULOS = "SIN_SUBTITULOS"  # hay vídeo y ningún .srt al lado
+    ERROR = "ERROR"  # algún subtítulo no se pudo parsear
 
 
 class NodoArbol(BaseModel):
@@ -26,8 +42,11 @@ class NodoArbol(BaseModel):
     num_obras: int = 0
     num_dual: int = 0
     num_errores: int = 0
+    num_sin_subtitulos: int = 0
 
     # Solo en las hojas.
+    estado_obra: EstadoObra | None = None
+    tiene_video: bool = False
     idiomas: list[Idioma] = []
     dual: bool = False
     ruta_bilingue: str | None = None

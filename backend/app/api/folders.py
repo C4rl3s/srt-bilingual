@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models.enums import EstadoSubtitulo
 from app.models.library_folder import CarpetaBiblioteca
+from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.schemas.folder import CarpetaActualizar, CarpetaCrear, CarpetaOut
 
@@ -43,6 +44,15 @@ def listar_carpetas(db: Session = Depends(get_db)) -> list[CarpetaOut]:
         .subquery()
     )
 
+    videos = (
+        select(
+            ArchivoMedia.carpeta_id,
+            func.count(ArchivoMedia.id).label("total"),
+        )
+        .group_by(ArchivoMedia.carpeta_id)
+        .subquery()
+    )
+
     filas = db.execute(
         select(
             CarpetaBiblioteca,
@@ -50,12 +60,14 @@ def listar_carpetas(db: Session = Depends(get_db)) -> list[CarpetaOut]:
             conteos.c.dual,
             conteos.c.pendientes,
             conteos.c.errores,
+            videos.c.total,
         )
         .outerjoin(conteos, conteos.c.carpeta_id == CarpetaBiblioteca.id)
+        .outerjoin(videos, videos.c.carpeta_id == CarpetaBiblioteca.id)
         .order_by(CarpetaBiblioteca.ruta)
     ).all()
 
-    # El LEFT JOIN deja los contadores a NULL en las carpetas sin subtítulos.
+    # Los LEFT JOIN dejan los contadores a NULL en las carpetas sin nada inventariado.
     return [
         CarpetaOut(
             id=carpeta.id,
@@ -63,11 +75,12 @@ def listar_carpetas(db: Session = Depends(get_db)) -> list[CarpetaOut]:
             activa=carpeta.activa,
             ultimo_escaneo=carpeta.ultimo_escaneo,
             num_subtitulos=total or 0,
+            num_videos=num_videos or 0,
             num_dual=dual or 0,
             num_pendientes=pendientes or 0,
             num_errores=errores or 0,
         )
-        for carpeta, total, dual, pendientes, errores in filas
+        for carpeta, total, dual, pendientes, errores, num_videos in filas
     ]
 
 
@@ -146,6 +159,7 @@ def _a_dto(carpeta: CarpetaBiblioteca) -> CarpetaOut:
         activa=carpeta.activa,
         ultimo_escaneo=carpeta.ultimo_escaneo,
         num_subtitulos=len(subs),
+        num_videos=len(carpeta.videos),
         num_dual=sum(1 for sub in subs if sub.estado is EstadoSubtitulo.TRANSLATED),
         num_pendientes=sum(1 for sub in subs if sub.estado is EstadoSubtitulo.PENDING),
         num_errores=sum(1 for sub in subs if sub.estado is EstadoSubtitulo.ERROR),

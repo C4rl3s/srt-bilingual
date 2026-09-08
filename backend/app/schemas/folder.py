@@ -31,6 +31,7 @@ class CarpetaOut(BaseModel):
     activa: bool
     ultimo_escaneo: datetime | None
     num_subtitulos: int = 0
+    num_videos: int = 0
     num_dual: int = 0
     num_pendientes: int = 0
     num_errores: int = 0

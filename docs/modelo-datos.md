@@ -1,9 +1,9 @@
 # Modelo de datos
 
 Esquema de la base de datos SQLite de srt-bilingual. Refleja las migraciones
-`4684c713e94f` (Fase 1) y `bd028a52d162` (Fase 2, columna `activa`). Si cambias un
-modelo en `backend/app/models/`, genera la migración **y actualiza este documento en
-el mismo commit**.
+`4684c713e94f` (Fase 1), `bd028a52d162` (columna `activa`) y `deb86f77e1a9`
+(tabla `media_file`). Si cambias un modelo en `backend/app/models/`, genera la
+migración **y actualiza este documento en el mismo commit**.
 
 > **Este fichero es la fuente de verdad.** Al lado hay una versión visual del mismo
 > contenido, `modelo-datos.html`: es autocontenida (sin dependencias externas), así
@@ -27,6 +27,19 @@ que solo exista en la base de datos: lo traducido se reconoce porque el
 ```mermaid
 erDiagram
     library_folder ||--o{ subtitle_file : "contiene"
+    library_folder ||--o{ media_file : "contiene"
+
+    media_file {
+        int      id             PK
+        int      carpeta_id     FK "ON DELETE CASCADE"
+        string   ruta           UK "identidad del fichero"
+        string   nombre
+        string   base              "clave de agrupacion por obra"
+        float    mtime             "deteccion de cambios"
+        int      tamano_bytes      "deteccion de cambios"
+        datetime creado_en
+        datetime actualizado_en
+    }
 
     library_folder {
         int      id             PK "autoincremental"
@@ -117,6 +130,31 @@ no acabar traduciendo traducciones.
 | `ix_subtitle_file_carpeta_id` | `carpeta_id` | no | Recorrer los subtítulos de una carpeta |
 | `ix_subtitle_file_estado` | `estado` | no | El filtro `GET /subtitles?estado=` y el listado del frontend |
 
+## `media_file`
+
+Los contenedores de vídeo (`.mkv`, `.mp4`, `.avi`, `.m4v`, `.mov`). **No se abren
+ni se inspeccionan**: solo se registra que están ahí, para poder dibujar la
+biblioteca aunque no haya ningún `.srt` al lado. Es el caso habitual cuando los
+subtítulos viajan embebidos dentro del propio MKV.
+
+| Columna | Tipo SQLite | Nulo | Para qué sirve |
+|---|---|---|---|
+| `id` | `INTEGER` PK | no | Clave primaria |
+| `carpeta_id` | `INTEGER` FK | no | Carpeta a la que pertenece. `ON DELETE CASCADE` |
+| `ruta` | `VARCHAR` | no | Ruta absoluta. **Única**: es la identidad del fichero |
+| `nombre` | `VARCHAR` | no | Nombre del fichero |
+| `base` | `VARCHAR` | no | Nombre sin extensión ni sufijo de idioma. Es la clave por la que el árbol empareja el vídeo con sus subtítulos hermanos; se guarda calculada para no repetirlo en cada consulta |
+| `mtime` | `FLOAT` | no | Fecha de modificación (epoch) |
+| `tamano_bytes` | `INTEGER` | no | Tamaño del fichero |
+| `creado_en` | `DATETIME` | no | Alta de la fila |
+| `actualizado_en` | `DATETIME` | no | Se refresca sola vía `onupdate` |
+
+**Índices:** `ix_media_file_ruta` (ÚNICO), `ix_media_file_carpeta_id`,
+`ix_media_file_base`.
+
+Las pistas de subtítulo embebidas son cosa de la Fase 5; esta tabla es donde
+colgarán.
+
 ## Estados
 
 ```
@@ -177,11 +215,22 @@ Son dos operaciones distintas y conviene no confundirlas:
 
 **6. El árbol de la biblioteca no se almacena.**
 No hay columna `padre_id` ni tabla de jerarquía. La estructura que muestra el
-frontend se **deriva** de las rutas de `subtitle_file`, partiéndolas por segmentos
-relativos a la carpeta que las contiene (`services/library_tree.py`). Sale gratis en
-esquema, llega a cualquier profundidad y se autocorrige cuando renombras carpetas en
-disco. La hoja del árbol es la **obra** (capítulo o película), no el fichero: los
-`.srt` que comparten `base_sin_idioma` se agrupan en una sola.
+frontend se **deriva** de las rutas de `media_file` y `subtitle_file`, partiéndolas
+por segmentos relativos a la carpeta que las contiene (`services/library_tree.py`).
+Sale gratis en esquema, llega a cualquier profundidad y se autocorrige cuando
+renombras carpetas en disco. La hoja del árbol es la **obra** (capítulo o película),
+no el fichero: el vídeo y los `.srt` que comparten `base_sin_idioma` se agrupan en
+una sola.
+
+El coste de agrupar por nombre: si el `.srt` no se llama como el vídeo, aparecerán
+como dos obras distintas. Es el mismo criterio que usa `derivar_nombre_bilingue`,
+así que la convención es coherente en todo el sistema.
+
+**7. Los vídeos se inventarían, pero no se abren.**
+El escaneo registra la existencia de cada contenedor y su huella (`mtime`+tamaño),
+nada más. Leer las pistas internas exige ffmpeg y es trabajo de la Fase 5. Gracias a
+esto, un escaneo de 215 MKV sobre un recurso de red tarda ~2 s: solo se listan
+nombres, no se lee un solo byte del contenido.
 
 ## Pendiente: `provider_usage` (Fase 4)
 

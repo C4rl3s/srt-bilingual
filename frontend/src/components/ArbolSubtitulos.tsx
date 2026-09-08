@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import type { NodoArbol } from '../types'
+import type { EstadoObra, NodoArbol } from '../types'
+
+/** Cómo se pinta cada estado de obra en la hoja. */
+const INSIGNIA: Record<EstadoObra, { texto: string; clase: string }> = {
+  DUAL: { texto: '✅ dual', clase: 'badge--dual' },
+  PENDIENTE: { texto: '⏳ pendiente', clase: '' },
+  SIN_SUBTITULOS: { texto: '⚠ sin subs detectados', clase: 'badge--aviso' },
+  ERROR: { texto: '✖ error', clase: 'badge--error' },
+}
 
 /**
  * Un nodo del árbol, que se pinta a sí mismo y a sus hijos.
@@ -13,17 +21,12 @@ function Nodo({ nodo, nivel }: { nodo: NodoArbol; nivel: number }) {
   const [abierto, setAbierto] = useState(nivel < 2)
 
   if (nodo.hoja) {
+    const insignia = INSIGNIA[nodo.estado_obra ?? 'SIN_SUBTITULOS']
     return (
       <li className="nodo nodo--hoja" style={{ paddingLeft: `${nivel * 1.25}rem` }}>
         <span className="nodo-nombre">{nodo.nombre}</span>
         <span className="nodo-idiomas">{nodo.idiomas.join(' · ')}</span>
-        {nodo.num_errores > 0 ? (
-          <span className="badge badge--error">error</span>
-        ) : nodo.dual ? (
-          <span className="badge badge--dual">✅ dual</span>
-        ) : (
-          <span className="badge">⏳ pendiente</span>
-        )}
+        <span className={`badge ${insignia.clase}`}>{insignia.texto}</span>
       </li>
     )
   }
@@ -40,6 +43,7 @@ function Nodo({ nodo, nivel }: { nodo: NodoArbol; nivel: number }) {
         <span className="nodo-nombre">{nodo.nombre}</span>
         <span className="nodo-conteo">
           {nodo.num_dual}/{nodo.num_obras} dual
+          {nodo.num_sin_subtitulos > 0 && ` · ${nodo.num_sin_subtitulos} sin subs`}
         </span>
       </button>
 
@@ -59,15 +63,16 @@ function Nodo({ nodo, nivel }: { nodo: NodoArbol; nivel: number }) {
 interface Props {
   arbol: NodoArbol[]
   cargando: boolean
+  /** Qué decir cuando no hay nada que pintar; lo decide `App` según el contexto. */
+  mensajeVacio: string
 }
 
 /** Bloque inferior: la biblioteca, de la carpeta raíz hasta cada capítulo. */
-export function ArbolSubtitulos({ arbol, cargando }: Props) {
+export function ArbolSubtitulos({ arbol, cargando, mensajeVacio }: Props) {
   if (cargando) return <p className="vacio">Cargando…</p>
 
-  if (arbol.length === 0) {
-    return <p className="vacio">Nada que mostrar. Añade una carpeta y pulsa «Escanear».</p>
-  }
+  const sinContenido = arbol.length === 0 || arbol.every((raiz) => raiz.hijos.length === 0)
+  if (sinContenido) return <p className="vacio">{mensajeVacio}</p>
 
   return (
     <ul className="arbol">

@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.models.enums import EstadoSubtitulo, Idioma
 from app.models.library_folder import CarpetaBiblioteca
+from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.services.scanner import escanear
-from tests.conftest import escribir_srt
+from tests.conftest import escribir_srt, escribir_video
 
 Registrar = Callable[..., list[CarpetaBiblioteca]]
 
@@ -211,6 +212,54 @@ def test_carpeta_inexistente_no_rompe_el_escaneo(
 
     assert resumen.carpetas == 1
     assert resumen.total == 0
+
+
+def test_inventaria_los_videos_sin_abrirlos(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    escribir_video(tmp_path / "Serie" / "Cap01.mkv")
+    escribir_video(tmp_path / "Pelicula.mp4")
+    escribir_video(tmp_path / "notas.txt")  # no es vídeo: se ignora
+    registrar_carpetas(tmp_path)
+
+    resumen = escanear(db)
+
+    assert resumen.videos == 2
+    assert resumen.total == 0  # `total` habla de subtítulos
+    videos = db.scalars(select(ArchivoMedia).order_by(ArchivoMedia.nombre)).all()
+    assert [v.nombre for v in videos] == ["Cap01.mkv", "Pelicula.mp4"]
+    assert [v.base for v in videos] == ["Cap01", "Pelicula"]
+
+
+def test_un_video_modificado_actualiza_su_huella(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    ruta = escribir_video(tmp_path / "Cap01.mkv")
+    registrar_carpetas(tmp_path)
+    escanear(db)
+
+    escribir_video(ruta, b"contenido bastante mas largo que el anterior")
+    os.utime(ruta, (0, 0))
+    escanear(db)
+
+    video = db.scalars(select(ArchivoMedia)).one()
+    assert video.mtime == 0
+    assert video.tamano_bytes == ruta.stat().st_size
+
+
+def test_borra_los_videos_huerfanos(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    ruta = escribir_video(tmp_path / "Cap01.mkv")
+    escribir_video(tmp_path / "Cap02.mkv")
+    registrar_carpetas(tmp_path)
+    escanear(db)
+
+    ruta.unlink()
+    resumen = escanear(db)
+
+    assert resumen.huerfanos_borrados == 1
+    assert [v.nombre for v in db.scalars(select(ArchivoMedia)).all()] == ["Cap02.mkv"]
 
 
 def test_el_escaneo_registra_la_fecha_de_ultimo_escaneo(

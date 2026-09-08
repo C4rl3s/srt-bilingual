@@ -57,6 +57,7 @@ export function PanelCarpetas({
               </label>
 
               <span className="carpeta-datos">
+                <span className="badge">{carpeta.num_videos} vídeos</span>
                 <span className="badge badge--dual">{carpeta.num_dual} dual</span>
                 <span className="badge">{carpeta.num_pendientes} pendientes</span>
                 {carpeta.num_errores > 0 && (

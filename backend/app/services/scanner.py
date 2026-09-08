@@ -1,8 +1,12 @@
 """Escaneo de carpetas: descubre `.srt`, los parsea e inventaría en la base de datos.
 
 El disco es la fuente de verdad. Cada escaneo **reconcilia** la base de datos con
-lo que hay en disco: da de alta los subtítulos nuevos, reparsea los que cambiaron y
-borra los huérfanos. Lo ya traducido se redescubre por el `.bilingue.srt`.
+lo que hay en disco: da de alta los subtítulos y los vídeos nuevos, reparsea los
+subtítulos que cambiaron y borra los huérfanos. Lo ya traducido se redescubre por el
+`.bilingue.srt`.
+
+Los vídeos se inventarían sin abrirlos, solo para que la biblioteca se pueda dibujar
+aunque no haya ningún `.srt` al lado (subtítulos embebidos → Fase 5).
 
 Las carpetas ni se crean ni se borran aquí: de eso se encarga el CRUD de `/folders`.
 El escaneo se limita a recorrer las que se le indiquen.
@@ -15,12 +19,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models.enums import EstadoSubtitulo, Idioma
+from app.models.enums import EXTENSIONES_VIDEO, EstadoSubtitulo, Idioma
 from app.models.library_folder import CarpetaBiblioteca
+from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.schemas.scan import ResumenEscaneo
 from app.services.subtitles import srt_parser
-from app.services.subtitles.naming import derivar_nombre_bilingue, es_fichero_bilingue
+from app.services.subtitles.naming import (
+    base_sin_idioma,
+    derivar_nombre_bilingue,
+    es_fichero_bilingue,
+)
 
 
 def _ahora() -> datetime:
@@ -59,45 +68,98 @@ def escanear(db: Session, carpeta_ids: list[int] | None = None) -> ResumenEscane
 
 def _escanear_carpeta(db: Session, carpeta: CarpetaBiblioteca, resumen: ResumenEscaneo) -> None:
     base = Path(carpeta.ruta)
-    en_db = {sub.ruta: sub for sub in carpeta.subtitulos}
-    vistos: set[str] = set()
+    subs_en_db = {sub.ruta: sub for sub in carpeta.subtitulos}
+    videos_en_db = {video.ruta: video for video in carpeta.videos}
+    subs_vistos: set[str] = set()
+    videos_vistos: set[str] = set()
 
     if base.exists():
-        for ruta_srt in base.rglob("*.srt"):
-            if es_fichero_bilingue(ruta_srt.name):
-                continue
-            clave = str(ruta_srt)
-            vistos.add(clave)
-            stat = ruta_srt.stat()
-            sub = en_db.get(clave)
+        # Un único recorrido para las dos cosas: la biblioteca puede estar en otro
+        # equipo y cada pasada por la red cuesta.
+        for ruta in base.rglob("*"):
+            sufijo = ruta.suffix.lower()
+            if sufijo == ".srt":
+                if es_fichero_bilingue(ruta.name):
+                    continue
+                subs_vistos.add(str(ruta))
+                _inventariar_subtitulo(db, carpeta, ruta, subs_en_db, resumen)
+            elif sufijo in EXTENSIONES_VIDEO:
+                videos_vistos.add(str(ruta))
+                _inventariar_video(db, carpeta, ruta, videos_en_db, resumen)
 
-            if sub is None:
-                sub = ArchivoSubtitulo(carpeta=carpeta, ruta=clave, nombre=ruta_srt.name)
-                db.add(sub)
-                _procesar(sub, ruta_srt, stat)
-                resumen.nuevos += 1
-            elif sub.mtime != stat.st_mtime or sub.tamano_bytes != stat.st_size:
-                _procesar(sub, ruta_srt, stat)
-                resumen.actualizados += 1
-            else:
-                resumen.sin_cambios += 1
-
-            # Detección de bilingüe siempre (coherencia con el disco aunque el
-            # original no haya cambiado: el .bilingue.srt puede aparecer/desaparecer).
-            if sub.estado != EstadoSubtitulo.ERROR:
-                _detectar_traducido(sub, ruta_srt)
-
-            resumen.total += 1
-            if sub.estado == EstadoSubtitulo.ERROR:
-                resumen.errores += 1
-            elif sub.estado == EstadoSubtitulo.TRANSLATED:
-                resumen.traducidos += 1
-
-    # 3. Huérfanos: filas cuyo `.srt` ya no está en disco.
-    for clave, sub in en_db.items():
-        if clave not in vistos:
+    # Huérfanos: filas cuyo fichero ya no está en disco.
+    for clave, sub in subs_en_db.items():
+        if clave not in subs_vistos:
             db.delete(sub)
             resumen.huerfanos_borrados += 1
+
+    for clave, video in videos_en_db.items():
+        if clave not in videos_vistos:
+            db.delete(video)
+            resumen.huerfanos_borrados += 1
+
+
+def _inventariar_subtitulo(
+    db: Session,
+    carpeta: CarpetaBiblioteca,
+    ruta: Path,
+    en_db: dict[str, ArchivoSubtitulo],
+    resumen: ResumenEscaneo,
+) -> None:
+    stat = ruta.stat()
+    sub = en_db.get(str(ruta))
+
+    if sub is None:
+        sub = ArchivoSubtitulo(carpeta=carpeta, ruta=str(ruta), nombre=ruta.name)
+        db.add(sub)
+        _procesar(sub, ruta, stat)
+        resumen.nuevos += 1
+    elif sub.mtime != stat.st_mtime or sub.tamano_bytes != stat.st_size:
+        _procesar(sub, ruta, stat)
+        resumen.actualizados += 1
+    else:
+        resumen.sin_cambios += 1
+
+    # Detección de bilingüe siempre (coherencia con el disco aunque el original no
+    # haya cambiado: el .bilingue.srt puede aparecer/desaparecer).
+    if sub.estado != EstadoSubtitulo.ERROR:
+        _detectar_traducido(sub, ruta)
+
+    resumen.total += 1
+    if sub.estado == EstadoSubtitulo.ERROR:
+        resumen.errores += 1
+    elif sub.estado == EstadoSubtitulo.TRANSLATED:
+        resumen.traducidos += 1
+
+
+def _inventariar_video(
+    db: Session,
+    carpeta: CarpetaBiblioteca,
+    ruta: Path,
+    en_db: dict[str, ArchivoMedia],
+    resumen: ResumenEscaneo,
+) -> None:
+    """Registra el contenedor sin abrirlo: solo su existencia y su huella en disco."""
+    stat = ruta.stat()
+    video = en_db.get(str(ruta))
+
+    if video is None:
+        db.add(
+            ArchivoMedia(
+                carpeta=carpeta,
+                ruta=str(ruta),
+                nombre=ruta.name,
+                base=base_sin_idioma(ruta),
+                mtime=stat.st_mtime,
+                tamano_bytes=stat.st_size,
+            )
+        )
+    elif video.mtime != stat.st_mtime or video.tamano_bytes != stat.st_size:
+        video.mtime = stat.st_mtime
+        video.tamano_bytes = stat.st_size
+        video.base = base_sin_idioma(ruta)
+
+    resumen.videos += 1
 
 
 def _procesar(sub: ArchivoSubtitulo, ruta_srt: Path, stat) -> None:

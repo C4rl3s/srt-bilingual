@@ -87,3 +87,8 @@ SUFIJOS_IDIOMA: dict[str, Idioma] = {
 # Tokens que a veces acompañan al idioma en el nombre y hay que ignorar al buscarlo
 # (p. ej. `pelicula.es.forced.srt`).
 TOKENS_FLAG: frozenset[str] = frozenset({"forced", "sdh", "cc", "hi"})
+
+# Contenedores de vídeo que el escaneo inventaría. No se abren ni se parsean: se
+# registran para poder dibujar la biblioteca aunque no haya ningún `.srt` al lado
+# (caso habitual: los subtítulos viajan dentro del propio MKV).
+EXTENSIONES_VIDEO: frozenset[str] = frozenset({".mkv", ".mp4", ".avi", ".m4v", ".mov"})

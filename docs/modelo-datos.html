@@ -546,6 +546,17 @@
       </div>
 
       <div class="entity">
+        <div class="entity-name">media_file</div>
+        <ul>
+          <li><span class="key">PK</span> id</li>
+          <li><span class="key">FK</span> carpeta_id</li>
+          <li><span class="key">UK</span> ruta</li>
+          <li><span class="key is-plain">·</span> base</li>
+          <li><span class="key is-plain">·</span> <span class="more">+ 4 columnas</span></li>
+        </ul>
+      </div>
+
+      <div class="entity">
         <div class="entity-name">subtitle_file</div>
         <ul>
           <li><span class="key">PK</span> id</li>
@@ -896,13 +907,26 @@
         <h3>El árbol de la biblioteca no se almacena</h3>
         <p>
           No hay <code>padre_id</code> ni tabla de jerarquía: la estructura se deriva de las
-          rutas de <code>subtitle_file</code>, partiéndolas por segmentos. La hoja es la
-          <b>obra</b> (capítulo o película), no el fichero: los <code>.srt</code> que
-          comparten nombre base se agrupan en una sola.
+          rutas de <code>media_file</code> y <code>subtitle_file</code>, partiéndolas por
+          segmentos. La hoja es la <b>obra</b> (capítulo o película), no el fichero: el vídeo
+          y los <code>.srt</code> que comparten nombre base se agrupan en una sola.
+        </p>
+        <div class="cost">
+          <b>El coste</b>
+          <span>Si el <code>.srt</code> no se llama como el vídeo, saldrán como dos obras distintas. A cambio cuesta cero en esquema y se autocorrige al renombrar carpetas.</span>
+        </div>
+      </article>
+
+      <article class="decision">
+        <h3>Los vídeos se inventarían, pero no se abren</h3>
+        <p>
+          De cada contenedor se registra su existencia y su huella
+          (<code>mtime</code> + tamaño), nada más. Leer las pistas internas exige ffmpeg y es
+          trabajo de la Fase 5.
         </p>
         <div class="cost">
           <b>Por qué compensa</b>
-          <span>Cuesta cero en esquema, llega a cualquier profundidad y se autocorrige cuando renombras carpetas en disco.</span>
+          <span>Un escaneo de 215 MKV sobre un recurso de red tarda ~2 s: solo se listan nombres, no se lee un byte del contenido.</span>
         </div>
       </article>
     </div>

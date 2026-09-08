@@ -12,11 +12,14 @@ class PeticionEscaneo(BaseModel):
 class ResumenEscaneo(BaseModel):
     """Resultado agregado de un escaneo (`POST /scan`).
 
-    `nuevos`, `actualizados` y `sin_cambios` particionan los ficheros vistos
-    (`total`). `traducidos` y `errores` son subconjuntos según el estado final.
+    Todos los contadores salvo `carpetas` y `videos` hablan de **subtítulos**:
+    `nuevos`, `actualizados` y `sin_cambios` particionan los `.srt` vistos
+    (`total`), y `traducidos` y `errores` son subconjuntos según el estado final.
+    `videos` cuenta los contenedores inventariados, que no se parsean.
     """
 
     carpetas: int = 0
+    videos: int = 0
     nuevos: int = 0
     actualizados: int = 0
     sin_cambios: int = 0

@@ -179,6 +179,11 @@
   color: #c5221f;
 }
 
+.badge--aviso {
+  background: #fef7e0;
+  color: #a05e03;
+}
+
 /* --- Árbol de la biblioteca --------------------------------------------- */
 
 .arbol,
@@ -315,8 +320,28 @@
   border-radius: 0.35rem;
 }
 
-.entrada:hover {
+.entrada:hover:not(:disabled) {
   background: var(--code-bg);
+}
+
+.entrada--bloqueada {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.entrada-motivo {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text);
+  margin-left: 1.5rem;
+}
+
+.nota {
+  font-size: 0.78rem;
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+  margin-top: 0.6rem;
 }
 
 .modal-pie {
