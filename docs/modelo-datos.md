@@ -57,6 +57,8 @@ erDiagram
         string   nombre
         string   formato           "SRT"
         string   idioma_origen     "ES EN KO FR DE IT PT JA ZH UNKNOWN"
+        bool     es_forzado        "flag del nombre"
+        bool     es_sdh            "flag del nombre"
         int      num_caracteres    "solo texto, sin tiempos"
         int      num_bloques
         string   estado            "PENDING TRANSLATED ERROR"
@@ -65,6 +67,7 @@ erDiagram
         string   proveedor         "NULL hasta traducir"
         float    mtime             "deteccion de cambios"
         int      tamano_bytes      "deteccion de cambios"
+        int      version_analisis  "reglas con que se analizo"
         string   mensaje_error     "solo si estado = ERROR"
         datetime creado_en
         datetime actualizado_en
@@ -109,7 +112,9 @@ no acabar traduciendo traducciones.
 | `ruta` | `VARCHAR` | no | Ruta absoluta. **Única**: es la identidad del fichero |
 | `nombre` | `VARCHAR` | no | Nombre del fichero, para mostrarlo sin partir la ruta |
 | `formato` | `VARCHAR(3)` | no | `SRT`. Reservado para VTT/ASS sin migrar el esquema |
-| `idioma_origen` | `VARCHAR(7)` | no | Deducido del sufijo del nombre; `UNKNOWN` si no se reconoce |
+| `idioma_origen` | `VARCHAR(7)` | no | Idioma del subtítulo. Manda el **contenido** cuando da un veredicto claro (hangul para `KO`, densidad de palabras frecuentes para `ES`/`EN`); si no, el sufijo del nombre. `UNKNOWN` si ninguno lo aclara |
+| `es_forzado` | `BOOLEAN` | no | El nombre lo declara forzado (`.forced`, `(Forced)`): solo carteles, no sirve como origen |
+| `es_sdh` | `BOOLEAN` | no | El nombre lo declara SDH/CC/HI: trae descripciones sonoras; origen solo si no hay otro |
 | `num_caracteres` | `INTEGER` | no | Caracteres **de texto**, sin índices ni marcas de tiempo. Es la métrica que sostendrá el cálculo de cuota (Fase 4) |
 | `num_bloques` | `INTEGER` | no | Número de subtítulos (cues) del fichero |
 | `estado` | `VARCHAR(10)` | no | `PENDING` / `TRANSLATED` / `ERROR` |
@@ -118,6 +123,7 @@ no acabar traduciendo traducciones.
 | `proveedor` | `VARCHAR` | sí | Quién tradujo (DeepL…). Se rellena en Fase 3 |
 | `mtime` | `FLOAT` | no | Fecha de modificación del fichero (epoch) |
 | `tamano_bytes` | `INTEGER` | no | Tamaño del fichero |
+| `version_analisis` | `INTEGER` | no | Versión de las reglas de análisis (`scanner.VERSION_ANALISIS`) con que se procesó. Si el código las mejora, el siguiente escaneo reprocesa la fila aunque el fichero no haya cambiado |
 | `mensaje_error` | `VARCHAR` | sí | Mensaje del parser cuando `estado = ERROR` |
 | `creado_en` | `DATETIME` | no | Alta de la fila |
 | `actualizado_en` | `DATETIME` | no | Se refresca sola vía `onupdate` |

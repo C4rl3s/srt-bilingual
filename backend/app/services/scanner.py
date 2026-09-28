@@ -32,6 +32,13 @@ from app.services.subtitles.naming import (
 )
 
 
+# Versión de las reglas de análisis de subtítulos (idioma, flags…). Se sube cada vez
+# que cambian, para que el siguiente escaneo reprocese también lo que no ha cambiado
+# en disco. 1: detección por nombre (Fase 1). 2: separadores ampliados, flags y
+# detección por contenido (Fase 3).
+VERSION_ANALISIS = 2
+
+
 def _ahora() -> datetime:
     return datetime.now(UTC)
 
@@ -114,7 +121,11 @@ def _inventariar_subtitulo(
         db.add(sub)
         _procesar(sub, ruta, stat)
         resumen.nuevos += 1
-    elif sub.mtime != stat.st_mtime or sub.tamano_bytes != stat.st_size:
+    elif (
+        sub.mtime != stat.st_mtime
+        or sub.tamano_bytes != stat.st_size
+        or sub.version_analisis != VERSION_ANALISIS
+    ):
         _procesar(sub, ruta, stat)
         resumen.actualizados += 1
     else:
@@ -166,6 +177,7 @@ def _procesar(sub: ArchivoSubtitulo, ruta_srt: Path, stat) -> None:
     """Parsea el fichero y vuelca métricas/estado en la fila (o marca ERROR)."""
     sub.mtime = stat.st_mtime
     sub.tamano_bytes = stat.st_size
+    sub.version_analisis = VERSION_ANALISIS
     try:
         bloques = srt_parser.parsear(ruta_srt)
     except Exception as exc:  # noqa: BLE001 — cualquier fallo de parseo → ERROR
@@ -173,9 +185,13 @@ def _procesar(sub: ArchivoSubtitulo, ruta_srt: Path, stat) -> None:
         sub.mensaje_error = str(exc)
         return
 
+    info_nombre = srt_parser.analizar_nombre(ruta_srt.name)
     sub.num_caracteres = srt_parser.contar_caracteres(bloques)
     sub.num_bloques = srt_parser.contar_bloques(bloques)
-    sub.idioma_origen = srt_parser.detectar_idioma_desde_nombre(ruta_srt.name)
+    # Los bloques ya están en memoria: mirar el contenido no cuesta otra lectura.
+    sub.idioma_origen = srt_parser.detectar_idioma(ruta_srt.name, bloques)
+    sub.es_forzado = info_nombre.es_forzado
+    sub.es_sdh = info_nombre.es_sdh
     sub.estado = EstadoSubtitulo.PENDING
     sub.mensaje_error = None
 

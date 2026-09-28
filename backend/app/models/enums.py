@@ -84,9 +84,13 @@ SUFIJOS_IDIOMA: dict[str, Idioma] = {
     "chinese": Idioma.ZH,
 }
 
-# Tokens que a veces acompañan al idioma en el nombre y hay que ignorar al buscarlo
-# (p. ej. `pelicula.es.forced.srt`).
-TOKENS_FLAG: frozenset[str] = frozenset({"forced", "sdh", "cc", "hi"})
+# Tokens que a veces acompañan al idioma en el nombre (p. ej. `pelicula.es.forced.srt`)
+# y hay que saltar al buscarlo. Además de saltarlos, se anotan: un forzado (solo
+# carteles) no sirve como origen, y un SDH (con descripciones sonoras) solo si no hay
+# otro.
+TOKENS_FORZADO: frozenset[str] = frozenset({"forced", "forzado", "forzados"})
+TOKENS_SDH: frozenset[str] = frozenset({"sdh", "cc", "hi"})
+TOKENS_FLAG: frozenset[str] = TOKENS_FORZADO | TOKENS_SDH
 
 # Contenedores de vídeo que el escaneo inventaría. No se abren ni se parsean: se
 # registran para poder dibujar la biblioteca aunque no haya ningún `.srt` al lado

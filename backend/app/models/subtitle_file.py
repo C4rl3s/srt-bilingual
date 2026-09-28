@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -30,6 +30,11 @@ class ArchivoSubtitulo(Base):
         SAEnum(FormatoSubtitulo), default=FormatoSubtitulo.SRT
     )
     idioma_origen: Mapped[Idioma] = mapped_column(SAEnum(Idioma), default=Idioma.UNKNOWN)
+    # Flags declarados en el nombre (`.forced`, `(SDH)`…): un forzado no sirve como
+    # origen y un SDH solo si no hay otro. Se guardan para no re-leer los nombres al
+    # elegir el origen de cada obra.
+    es_forzado: Mapped[bool] = mapped_column(Boolean, default=False)
+    es_sdh: Mapped[bool] = mapped_column(Boolean, default=False)
 
     num_caracteres: Mapped[int] = mapped_column(Integer, default=0)
     num_bloques: Mapped[int] = mapped_column(Integer, default=0)
@@ -46,6 +51,10 @@ class ArchivoSubtitulo(Base):
     # Detección de cambios para no reparsear lo que no cambió.
     mtime: Mapped[float] = mapped_column()
     tamano_bytes: Mapped[int] = mapped_column(Integer)
+    # Versión de las reglas de análisis con que se procesó la fila. Si el código las
+    # mejora (sube `VERSION_ANALISIS` en el scanner), el siguiente escaneo reprocesa
+    # también los ficheros que no han cambiado en disco.
+    version_analisis: Mapped[int] = mapped_column(Integer, default=0)
 
     mensaje_error: Mapped[str | None] = mapped_column(String)
 

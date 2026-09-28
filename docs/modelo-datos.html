@@ -564,7 +564,7 @@
           <li><span class="key">UK</span> ruta</li>
           <li><span class="key is-plain">·</span> estado</li>
           <li><span class="key is-plain">·</span> num_caracteres</li>
-          <li><span class="key is-plain">·</span> <span class="more">+ 12 columnas</span></li>
+          <li><span class="key is-plain">·</span> <span class="more">+ 15 columnas</span></li>
         </ul>
       </div>
     </div>
@@ -686,7 +686,19 @@
             <td>idioma_origen</td>
             <td class="type">VARCHAR(7)</td>
             <td class="nul no">no</td>
-            <td>Deducido del sufijo del nombre; <code>UNKNOWN</code> si no se reconoce</td>
+            <td>Manda el <strong>contenido</strong> cuando da un veredicto claro (hangul para <code>KO</code>, palabras frecuentes para <code>ES</code>/<code>EN</code>); si no, el sufijo del nombre. <code>UNKNOWN</code> si ninguno lo aclara</td>
+          </tr>
+          <tr>
+            <td>es_forzado</td>
+            <td class="type">BOOLEAN</td>
+            <td class="nul no">no</td>
+            <td>El nombre lo declara forzado · solo carteles, no sirve como origen</td>
+          </tr>
+          <tr>
+            <td>es_sdh</td>
+            <td class="type">BOOLEAN</td>
+            <td class="nul no">no</td>
+            <td>El nombre lo declara SDH/CC/HI · origen solo si no hay otro</td>
           </tr>
           <tr>
             <td>num_caracteres</td>
@@ -735,6 +747,12 @@
             <td class="type">INTEGER</td>
             <td class="nul no">no</td>
             <td>Tamaño del fichero. Con <code>mtime</code>, decide si hay que reparsear</td>
+          </tr>
+          <tr>
+            <td>version_analisis</td>
+            <td class="type">INTEGER</td>
+            <td class="nul no">no</td>
+            <td>Versión de las reglas de análisis con que se procesó · si mejoran, se reprocesa aunque el fichero no cambie</td>
           </tr>
           <tr>
             <td>mensaje_error</td>

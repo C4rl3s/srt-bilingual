@@ -11,7 +11,7 @@ from app.models.enums import EstadoSubtitulo, Idioma
 from app.models.library_folder import CarpetaBiblioteca
 from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
-from app.services.scanner import escanear
+from app.services.scanner import VERSION_ANALISIS, escanear
 from tests.conftest import escribir_srt, escribir_video
 
 Registrar = Callable[..., list[CarpetaBiblioteca]]
@@ -117,6 +117,61 @@ def test_sin_idioma_de_origen_no_se_marca_traducido(
     sub = _subtitulos(db)[0]
     assert sub.idioma_origen is Idioma.UNKNOWN
     assert sub.estado is EstadoSubtitulo.PENDING
+
+
+def _srt_con_lineas(*lineas: str, repeticiones: int = 10) -> str:
+    """Contenido `.srt` con las líneas dadas, repetidas para dar muestra al detector."""
+    bloques = []
+    for i, linea in enumerate(lineas * repeticiones):
+        bloques.append(f"{i + 1}\n00:00:{i % 60:02d},000 --> 00:00:{i % 60:02d},500\n{linea}\n")
+    return "\n".join(bloques)
+
+
+def test_sin_idioma_en_el_nombre_se_deduce_del_contenido(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    escribir_srt(
+        tmp_path / "Pelicula.1080p-[YTS.MX].srt",
+        _srt_con_lineas("What are you doing here? I don't know.", "It's all right, just go."),
+    )
+    registrar_carpetas(tmp_path)
+
+    escanear(db)
+
+    assert _subtitulos(db)[0].idioma_origen is Idioma.EN
+
+
+def test_guarda_los_flags_del_nombre(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    escribir_srt(tmp_path / "Subs" / "Latin American (Forced).spa.srt")
+    escribir_srt(tmp_path / "Subs" / "SDH.eng.HI.srt")
+    registrar_carpetas(tmp_path)
+
+    escanear(db)
+
+    forzado, sdh = _subtitulos(db)
+    assert (forzado.idioma_origen, forzado.es_forzado, forzado.es_sdh) == (Idioma.ES, True, False)
+    assert (sdh.idioma_origen, sdh.es_forzado, sdh.es_sdh) == (Idioma.EN, False, True)
+
+
+def test_reprocesa_lo_analizado_con_reglas_antiguas(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    """Si mejoran las reglas de análisis, lo ya inventariado se reprocesa aunque el
+    fichero no haya cambiado en disco."""
+    escribir_srt(tmp_path / "2_English.srt")
+    registrar_carpetas(tmp_path)
+    escanear(db)
+    sub = _subtitulos(db)[0]
+    sub.version_analisis = VERSION_ANALISIS - 1  # como si viniera de la versión anterior
+    sub.idioma_origen = Idioma.UNKNOWN
+    db.commit()
+
+    resumen = escanear(db)
+
+    assert resumen.actualizados == 1
+    assert _subtitulos(db)[0].idioma_origen is Idioma.EN
 
 
 def test_borra_los_huerfanos(db: Session, tmp_path: Path, registrar_carpetas: Registrar) -> None:
