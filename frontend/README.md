@@ -50,8 +50,9 @@ src/
         ├── Biblioteca.tsx        las tres columnas y las preferencias recordadas
         ├── ArbolCarpetas.tsx     árbol plegable (componente recursivo)
         ├── ContenidoCarpeta.tsx  mosaico o lista, filtros y selección
-        ├── PanelDetalle.tsx      origen, coreano, fusión, muestra y generar
-        └── PanelSeleccion.tsx    resumen de la selección y cupo que gastará
+        ├── PanelDetalle.tsx      origen, coreano, fusión, muestra, extraer pistas y generar
+        ├── PanelSeleccion.tsx    resumen de la selección y cupo que gastará
+        └── Tirador.tsx           borde arrastrable para ensanchar o estrechar un lateral
 ```
 
 ## Cómo se habla con el backend
@@ -73,9 +74,21 @@ cambia un DTO en el backend, hay que actualizarlo aquí.
   como una temporada). La carpeta de cada película no sale: sus obras se ven al
   elegir `Pelis` (`utils/biblioteca.ts`, `esNavegable`).
 - **Preferencias recordadas en `localStorage`**: árbol plegado, carpetas
-  desplegadas, carpeta elegida y la vista (mosaico o lista) de cada carpeta.
+  desplegadas, carpeta elegida, la vista (mosaico o lista) de cada carpeta y el
+  ancho de los dos laterales.
+- **Laterales redimensionables**: el árbol y el panel de la obra se ensanchan o
+  estrechan arrastrando su borde (`Tirador.tsx`, con *pointer events*); doble clic
+  vuelve al ancho de siempre y, con el borde enfocado (Tab), las flechas lo mueven de
+  16 en 16 px. El centro nunca baja de 320 px. Los anchos llegan al CSS como
+  variables (`--ancho-arbol`, `--ancho-panel`), que el móvil ignora.
 - **El progreso se ve por sondeo**: mientras haya trabajos activos se pregunta cada
-  2 s; al terminar el último se recargan el árbol y el cupo.
+  2 s; al terminar el último se recargan el árbol y el cupo. Igual con la lectura
+  de pistas tras un escaneo (`useSondeo`) y con la extracción pedida desde el
+  detalle.
+- **Pistas incrustadas en el vídeo** (Fase 5): llevan la etiqueta «dentro del vídeo»
+  y, mientras no se extraen, sus líneas y su coste van con «≈» (salen de la cabecera
+  de la pista). Un trabajo que las usa pasa antes por la fase «Extrayendo», con una
+  barra sin porcentaje.
 - **El explorador de carpetas lo sirve el backend.** El navegador no puede dar la
   ruta absoluta de una carpeta del sistema, así que se navega con
   `/api/fs/roots` y `/api/fs/browse`.

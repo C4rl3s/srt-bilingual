@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
 import { usePersistente } from '../../hooks/usePersistente'
 import type { EstadoCupo, NodoArbol, Trabajo } from '../../types'
 import { type Filtro, buscar, caminoHasta, nombreCarpeta, obrasDe } from '../../utils/biblioteca'
@@ -7,6 +7,26 @@ import { ArbolCarpetas } from './ArbolCarpetas'
 import { ContenidoCarpeta, type Vista } from './ContenidoCarpeta'
 import { PanelDetalle } from './PanelDetalle'
 import { PanelSeleccion } from './PanelSeleccion'
+import { Tirador } from './Tirador'
+
+// Anchos de los laterales, en píxeles: el de siempre y los límites al arrastrar.
+const ARBOL = { porDefecto: 284, minimo: 200, maximo: 600 }
+const PANEL = { porDefecto: 380, minimo: 320, maximo: 760 }
+// Lo que ocupa el árbol plegado (su franja de iconos), y lo mínimo que se deja al
+// contenido central para que el mosaico siga teniendo al menos una columna.
+const ARBOL_PLEGADO = 56
+const MINIMO_CENTRO = 320
+
+/** El ancho de la ventana, al día: los límites de los laterales dependen de él. */
+function useAnchoVentana(): number {
+  const [ancho, setAncho] = useState(window.innerWidth)
+  useEffect(() => {
+    const alCambiar = () => setAncho(window.innerWidth)
+    window.addEventListener('resize', alCambiar)
+    return () => window.removeEventListener('resize', alCambiar)
+  }, [])
+  return ancho
+}
 
 interface Props {
   arbol: NodoArbol[]
@@ -34,6 +54,10 @@ export function Biblioteca(props: Props) {
   const [abiertas, setAbiertas] = usePersistente<string[]>('arbol.abiertas', [])
   const [vistas, setVistas] = usePersistente<Record<string, Vista>>('vistas', {})
   const [rutaCarpeta, setRutaCarpeta] = usePersistente<string | null>('carpeta', null)
+  // Anchos de las columnas laterales, que el usuario ajusta arrastrando su borde.
+  const [anchoArbol, setAnchoArbol] = usePersistente('ancho.arbol', ARBOL.porDefecto)
+  const [anchoPanel, setAnchoPanel] = usePersistente('ancho.panel', PANEL.porDefecto)
+  const ventana = useAnchoVentana()
 
   const [filtro, setFiltro] = useState<Filtro>('TODAS')
   const [rutaObra, setRutaObra] = useState<string | null>(null)
@@ -109,8 +133,30 @@ export function Biblioteca(props: Props) {
   const miga = camino.map((nodo, i) => nombreCarpeta(nodo, i === 0)).join(' › ')
   const hayPanel = seleccionando || obraElegida !== null
 
+  // Cada lateral puede crecer hasta su máximo, pero sin dejar el contenido central
+  // por debajo de su mínimo: el límite depende de la ventana y del otro lateral. Si
+  // la ventana encoge, el ancho mostrado se recorta sin perder el que eligió el
+  // usuario, que vuelve al agrandarla.
+  const ocupadoArbol = plegado ? ARBOL_PLEGADO : anchoArbol
+  const maximoArbol = Math.max(
+    ARBOL.minimo,
+    Math.min(ARBOL.maximo, ventana - (hayPanel ? anchoPanel : 0) - MINIMO_CENTRO),
+  )
+  const maximoPanel = Math.max(
+    PANEL.minimo,
+    Math.min(PANEL.maximo, ventana - ocupadoArbol - MINIMO_CENTRO),
+  )
+  const arbolVisible = Math.min(anchoArbol, maximoArbol)
+  const panelVisible = Math.min(anchoPanel, maximoPanel)
+  // Los anchos llegan al CSS como variables: así las reglas de pantalla estrecha (donde
+  // los laterales son cajones) pueden ignorarlos sin pelearse con un `style` en línea.
+  const anchos = {
+    '--ancho-arbol': `${arbolVisible}px`,
+    '--ancho-panel': `${panelVisible}px`,
+  } as CSSProperties
+
   return (
-    <div className={`biblioteca ${hayPanel ? 'biblioteca--con-panel' : ''}`}>
+    <div className={`biblioteca ${hayPanel ? 'biblioteca--con-panel' : ''}`} style={anchos}>
       <div className={`arbol-cajon ${props.arbolAbiertoMovil ? 'arbol-cajon--abierto' : ''}`}>
         <ArbolCarpetas
           raices={arbol}
@@ -128,6 +174,17 @@ export function Biblioteca(props: Props) {
       </div>
       {props.arbolAbiertoMovil && (
         <button className="velo" onClick={props.onCerrarArbolMovil} aria-label="Cerrar carpetas" />
+      )}
+      {!plegado && (
+        <Tirador
+          panel="izquierda"
+          etiqueta="Ancho del árbol de carpetas"
+          ancho={arbolVisible}
+          minimo={ARBOL.minimo}
+          maximo={maximoArbol}
+          porDefecto={ARBOL.porDefecto}
+          onCambiar={setAnchoArbol}
+        />
       )}
 
       <ContenidoCarpeta
@@ -149,6 +206,18 @@ export function Biblioteca(props: Props) {
         onAlternarSeleccion={alternarSeleccion}
         progreso={progreso}
       />
+
+      {hayPanel && (
+        <Tirador
+          panel="derecha"
+          etiqueta="Ancho del panel de la obra"
+          ancho={panelVisible}
+          minimo={PANEL.minimo}
+          maximo={maximoPanel}
+          porDefecto={PANEL.porDefecto}
+          onCambiar={setAnchoPanel}
+        />
+      )}
 
       {seleccionando ? (
         <PanelSeleccion

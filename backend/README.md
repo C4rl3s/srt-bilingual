@@ -1,8 +1,9 @@
 # Backend — srt-bilingual
 
-API FastAPI que inventaría la biblioteca de vídeo y subtítulos y genera los `.srt`
-bilingües, por traducción (Azure Translator o DeepL, según su cupo libre) o por
-fusión con un coreano existente. Gestionado con
+API FastAPI que inventaría la biblioteca de vídeo y subtítulos (también las pistas
+de dentro de los vídeos, con ffmpeg) y genera los `.srt` bilingües, por traducción
+(Azure Translator o DeepL, según su cupo libre) o por fusión con un coreano
+existente. Gestionado con
 [uv](https://docs.astral.sh/uv/); base de datos SQLite.
 
 ## Puesta en marcha

@@ -583,10 +583,54 @@
   display: none;
 }
 
+/* Borde arrastrable entre columnas (ver `Tirador.tsx`). Una franja de 9 px, invisible
+   hasta pasar por encima, montada sobre el borde de 1 px del panel: fácil de acertar
+   con el ratón sin robar espacio a las columnas. */
+.tirador {
+  position: relative;
+  z-index: 5;
+  flex-shrink: 0;
+  width: 9px;
+  margin: 0 -4px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.tirador::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 3px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.tirador:hover::after,
+.tirador:focus-visible::after {
+  background: var(--origen);
+}
+
+.tirador:focus-visible {
+  outline: none;
+}
+
+/* Mientras se arrastra: el cursor en toda la página y sin seleccionar texto. */
+body.arrastrando {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.arrastrando .tirador::after {
+  background: var(--origen);
+}
+
 /* --- Árbol de carpetas ------------------------------------------------------------- */
 
 .arbol {
-  width: 284px;
+  width: var(--ancho-arbol, 284px);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -937,7 +981,7 @@
 /* --- Paneles de detalle y de selección --------------------------------------------- */
 
 .detalle {
-  width: 380px;
+  width: var(--ancho-panel, 380px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -1576,6 +1620,16 @@
 
   .arbol-cajon--abierto {
     transform: none;
+  }
+
+  /* Aquí los laterales son cajones: ni se arrastran ni siguen el ancho elegido en
+     pantalla grande. */
+  .tirador {
+    display: none;
+  }
+
+  .arbol:not(.arbol--plegado) {
+    width: min(284px, 85vw);
   }
 
   .velo {

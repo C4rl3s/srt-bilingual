@@ -1,7 +1,8 @@
 # srt-bilingual
 
 Aplicación web para generar subtítulos **bilingües** (español o inglés + coreano) a
-partir de ficheros `.srt`, pensada para usarse junto a una biblioteca **Plex**.
+partir de ficheros `.srt` o de los subtítulos que traen **dentro** los vídeos (MKV),
+pensada para usarse junto a una biblioteca **Plex**.
 
 En lugar de fusionar dos `.srt` independientes (que casi nunca cuadran en tiempos),
 parte del `.srt` original y pone el coreano debajo de cada bloque, **reutilizando
@@ -14,16 +15,21 @@ Texto original en español
 한국어 번역
 ```
 
+El original puede ser un `.srt` junto al vídeo o una **pista incrustada** en él: tras
+cada escaneo la app lee qué pistas trae cada vídeo, y las extrae (con ffmpeg) al
+generar. Solo pistas de texto; las de imagen (PGS de los Blu-ray) no se leen.
+
 El coreano sale de uno de dos sitios:
 
-- **Fusión**: si la película ya tiene un `.srt` coreano, se alinea con el original
-  (corrigiendo desfases y cortes distintos). No gasta cupo de traducción.
+- **Fusión**: si la película ya tiene coreano, un `.srt` o una pista del propio
+  vídeo, se alinea con el original (corrigiendo desfases y cortes distintos). No
+  gasta cupo de traducción.
 - **Traducción**: si no, lo traduce un proveedor (Azure Translator o DeepL), por
   lotes. La app elige el primero de tu lista de preferencia que tenga **cupo libre**
   para toda la película, y enseña el cupo de cada uno.
 
 El bilingüe se escribe junto al vídeo como `<vídeo>.ES-KO.bilingue.srt`, y Plex lo
-muestra como «Español (KO)».
+muestra como «Español (KO)». El vídeo nunca se modifica.
 
 ## Stack
 
@@ -31,6 +37,7 @@ muestra como «Español (KO)».
 - **Frontend:** React + TypeScript + Vite.
 - **Traducción:** capa multi-proveedor: Azure Translator y DeepL, con elección
   automática según el cupo libre de cada uno.
+- **Vídeos:** ffmpeg (`ffprobe` para leer las pistas, `ffmpeg` para extraerlas).
 
 ## Estructura
 
@@ -43,7 +50,9 @@ srt-bilingual/
 
 ## Puesta en marcha (desarrollo)
 
-Hacen falta [uv](https://docs.astral.sh/uv/) y Node.js 24.
+Hacen falta [uv](https://docs.astral.sh/uv/), Node.js 24 y, para los subtítulos
+dentro de los vídeos, [ffmpeg](https://ffmpeg.org/) en el `PATH` (en Windows:
+`winget install Gyan.FFmpeg`). Sin ffmpeg la app funciona igual con los `.srt`.
 
 ### 1. Backend
 
@@ -70,6 +79,8 @@ sitio.
 | `DEEPL_API_KEY` | Clave de la API de DeepL. Su cupo lo informa la propia API | — |
 | `DATABASE_URL` | Base de datos | `sqlite:///./srt_bilingual.db` |
 | `OUTPUT_DIR` | Carpeta alternativa para los bilingües (si la biblioteca es de solo lectura) | vacía: junto al vídeo |
+| `FFPROBE_PATH` / `FFMPEG_PATH` | Ejecutables de ffmpeg, si no están en el `PATH` | `ffprobe` / `ffmpeg` |
+| `CACHE_DIR` | Dónde se guardan las pistas extraídas de los vídeos. Reconstruible: borrarla solo obliga a volver a extraer | `./cache` |
 
 > **Escucha solo en local.** `/fs/browse` lista directorios de la máquina para que
 > el selector de carpetas funcione. Deja uvicorn en `127.0.0.1`, el valor por
@@ -88,24 +99,32 @@ Vite reenvía las peticiones a `/api/*` al backend del puerto 8000.
 ### 3. Primer uso
 
 1. En la interfaz: **Biblioteca › Gestionar carpetas**, añade las carpetas de tu
-   biblioteca y pulsa **Escanear**.
-2. Elige una película: el panel de la derecha dice qué subtítulo usará de origen,
-   si ya hay coreano (fusión), con qué proveedor se traducirá si no, y cómo quedará.
+   biblioteca y pulsa **Escanear**. Después, en segundo plano, se leen las pistas de
+   subtítulo de los vídeos: la primera vez son unos minutos por cada cien vídeos si
+   la biblioteca está en red; la cabecera dice cómo va.
+2. Elige una película: el panel de la derecha dice qué subtítulo usará de origen
+   (un `.srt` o una pista «dentro del vídeo»), si ya hay coreano (fusión), con qué
+   proveedor se traducirá si no, y cómo quedará. Si el origen es una pista, la
+   muestra aparece al pulsar **Extraer pistas**, que lee el vídeo entero.
 3. **Generar bilingüe**. El progreso y el cupo de cada proveedor aparecen en
    **Trabajos**.
+
+Los paneles de la biblioteca (el árbol y el de la obra) se ensanchan o estrechan
+arrastrando su borde; doble clic lo devuelve a su ancho.
 
 ## Despliegue
 
 **Aún no implementado.** El destino previsto es un servidor local que hará de NAS,
 con Docker, donde también correrá Plex. Las carpetas de la biblioteca serán locales
-(montadas como volúmenes), sin recursos compartidos de red. Cuando llegue ese paso,
-esta sección explicará la imagen, el `docker compose`, los volúmenes y las
+(montadas como volúmenes), sin recursos compartidos de red. El servidor aún no
+existe: cuando llegue ese paso, esta sección explicará la imagen (con ffmpeg), el
+`docker compose`, los volúmenes (biblioteca, base de datos y `CACHE_DIR`) y las
 variables. Los requisitos están en `CLAUDE.md` (Estado del plan).
 
 ## Tests
 
 ```bash
-cd backend && uv run pytest               # 227 tests; ninguno llama a Azure ni a DeepL
+cd backend && uv run pytest               # 298 tests; ninguno llama a Azure, a DeepL ni a ffmpeg
 cd frontend && npm run build              # comprueba los tipos y compila
 ```
 
@@ -118,5 +137,7 @@ cd frontend && npm run build              # comprueba los tipos y compila
   bilingüe, selección del subtítulo de origen, renombrado para Plex e interfaz nueva.
 - [x] **Fase 4** — Azure Translator como segundo proveedor, cupo de cada proveedor
   (según su API o el registro de la app) y elección automática según el cupo libre.
-- [ ] **Fase 5** — Soporte MKV: bilingües a partir de las pistas embebidas.
+- [ ] **Fase 5** — Subtítulos dentro de los vídeos: lectura de sus pistas, extracción,
+  y traducción o fusión desde ellas (hecho); queda la prueba de calidad fusión frente
+  a traducción.
 - [ ] **Despliegue** con Docker en el servidor local, y web de documentación.

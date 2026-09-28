@@ -1,5 +1,9 @@
 # Fase 5 — Subtítulos incrustados en MKV
 
+> **Estado (2026-09-28): hitos 1–5 hechos**, más los paneles redimensionables que
+> pidió el usuario durante el hito 5. **Falta el hito 6**, la prueba de calidad. Lo
+> que acabó pasando, en `docs/bitacora-fase5.md`.
+
 ## Contexto
 
 Anime y Series son **todo MKV sin un solo `.srt` al lado**: los subtítulos viajan

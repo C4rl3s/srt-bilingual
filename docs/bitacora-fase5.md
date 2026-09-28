@@ -216,3 +216,50 @@ Commit `5bcfa94`.
     en el NAS junto al vídeo.
   - Carpetas → **Escanear**: «Leyendo las pistas de subtítulo…» y, sin vídeos nuevos,
     termina en segundos.
+
+Commit `5bd0058`.
+
+## Hito 5 — Documentación, y paneles redimensionables (2026-09-28)
+
+### Paneles redimensionables (petición del usuario)
+
+El árbol de la izquierda y el panel de la obra de la derecha se ensanchan o
+estrechan arrastrando su borde:
+
+- `components/biblioteca/Tirador.tsx`: una franja de 9 px sobre el borde del panel,
+  invisible hasta pasar por encima. *Pointer events* con `setPointerCapture`, así
+  que vale para ratón, dedo y lápiz, y no se pierde al arrastrar deprisa. Es un
+  `separator` accesible: con Tab y las flechas (16 px, ×4 con Mayúsculas),
+  Inicio/Fin a los límites, y doble clic para el ancho de siempre.
+- Límites: árbol 200–600 px y panel 320–760 px, y nunca por debajo de 320 px para
+  el centro (se recalcula al cambiar la ventana, sin perder el ancho elegido).
+- Los anchos se guardan en `localStorage` como el resto de preferencias, y llegan
+  al CSS como variables (`--ancho-arbol`, `--ancho-panel`). En pantalla estrecha,
+  donde los laterales son cajones, no hay tiradores y los anchos se ignoran.
+- Un detalle que salió al probarlo: tras arrastrar con el ratón, el tirador quedaba
+  enfocado y Chrome lo pintaba como foco de teclado, resaltado hasta hacer clic en
+  otro sitio. Se le quita el foco al soltar.
+
+Verificado en el navegador: árbol 284 → 434 px, panel 380 → 580 px; empujando el
+panel al máximo, el centro se queda en ~320 px; el ancho sobrevive a recargar; el
+doble clic vuelve a 284; dos flechas, +32 px; en móvil no aparece ningún tirador.
+Sin errores en consola.
+
+### Documentación
+
+- `README.md` de la raíz: los subtítulos dentro de los vídeos en la descripción,
+  ffmpeg como requisito, `FFPROBE_PATH`/`FFMPEG_PATH`/`CACHE_DIR`, el primer uso con
+  pistas y los paneles, y el estado de la fase.
+- `backend/README.md` y `frontend/README.md`: estructura, ideas de diseño y
+  endpoints nuevos.
+- `CLAUDE.md`: stack, estado de la Fase 5 y deuda técnica (estado en memoria del
+  proceso, el resumen del escaneo sin pistas, el OCR pendiente).
+- `docs/modelo-datos.md`/`.html` ya se actualizaron en cada hito.
+
+### Lo que queda de la fase
+
+- **Hito 6: la prueba de calidad** (ver el plan): *Moonrise* 01, fusión con la pista
+  `NF_Korean` (ya hecha) frente a traducción con Azure del español, comparadas bloque
+  a bloque. Antes, el bilingüe de la fusión se renombra con el sufijo `fusion`.
+- Los bilingües de las pruebas (*Moonrise* 01–03, *Shingeki* 01) están en el NAS,
+  por si se quieren ver en Plex.

@@ -30,7 +30,7 @@ Texto original en español
 | Base de datos | **SQLite** | Un solo usuario, sin servidor; fichero local. |
 | Frontend | **React + TypeScript + Vite** | El usuario aprende React aquí; mantener el código claro y didáctico. |
 | Traducción | Capa **multi-proveedor** | Azure Translator (REST con httpx) y DeepL (SDK oficial), con elección automática según cupo libre. |
-| MKV (futuro) | ffmpeg / pymkv2 | Extracción e inyección de subtítulos embebidos. |
+| Vídeos | ffmpeg (binario externo) | `ffprobe` lee las pistas de subtítulo; `ffmpeg` las extrae. Sin librería Python: dos llamadas a `subprocess`. |
 
 Decisiones tomadas (no re-litigar sin motivo):
 - Python+FastAPI sobre Java/Spring: ecosistema de subtítulos/MKV superior, más
@@ -262,18 +262,29 @@ Plan de desarrollo aprobado en 6 fases.
   `provider_usage` descartada (el consumo sale de `translation_job`). 227 tests en
   verde y verificado con las cuentas reales (2026-09-28). Plan:
   `docs/plans/plan-fase4.md`. Bitácora: `docs/bitacora-fase4.md`.
-- [ ] **Fase 5 — Soporte MKV.** Extracción de subtítulos embebidos (ffmpeg/pymkv2)
-  e inyección del track bilingüe. **Requisito del usuario (2026-09-28): fusión
-  desde pistas embebidas.** Si un MKV trae una pista ES/EN y hay coreano, ya sea
-  otra pista del mismo MKV o un `.srt` externo, se fusionan con el modo fusión de
-  la Fase 3 (`alineacion.py`) y el resultado se deja **fuera, como `.srt`
-  bilingüe** junto al vídeo. Cubre, por ejemplo, los 27 MKV de Anime que ya traen
-  pista coreana. Por eso `alineacion.py` y `bilingual.py` trabajan con
-  `list[Bloque]` y no con rutas de `.srt`: el origen puede ser una pista extraída.
-  **No se inyecta nada en el MKV.** Sondeo de los 428 MKV reales (2026-09-28): 278
-  con origen ES/EN en texto y 59 fusionables sin cupo; 130 capítulos de Series solo
-  tienen origen en imagen (PGS), y el **OCR queda fuera** (decisión del usuario).
-  Castellano antes que latino. Plan: `docs/plans/plan-fase5.md`.
+- [ ] **Fase 5 — Subtítulos dentro de los vídeos.** Hitos 1–5 hechos (2026-09-28);
+  **falta el hito 6, la prueba de calidad** pedida por el usuario (fusión con un
+  coreano no-API frente a traducción con Azure de la misma obra, comparada por
+  Claude; ver el plan). Lo hecho:
+  - Una pista incrustada es una fila de `subtitle_file` con `video_id`: la
+    selección, los trabajos y la interfaz la tratan como un `.srt` más, y una obra
+    puede mezclar pista y `.srt` (p. ej. pista española + `.srt` coreano).
+  - Tras cada escaneo, `ffprobe` lee en segundo plano la cabecera de los vídeos
+    nuevos o cambiados (`services/mkv/sondeo.py`). Extraer obliga a leer el MKV
+    entero (1–1,5 min por episodio por la red), así que va dentro del trabajo o
+    del botón «Extraer pistas», con caché (`CACHE_DIR`).
+  - Parser ASS propio que deja solo el diálogo (fuera carteles, dibujos, karaoke y
+    opening/ending). Las líneas de la cabecera no se comparan entre pistas: en los
+    fansubs las inflan los carteles.
+  - Tras extraer, el trabajo revisa lo elegido con el texto real (forzado, otro
+    idioma) y ajusta la reserva de cupo a la cifra exacta.
+  - **No se inyecta nada en el MKV**: el bilingüe es siempre un `.srt` junto al
+    vídeo. **Sin OCR**: 130 capítulos de Series solo tienen origen en imagen (PGS).
+    **Castellano antes que latino.** (Decisiones del usuario.)
+  - Paneles laterales de la biblioteca redimensionables arrastrando su borde.
+  - 298 tests; verificado con Anime real (207 obras elegibles, 27 fusionables;
+    *Moonrise* 01–03 fusionados y *Shingeki* 01 traducido, en el NAS). Plan:
+    `docs/plans/plan-fase5.md`. Bitácora: `docs/bitacora-fase5.md`.
 - [ ] **Al terminar — despliegue con Docker en un servidor local** (requisito del
   usuario, 2026-09-28). **El equipo aún no existe**: lo que se entrega es
   **documentación e instrucciones** para cuando se monte, no un despliegue
@@ -359,5 +370,14 @@ dentro del plan de esa fase, no en un fichero nuevo.
 - `GET /library/tree` reconstruye el árbol entero en memoria en cada petición. Para
   una biblioteca doméstica sobra; si algún día pesa, el sitio donde paginar o cachear
   es `services/library_tree.py`.
+- **Estado en memoria del proceso**: el progreso del sondeo de pistas y el estado de
+  las extracciones pedidas desde la interfaz (`services/mkv/`) viven en el proceso
+  del backend, igual que el cerrojo por vídeo. Con un solo usuario y un solo proceso
+  de uvicorn basta; con varios *workers* no se verían entre sí.
+- `ResumenEscaneo.total` cuenta solo los `.srt`: las pistas de los vídeos se leen
+  después, en segundo plano, y no entran en el resumen del escaneo.
+- **OCR de pistas de imagen** (PGS/VobSub) fuera de la Fase 5 por decisión del
+  usuario: 130 capítulos de Series (*Better Call Saul*) solo tienen ES/EN así. Sería
+  una fase aparte.
 - El explorador `/fs/browse` deja navegar todo el disco a propósito (lo necesita el
   selector). Por eso el servidor debe escuchar solo en `127.0.0.1`.
