@@ -1,8 +1,9 @@
 # Modelo de datos
 
 Esquema de la base de datos SQLite de srt-bilingual. Refleja las migraciones
-`4684c713e94f` (Fase 1), `bd028a52d162` (columna `activa`) y `deb86f77e1a9`
-(tabla `media_file`). Si cambias un modelo en `backend/app/models/`, genera la
+`4684c713e94f` (Fase 1), `bd028a52d162` (columna `activa`), `deb86f77e1a9`
+(tabla `media_file`), `6f170d42eb87` (flags y `version_analisis`) y `b9edc39727eb`
+(tabla `translation_job`). Si cambias un modelo en `backend/app/models/`, genera la
 migración **y actualiza este documento en el mismo commit**.
 
 > **Este fichero es la fuente de verdad.** Al lado hay una versión visual del mismo
@@ -18,7 +19,8 @@ migración **y actualiza este documento en el mismo commit**.
 > reconstruible.**
 
 Todo lo que hay en las tablas se puede regenerar borrando el `.db`, aplicando las
-migraciones y lanzando un escaneo. Ninguna decisión del sistema depende de un dato
+migraciones y lanzando un escaneo, **salvo `translation_job`**, que es historial de
+trabajos y de cuota consumida (ver su sección). Ninguna decisión del sistema depende de un dato
 que solo exista en la base de datos: lo traducido se reconoce porque el
 `.bilingue.srt` está en disco, no porque una fila lo diga.
 
@@ -28,6 +30,29 @@ que solo exista en la base de datos: lo traducido se reconoce porque el
 erDiagram
     library_folder ||--o{ subtitle_file : "contiene"
     library_folder ||--o{ media_file : "contiene"
+    subtitle_file |o--o{ translation_job : "origen (SET NULL)"
+    subtitle_file |o--o{ translation_job : "coreano (SET NULL)"
+
+    translation_job {
+        int      id                   PK
+        string   modo                    "TRADUCCION FUSION"
+        string   estado                  "QUEUED RUNNING DONE FAILED"
+        int      subtitulo_id         FK "ON DELETE SET NULL"
+        int      subtitulo_coreano_id FK "ON DELETE SET NULL, solo FUSION"
+        string   ruta_origen             "copia al crear el trabajo"
+        string   ruta_coreano            "copia, solo FUSION"
+        string   ruta_bilingue           "NULL hasta terminar"
+        string   idioma_origen           "ES EN"
+        string   proveedor               "NULL en FUSION"
+        int      num_caracteres          "enviados al proveedor"
+        float    calidad_alineacion      "solo FUSION"
+        int      bloques_totales
+        int      bloques_procesados
+        string   mensaje_error           "solo si FAILED"
+        datetime creado_en
+        datetime iniciado_en
+        datetime finalizado_en
+    }
 
     media_file {
         int      id             PK
@@ -160,6 +185,42 @@ subtítulos viajan embebidos dentro del propio MKV.
 
 Las pistas de subtítulo embebidas son cosa de la Fase 5; esta tabla es donde
 colgarán.
+
+## `translation_job`
+
+Cada generación de un bilingüe (Fase 3): **por traducción**, que gasta cuota del
+proveedor, o **por fusión** con un subtítulo coreano que ya existía, que no la gasta.
+Se ejecuta en segundo plano y el frontend consulta aquí su progreso.
+
+Es la única tabla que **no es un índice reconstruible**: es historial. Los
+`num_caracteres` de los trabajos terminados son lo que la Fase 4 agregará por
+proveedor y mes. Por eso sobrevive a sus subtítulos: si un escaneo borra el `.srt` de
+origen, la clave foránea pasa a `NULL` (`ON DELETE SET NULL`) pero el trabajo, sus
+rutas y sus caracteres se conservan.
+
+| Columna | Tipo SQLite | Nulo | Para qué sirve |
+|---|---|---|---|
+| `id` | `INTEGER` PK | no | Clave primaria |
+| `modo` | `VARCHAR(10)` | no | `TRADUCCION` / `FUSION` |
+| `estado` | `VARCHAR(7)` | no | `QUEUED` / `RUNNING` / `DONE` / `FAILED` |
+| `subtitulo_id` | `INTEGER` FK | sí | Subtítulo de origen (ES/EN). `ON DELETE SET NULL` |
+| `subtitulo_coreano_id` | `INTEGER` FK | sí | Solo en `FUSION`: el coreano que se alinea. `ON DELETE SET NULL` |
+| `ruta_origen` | `VARCHAR` | no | Copia de la ruta del origen al crear el trabajo. Un trabajo en curso sigue funcionando aunque un escaneo borre la fila, y en la Fase 5 el origen podrá ser una pista de un MKV, que no es una fila de `subtitle_file` |
+| `ruta_coreano` | `VARCHAR` | sí | Ídem para el coreano, solo en `FUSION` |
+| `ruta_bilingue` | `VARCHAR` | sí | Fichero generado; `NULL` hasta que termina |
+| `idioma_origen` | `VARCHAR(7)` | no | `ES` o `EN`. El destino es siempre coreano |
+| `proveedor` | `VARCHAR` | sí | Quién tradujo (DeepL…); `NULL` en `FUSION` |
+| `num_caracteres` | `INTEGER` | no | Caracteres enviados al proveedor; `0` en `FUSION`. Lo que agregará la Fase 4 |
+| `calidad_alineacion` | `FLOAT` | sí | Solo en `FUSION`: fracción de bloques coreanos bien colocados (0 a 1) |
+| `bloques_totales` | `INTEGER` | no | Para la barra de progreso |
+| `bloques_procesados` | `INTEGER` | no | Para la barra de progreso |
+| `mensaje_error` | `VARCHAR` | sí | Motivo cuando `estado = FAILED` |
+| `creado_en` | `DATETIME` | no | Alta del trabajo |
+| `iniciado_en` | `DATETIME` | sí | Cuando la tarea de fondo lo recoge |
+| `finalizado_en` | `DATETIME` | sí | Cuando termina, bien o mal |
+
+**Índices:** `ix_translation_job_estado` (listar los trabajos activos, que el frontend
+sondea) e `ix_translation_job_subtitulo_id` (historial de un subtítulo).
 
 ## Estados
 

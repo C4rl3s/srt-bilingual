@@ -15,6 +15,22 @@ class EstadoSubtitulo(str, Enum):
     ERROR = "ERROR"  # falló el parseo
 
 
+class ModoTrabajo(str, Enum):
+    """De dónde sale el coreano del bilingüe."""
+
+    TRADUCCION = "TRADUCCION"  # lo traduce un proveedor (DeepL…): gasta cuota
+    FUSION = "FUSION"  # se alinea un subtítulo coreano que ya existía: no gasta cuota
+
+
+class EstadoTrabajo(str, Enum):
+    """Ciclo de vida de un trabajo de generación de bilingüe."""
+
+    QUEUED = "QUEUED"  # creado, esperando a que lo recoja la tarea de fondo
+    RUNNING = "RUNNING"  # en curso: `bloques_procesados` avanza
+    DONE = "DONE"  # bilingüe escrito en disco
+    FAILED = "FAILED"  # terminó con error: el motivo, en `mensaje_error`
+
+
 class FormatoSubtitulo(str, Enum):
     """Formato del fichero de subtítulos. Fase 1 solo soporta SRT; el enum deja la
     puerta abierta a VTT/ASS/SUB sin necesidad de migrar el esquema."""

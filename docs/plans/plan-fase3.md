@@ -189,7 +189,9 @@ para no fiarse del nombre en ese caso.
 **Fuera** (no se toca en esta fase):
 
 - Extracción de pistas embebidas en MKV (Fase 5). La fusión de esta fase le servirá
-  tal cual a los 27 MKV de Anime con pista coreana.
+  tal cual a los 27 MKV de Anime con pista coreana. Requisito ya fijado para la
+  Fase 5: fusionar pista ES/EN embebida con coreano embebido o externo y dejar el
+  bilingüe fuera, como `.srt` (ver CLAUDE.md).
 - Tabla `provider_usage` y panel de cuotas (Fase 4). Esta fase solo **registra** los
   caracteres de cada trabajo; agregarlos por mes y elegir proveedor según cuota libre
   es trabajo de la 4.
@@ -353,8 +355,12 @@ servicio: no se confía en quien lo produce.
 
 `app/services/bilingual.py`, **uno solo para los dos modos**:
 
-- `generar(ruta_origen, textos_coreano) -> Path`, donde `textos_coreano` viene de
-  DeepL o del alineador. El generador no sabe ni le importa cuál.
+- `generar(bloques_origen, textos_coreano, ruta_destino) -> Path`, donde
+  `textos_coreano` viene de DeepL o del alineador. El generador no sabe ni le importa
+  cuál. **Recibe bloques y no la ruta de un `.srt`** (cambio del 2026-09-28): en la
+  Fase 5 el origen y el coreano podrán ser pistas extraídas de un MKV, y el usuario
+  quiere fusionarlas con este mismo camino dejando el bilingüe fuera, como `.srt`.
+  Quien llame (el trabajo) decide de dónde salen los bloques y adónde va el fichero.
 - Reconstruye cada bloque como `contenido_original + "\n" + coreano`, **reutilizando
   `indice`, `inicio` y `fin` del bloque original sin tocarlos**. Ese es el punto
   entero del proyecto. Un bloque sin coreano (fusión) se queda solo con el original.
@@ -399,6 +405,13 @@ Nueva tabla `translation_job` (`app/models/translation_job.py`):
 | `creado_en`, `finalizado_en` | Duración |
 
 Nuevos enums `ModoTrabajo` y `EstadoTrabajo` en `models/enums.py`.
+
+**Ajustes al implementar (hito 5):** las dos FKs son `ON DELETE SET NULL` y el
+trabajo guarda **copia** de `ruta_origen`, `ruta_coreano` y `ruta_bilingue`. Motivo:
+el trabajo es historial (Fase 4) y no debe desaparecer si un escaneo borra su `.srt`,
+y en la Fase 5 el origen podrá ser una pista de MKV, que no es una fila de
+`subtitle_file`. Se añade `iniciado_en`. No se guarda `idioma_destino`: es siempre
+`KO`.
 
 La ejecución va en `BackgroundTasks` de FastAPI, como decidido en CLAUDE.md. Detalle
 importante: la tarea de fondo **abre su propia sesión de base de datos**, porque la

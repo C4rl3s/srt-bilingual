@@ -258,3 +258,32 @@ traduce esa frase.
   segmentación distinta, invariante de un texto por bloque, bloque descolocado y
   coreano de otra versión). `ruff` limpio.
 - Ningún proveedor de traducción involucrado: cero caracteres de cuota.
+
+## Hito 5 — Tabla `translation_job` (2026-09-28)
+
+### Qué se hizo
+
+- Modelo `TrabajoTraduccion` (`models/translation_job.py`) y enums `ModoTrabajo`
+  (`TRADUCCION` / `FUSION`) y `EstadoTrabajo` (`QUEUED` / `RUNNING` / `DONE` /
+  `FAILED`). Propiedad `activo`, para que el frontend sepa si seguir sondeando.
+- Migración `b9edc39727eb`, generada con autogenerate, revisada (correcta tal cual:
+  tabla, dos FKs `SET NULL` y dos índices) y reescrita con el estilo de las
+  anteriores.
+- `modelo-datos.md` y `.html` al día, en el mismo commit que la migración.
+
+### Decisión tomada por el camino
+
+**El trabajo es historial, no índice.** Es la primera tabla que no se puede
+reconstruir escaneando: sus `num_caracteres` son la cuota consumida que agregará la
+Fase 4. Por eso las FKs son `ON DELETE SET NULL` en vez de `CASCADE`, y el trabajo
+guarda copia de sus rutas. Esas rutas copiadas preparan, además, el requisito del
+usuario para la Fase 5 (fusionar desde pistas embebidas en MKV): el origen de un
+trabajo no tendrá por qué ser una fila de `subtitle_file`. El principio rector de
+`CLAUDE.md` recoge la excepción.
+
+### Verificación
+
+- 158 tests en verde (4 nuevos en `test_translation_job.py`, entre ellos que el
+  trabajo sobrevive, con su ruta y sus caracteres, a que un escaneo borre su `.srt`).
+- Migración aplicada, deshecha y reaplicada sobre la BD de desarrollo;
+  `alembic check` sin diferencias.

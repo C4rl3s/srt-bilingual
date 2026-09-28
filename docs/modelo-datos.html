@@ -491,8 +491,8 @@
     <div class="meta">
       <span>SQLite</span>
       <span>SQLAlchemy 2.0</span>
-      <span class="is-live">migración 4684c713e94f</span>
-      <span>2 tablas · 22 columnas</span>
+      <span class="is-live">migración b9edc39727eb</span>
+      <span>4 tablas · 53 columnas</span>
       <span>+1 tabla prevista en Fase 4</span>
     </div>
   </header>
@@ -567,12 +567,31 @@
           <li><span class="key is-plain">·</span> <span class="more">+ 15 columnas</span></li>
         </ul>
       </div>
+
+      <div class="rel" aria-hidden="true">
+        <div class="rel-label">1 ── N</div>
+        <div class="rel-line"></div>
+        <div class="rel-cascade">ON DELETE SET NULL</div>
+      </div>
+
+      <div class="entity">
+        <div class="entity-name">translation_job</div>
+        <ul>
+          <li><span class="key">PK</span> id</li>
+          <li><span class="key">FK</span> subtitulo_id</li>
+          <li><span class="key">FK</span> subtitulo_coreano_id</li>
+          <li><span class="key is-plain">·</span> modo · estado</li>
+          <li><span class="key is-plain">·</span> num_caracteres</li>
+          <li><span class="key is-plain">·</span> <span class="more">+ 13 columnas</span></li>
+        </ul>
+      </div>
     </div>
 
     <p class="lede">
       Borrar una carpeta desde la interfaz borra su fila, y la cascada se lleva sus
       subtítulos. Volver a añadirla los redescubre —incluido su estado
-      <code>TRANSLATED</code>—, porque el bilingüe sigue en disco.
+      <code>TRANSLATED</code>—, porque el bilingüe sigue en disco. Los trabajos de
+      traducción, en cambio, no se borran con sus subtítulos: son historial.
     </p>
   </section>
 
@@ -779,6 +798,47 @@
 
   <section class="section">
     <div class="section-head">
+      <div class="eyebrow">Tabla · Fase 3</div>
+      <h2>translation_job</h2>
+      <p class="lede">
+        Cada generación de un bilingüe: por <strong>traducción</strong> (gasta cuota) o por
+        <strong>fusión</strong> con un coreano que ya existía (no la gasta). Es la única tabla
+        que no es un índice reconstruible sino <strong>historial</strong>: sobrevive a sus
+        subtítulos, y sus caracteres son los que agregará la Fase 4.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Columna</th><th>Tipo</th><th>Nulo</th><th>Para qué sirve</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>id<span class="tag">PK</span></td><td class="type">INTEGER</td><td class="nul no">no</td><td>Clave primaria</td></tr>
+          <tr><td>modo</td><td class="type">VARCHAR(10)</td><td class="nul no">no</td><td><code>TRADUCCION</code> · <code>FUSION</code></td></tr>
+          <tr><td>estado</td><td class="type">VARCHAR(7)</td><td class="nul no">no</td><td><code>QUEUED</code> · <code>RUNNING</code> · <code>DONE</code> · <code>FAILED</code></td></tr>
+          <tr><td>subtitulo_id<span class="tag">FK</span></td><td class="type">INTEGER</td><td class="nul yes">sí</td><td>Origen ES/EN · <code>ON DELETE SET NULL</code></td></tr>
+          <tr><td>subtitulo_coreano_id<span class="tag">FK</span></td><td class="type">INTEGER</td><td class="nul yes">sí</td><td>Solo en fusión: el coreano · <code>ON DELETE SET NULL</code></td></tr>
+          <tr><td>ruta_origen</td><td class="type">VARCHAR</td><td class="nul no">no</td><td>Copia de la ruta al crear el trabajo · en la Fase 5 podrá ser una pista de MKV</td></tr>
+          <tr><td>ruta_coreano</td><td class="type">VARCHAR</td><td class="nul yes">sí</td><td>Ídem para el coreano, solo en fusión</td></tr>
+          <tr><td>ruta_bilingue</td><td class="type">VARCHAR</td><td class="nul yes">sí</td><td>Fichero generado; nulo hasta terminar</td></tr>
+          <tr><td>idioma_origen</td><td class="type">VARCHAR(7)</td><td class="nul no">no</td><td><code>ES</code> o <code>EN</code>; el destino es siempre coreano</td></tr>
+          <tr><td>proveedor</td><td class="type">VARCHAR</td><td class="nul yes">sí</td><td>Quién tradujo; nulo en fusión</td></tr>
+          <tr><td>num_caracteres</td><td class="type">INTEGER</td><td class="nul no">no</td><td>Enviados al proveedor; <code>0</code> en fusión · lo que agregará la Fase 4</td></tr>
+          <tr><td>calidad_alineacion</td><td class="type">FLOAT</td><td class="nul yes">sí</td><td>Solo en fusión: fracción de bloques coreanos bien colocados</td></tr>
+          <tr><td>bloques_totales</td><td class="type">INTEGER</td><td class="nul no">no</td><td>Barra de progreso</td></tr>
+          <tr><td>bloques_procesados</td><td class="type">INTEGER</td><td class="nul no">no</td><td>Barra de progreso</td></tr>
+          <tr><td>mensaje_error</td><td class="type">VARCHAR</td><td class="nul yes">sí</td><td>Motivo cuando el estado es <code>FAILED</code></td></tr>
+          <tr><td>creado_en</td><td class="type">DATETIME</td><td class="nul no">no</td><td>Alta del trabajo</td></tr>
+          <tr><td>iniciado_en</td><td class="type">DATETIME</td><td class="nul yes">sí</td><td>Cuando la tarea de fondo lo recoge</td></tr>
+          <tr><td>finalizado_en</td><td class="type">DATETIME</td><td class="nul yes">sí</td><td>Cuando termina, bien o mal</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
       <div class="eyebrow">Índices</div>
       <h2>Qué está indexado y por qué</h2>
     </div>
@@ -812,6 +872,18 @@
             <td class="type">estado</td>
             <td class="nul yes">no</td>
             <td>El filtro <code>GET /subtitles?estado=</code> y el listado del frontend</td>
+          </tr>
+          <tr>
+            <td>ix_translation_job_estado</td>
+            <td class="type">estado</td>
+            <td class="nul yes">no</td>
+            <td>Listar los trabajos activos, que el frontend sondea</td>
+          </tr>
+          <tr>
+            <td>ix_translation_job_subtitulo_id</td>
+            <td class="type">subtitulo_id</td>
+            <td class="nul yes">no</td>
+            <td>Historial de trabajos de un subtítulo</td>
           </tr>
         </tbody>
       </table>

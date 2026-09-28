@@ -97,11 +97,15 @@ Resumen:
   nº bloques, estado (`PENDING`/`TRANSLATED`/`ERROR`), ruta del bilingüe generado,
   idioma destino, proveedor usado, `mtime`+tamaño (para no reparsear lo no cambiado),
   timestamps. *(Fase 1)*
+- `translation_job` — cada generación de bilingüe (traducción o fusión), su progreso
+  y los caracteres enviados al proveedor. FKs a `subtitle_file` con `SET NULL` y
+  rutas copiadas: es historial y sobrevive a sus subtítulos. *(Fase 3)*
 - `provider_usage` — proveedor, `año-mes`, caracteres consumidos, cuota mensual
   (sostiene el tracking de cuotas). *(pendiente, Fase 4)*
 
 **Principio rector:** el sistema de ficheros es la fuente de verdad; la base de datos
-es un índice reconstruible. Un escaneo siempre puede rehacerse desde cero.
+es un índice reconstruible. Un escaneo siempre puede rehacerse desde cero. **Única
+excepción:** `translation_job`, que es historial de trabajos y de cuota consumida.
 
 ## Convenciones
 
@@ -236,7 +240,13 @@ Plan de desarrollo aprobado en 6 fases.
 - [ ] **Fase 4 — Optimización de cuotas.** Tabla de uso por proveedor/mes, panel
   en el front, selección de proveedor según cuota libre restante.
 - [ ] **Fase 5 — Soporte MKV.** Extracción de subtítulos embebidos (ffmpeg/pymkv2)
-  e inyección del track bilingüe.
+  e inyección del track bilingüe. **Requisito del usuario (2026-09-28): fusión
+  desde pistas embebidas.** Si un MKV trae una pista ES/EN y hay coreano, ya sea
+  otra pista del mismo MKV o un `.srt` externo, se fusionan con el modo fusión de
+  la Fase 3 (`alineacion.py`) y el resultado se deja **fuera, como `.srt`
+  bilingüe** junto al vídeo. Cubre, por ejemplo, los 27 MKV de Anime que ya traen
+  pista coreana. Por eso `alineacion.py` y `bilingual.py` trabajan con
+  `list[Bloque]` y no con rutas de `.srt`: el origen puede ser una pista extraída.
 - [ ] **Al terminar — web de documentación.** Una sola web con secciones que
   reutilice todo lo escrito por el camino (bitácoras, decisiones, fases, modelo de
   datos). Esta sí va **en local y publicada en remoto**.
