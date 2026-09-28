@@ -79,9 +79,92 @@ para el filtro.
   `UnauthorizedAccessException`. **Bloquea la Fase 3.** Hay que conseguir permiso de
   escritura en el recurso o añadir una carpeta de salida configurable.
 - La biblioteca es **toda MKV**: sin la Fase 5 no hay nada que traducir.
-- Los nombres de los ficheros llevan `MultiSub` y `Dual-Audio`, lo que apunta a
-  pistas embebidas, pero hasta pasar `ffprobe` no se sabe si son texto o imagen.
 
-## Pendiente
+## Sondeo de los MKV reales (2026-09-08)
 
-- Sondeo con ffmpeg (`winget install Gyan.FFmpeg`) e informe de las pistas reales.
+Instalado **ffmpeg 9.0.1** (`winget install Gyan.FFmpeg`) y pasado `ffprobe` a los
+**215 ficheros**, no a una muestra. Resultado:
+
+| Métrica | Valor |
+|---|---|
+| Pistas de subtítulo encontradas | **2388** |
+| Códec `ass` (texto) | 1736 |
+| Códec `subrip` (texto) | 652 |
+| Códecs de imagen (`hdmv_pgs_subtitle`, `dvd_subtitle`) | **0** |
+| Ficheros sin ninguna pista | 8 |
+
+**La respuesta a la pregunta que bloqueaba la Fase 5: todo es texto.** Ni un solo
+PGS ni VobSub en toda la biblioteca. **No hace falta OCR.**
+
+Los 8 ficheros sin pistas son los NCOP/NCED de Jujutsu Kaisen (aperturas y cierres
+sin créditos, sin diálogo): es lo correcto, no un fallo.
+
+Desglose por serie de los ficheros con diálogo (207):
+
+| Serie | Ficheros | Con `spa` | Con `eng` | Con `kor` |
+|---|---|---|---|---|
+| Shingeki no Kyojin (S1–S4) | 89 | 89 | 89 | 0 |
+| Jujutsu Kaisen (S1–S3) | 59 | 59 | 59 | 0 |
+| Moonrise | 18 | 18 | 18 | **18** |
+| Lazarus | 13 | 13 | 13 | 0 |
+| Kaiju No. 8 (S2) | 12 | 12 | 12 | 0 |
+| PLUTO | 8 | 8 | 8 | **8** |
+| Gunbuster | 6 | 6 | 6 | 0 |
+| JoJo — Steel Ball Run | 1 | 1 | 1 | **1** |
+| Rooster Fighter | 1 | 0 | 1 | 0 |
+
+**27 ficheros ya traen pista coreana**, todos de origen Netflix (`NF_Korean`). Para
+esos el objetivo del proyecto se cumple **sin traducir ni un carácter**: basta
+extraer las dos pistas y fusionarlas reutilizando los tiempos.
+
+### Consecuencias para el plan
+
+1. **La Fase 5 se abarata mucho y merece adelantarse a la Fase 3.** Sin OCR, extraer
+   es un `mkvextract`/`ffmpeg` y el `.srt` resultante ya entra en el pipeline actual.
+   Con la biblioteca real siendo 100 % MKV, la Fase 3 hoy no tiene nada sobre lo que
+   trabajar.
+2. **Camino sin coste de API**: para los 27 ficheros con coreano, extraer + fusionar.
+   No consume cuota de DeepL. Conviene que el generador de bilingües acepte una pista
+   ya existente como "traducción", no solo la salida de un proveedor.
+3. **La selección de pista no es trivial** y es donde estará el trabajo real: conviven
+   `Forced` (solo carteles), `SDH`/`CC` (con descripciones sonoras), `[Signs]`,
+   variantes regionales (`European` vs `Latin American`) y hasta dos pistas del mismo
+   idioma sin distintivo. Elegir la equivocada da un bilingüe inservible.
+4. **ASS → SRT pierde información**: 1736 de las 2388 pistas son ASS, con estilos y
+   posicionamiento. `ffmpeg` convierte, pero los carteles posicionados se mezclarían
+   con el diálogo en el `.srt` plano. Hay que decidir si se descartan las líneas de
+   cartel o se aceptan.
+
+## Cierre (2026-09-27): los dos pendientes, resueltos
+
+Quedaban abiertas dos cosas. Ambas se resolvieron al conceder el acceso completo al
+recurso compartido.
+
+**1. Dónde se escribe el `.bilingue.srt`.** Ya no hay que decidir nada: el recurso
+**acepta escritura**. Comprobado creando y borrando un fichero de prueba en
+`Z:\Anime`, `Z:\Pelis` y `Z:\Series`; las tres responden `ESCRITURA OK`. Se mantiene
+la convención original de dejar el bilingüe junto al original. La carpeta de salida
+configurable se conserva en el plan de la Fase 3, pero degradada a red de seguridad
+en vez de camino principal.
+
+**2. El orden de las fases.** La recomendación del 08-09 era adelantar la Fase 5 a la
+3, y **se revierte**. Nació de que la única carpeta visible era `Anime`, 100 % MKV sin
+un solo `.srt`: sin extracción no había nada que traducir. Con `Pelis` y `Series`
+accesibles, el cuadro es otro:
+
+| Carpeta | `.mkv` | `.mp4` / `.avi` | `.srt` |
+|---|---|---|---|
+| Anime | 215 | 0 | 0 |
+| Series | 184 | 0 | 0 |
+| **Pelis** | 29 | 196 | **686** |
+
+Los 686 `.srt` de `Pelis`, repartidos en 176 carpetas de película, le dan a la Fase 3
+banco de pruebas propio. **Se recupera el orden original del plan.**
+
+Nota sobre las *junctions*: `Anime`, `Pelis` y `Series` siguen siendo enlaces al disco
+del otro equipo, pero ahora se recorren sin problema desde aquí. La suposición de que
+un *junction* fuera del recurso era intransitable por definición era incorrecta: lo
+que fallaba eran los permisos, no el enlace.
+
+El sondeo de los `.srt` reales de `Pelis` —que no son ni de lejos uniformes— y lo que
+obliga a añadir a la Fase 3 está en `docs/plans/plan-fase3.md`.

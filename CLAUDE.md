@@ -222,11 +222,16 @@ Plan de desarrollo aprobado en 6 fases.
   escanear / escaneado sin resultados. READMEs de backend y frontend escritos.
   88 tests en verde y verificación e2e hecha (2026-08-11). Plan:
   `docs/plans/plan-inventario-video-y-arreglos.md`. Bitácora:
-  `docs/bitacora-inventario-video-y-arreglos.md`.
+  `docs/bitacora-inventario-video-y-arreglos.md`. Commit `95c954c`.
 - [ ] **Fase 3 — Traducción + generación bilingüe.** Interfaz `Translator` +
   DeepL (batch), servicio `bilingual.py` reutilizando tiempos, selección de
   uno/varios subtítulos, registro de caracteres por trabajo. Traducción async vía
-  `BackgroundTasks` de FastAPI (sin Celery).
+  `BackgroundTasks` de FastAPI (sin Celery). Solo `ES-KO` / `EN-KO`: sin origen
+  ES/EN la obra no es elegible. Se le suman la **selección del subtítulo de origen**
+  (heurística automática + override manual), el **modo fusión** (si ya hay `.srt`
+  coreano se alinea con el origen en vez de traducir) y el **renombrado a
+  nomenclatura Plex** de los subtítulos cuyo idioma se deduce por contenido.
+  Plan: `docs/plans/plan-fase3.md`.
 - [ ] **Fase 4 — Optimización de cuotas.** Tabla de uso por proveedor/mes, panel
   en el front, selección de proveedor según cuota libre restante.
 - [ ] **Fase 5 — Soporte MKV.** Extracción de subtítulos embebidos (ffmpeg/pymkv2)
@@ -247,18 +252,31 @@ dentro del plan de esa fase, no en un fichero nuevo.
 
 ## Notas / deuda técnica
 
-**Hallazgos sobre la biblioteca real (2026-08-11), que condicionan el plan:**
+**Hallazgos sobre la biblioteca real, que condicionan el plan:**
 
-- La biblioteca del usuario (`\\192.168.1.130\Compartido\Anime`, montada en `Z:`) son
-  **215 `.mkv` y cero `.srt`**: los subtítulos van embebidos. Hasta la **Fase 5** la
-  app solo puede inventariar, no traducir nada de ahí.
-- **El recurso está montado en solo lectura** (`UnauthorizedAccessException` al
-  escribir). La convención de dejar el `.bilingue.srt` junto al original **fallará**
-  en esa carpeta. Antes de la Fase 3 hay que decidir: conseguir permiso de escritura
-  en el recurso, o añadir una carpeta de salida configurable. **Es un bloqueante.**
-- `Z:\Pelis` y `Z:\Series` son *junctions* que apuntan a `E:\Videos\...` del otro
-  equipo, fuera del recurso compartido: no se pueden abrir desde aquí con ningún
-  programa. El selector ya las muestra marcadas en vez de ocultarlas.
+- El recurso es `\\192.168.1.130\Compartido`, montado en `Z:`, con tres carpetas:
+  `Anime`, `Pelis` y `Series`. Las tres son *junctions* al disco del otro equipo.
+- **2026-09-27: concedido el acceso a las tres y resueltos los dos bloqueantes.** Antes
+  solo se abría `Anime` (`Pelis` y `Series` daban error al recorrerlas) y el recurso
+  era de **solo lectura**. Hoy las tres se listan y **se puede escribir en todas**
+  (verificado creando y borrando un fichero de prueba en cada una), así que la
+  convención de dejar el `.bilingue.srt` junto al original es viable.
+- Inventario: **Anime** 215 `.mkv` / 0 `.srt`; **Series** 184 `.mkv` / 0 `.srt`;
+  **Pelis** 29 `.mkv` + 196 `.mp4`/`.avi` y **686 `.srt`** en 176 carpetas de película.
+- **Por eso la Fase 5 deja de necesitar adelantarse.** Pelis da banco de pruebas real
+  a la Fase 3 y se recupera el orden original del plan. Detalle en
+  `docs/plans/plan-fase3.md`.
+- **Sondeo con `ffprobe` sobre los 215 MKV de Anime (2026-09-08): las 2388 pistas de
+  subtítulo son texto** (1736 `ass` + 652 `subrip`), **cero PGS/VobSub**. No hace
+  falta OCR, así que la Fase 5 se abarata mucho. Además, **27 ficheros ya traen pista
+  coreana** (Netflix): para esos el bilingüe sale sin gastar cuota de traducción.
+  Detalle en `docs/bitacora-inventario-video-y-arreglos.md`.
+- **Los `.srt` reales de Pelis no son uniformes** y condicionan la Fase 3: 461 de 686
+  viven en una subcarpeta `Subs\` con nombres que no citan la obra (`English.srt`),
+  52 obras no declaran idioma en ningún nombre, hay forzados que no se anuncian como
+  tales y **548 de 686 empiezan con un bloque de publicidad** que hoy se está
+  contando en `num_caracteres`. Los cinco hallazgos, con cifras, en
+  `docs/plans/plan-fase3.md`.
 
 **Deuda técnica:**
 
