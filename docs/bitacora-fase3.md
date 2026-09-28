@@ -152,3 +152,48 @@ carpeta, así que no se sabe de cuál son sus `Subs\`. Se muestran como obras ap
 vez de adivinar. *A Quiet Place Part II* entra como origen con 343 bloques: el plan
 lo sospechaba forzado, pero es una película de muy poco diálogo y queda por encima
 del mínimo; si resultara incompleto, el override lo resuelve.
+
+## Hito 3 — Renombrado a la nomenclatura de Plex (2026-09-28)
+
+### Qué se hizo
+
+- **`services/subtitles/renombrado.py`** (nuevo), en dos pasos:
+  - `proponer(db)` calcula la lista `actual → nuevo` sin tocar el disco.
+  - `aplicar(db, ids)` renombra solo los confirmados. Recalcula la propuesta en ese
+    momento, **nunca sobrescribe**, trata un fallo del disco como rechazo y hace
+    commit fichero a fichero, para que la base de datos no se quede apuntando a un
+    nombre que no existe si la red se corta a mitad.
+- Qué se propone: subtítulos **junto al vídeo** en obras de **un solo vídeo**, cuyo
+  nombre no declara el idioma que dice el contenido (porque no dice ninguno o porque
+  miente). El nombre nuevo es `<vídeo>.<spa|eng|kor>[.forced][.sdh].srt`
+  (`CODIGOS_PLEX` en `enums.py`). Un nombre que ya declara bien el idioma se respeta
+  aunque no siga la nomenclatura al pie de la letra (`.en` no se cambia a `.eng`).
+- Conflictos: `EXISTE` (ya hay un fichero con ese nombre), `DUPLICADO` (dos
+  subtítulos de la obra quieren el mismo; se lo queda el más completo) y
+  `ERROR_DISCO`.
+- La API y la pantalla llegan en los hitos 8 y 9; de momento es un servicio.
+
+### Decisión tomada por el camino
+
+**Los forzados encubiertos se renombran como forzados.** La primera propuesta real
+convertía el `.srt` de 15 bloques de *The Gorge* en `….eng.srt`, y Plex lo habría
+ofrecido como el subtítulo inglés completo. Ahora, si la selección lo descarta por
+`POCOS_BLOQUES`, el nombre nuevo lleva `.forced`.
+
+### Verificación
+
+- 147 tests en verde (13 nuevos en `test_renombrado.py`, entre ellos el de no
+  sobrescribir un destino aparecido entre la propuesta y la confirmación). `ruff`
+  limpio.
+- **Propuesta real sobre la carpeta `Pelis`, sin aplicar**: 106 renombrados.
+
+| | Ficheros |
+|---|---|
+| A `.eng.srt` | 84 |
+| A `.spa.srt` | 16 |
+| A `.eng.forced.srt` (forzados encubiertos) | 6 |
+| Con conflicto `EXISTE` | 2 |
+
+Los dos conflictos (*Jaws*, *The End Of Oak Street*) son un inglés sin sufijo que
+duplica otro que ya se llama `.eng.srt`; se quedan como están. **No se ha renombrado
+nada en la biblioteca**: aplicar la propuesta queda a decisión del usuario.

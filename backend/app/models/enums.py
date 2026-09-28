@@ -84,6 +84,11 @@ SUFIJOS_IDIOMA: dict[str, Idioma] = {
     "chinese": Idioma.ZH,
 }
 
+# Código con que se escribe cada idioma al renombrar a la nomenclatura de Plex
+# (`Pelicula.spa.srt`). ISO 639-2: Plex lo reconoce y es lo más habitual en la
+# biblioteca real. Solo los idiomas con los que trabaja la app.
+CODIGOS_PLEX: dict[Idioma, str] = {Idioma.ES: "spa", Idioma.EN: "eng", Idioma.KO: "kor"}
+
 # Tokens que a veces acompañan al idioma en el nombre (p. ej. `pelicula.es.forced.srt`)
 # y hay que saltar al buscarlo. Además de saltarlos, se anotan: un forzado (solo
 # carteles) no sirve como origen, y un SDH (con descripciones sonoras) solo si no hay

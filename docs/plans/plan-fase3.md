@@ -278,6 +278,9 @@ biblioteca también para Plex, no solo para esta app.
   obras con cero o varios vídeos (no hay base de nombre inequívoca).
 - **Nunca sobrescribe**: si el nombre de destino ya existe, no se renombra y se
   informa del conflicto.
+- Añadido en el hito 3: también se proponen los que **mienten** en el nombre (el
+  contenido dice otro idioma), y los forzados encubiertos que detecta la selección
+  llevan `.forced`, para que Plex no los ofrezca como subtítulo completo.
 - **Dos pasos, sin automatismos**: primero una **propuesta** (lista `actual →
   nuevo`), después el usuario confirma cuáles aplicar. Tocar los nombres de la
   biblioteca compartida no se hace a sus espaldas durante un escaneo.
