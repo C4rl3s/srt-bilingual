@@ -29,7 +29,7 @@ Texto original en español
 | Backend | **Python + FastAPI** | Gestionado con **uv** (no pip/venv manual). Python **3.14**. |
 | Base de datos | **SQLite** | Un solo usuario, sin servidor; fichero local. |
 | Frontend | **React + TypeScript + Vite** | El usuario aprende React aquí; mantener el código claro y didáctico. |
-| Traducción | Capa **multi-proveedor** | DeepL como primera implementación (SDK oficial). |
+| Traducción | Capa **multi-proveedor** | Azure Translator (REST con httpx) y DeepL (SDK oficial), con elección automática según cupo libre. |
 | MKV (futuro) | ffmpeg / pymkv2 | Extracción e inyección de subtítulos embebidos. |
 
 Decisiones tomadas (no re-litigar sin motivo):
@@ -67,8 +67,11 @@ srt-bilingual/
 │   │       ├── trabajos.py    # crear/ejecutar trabajos (BackgroundTasks)
 │   │       └── translation/
 │   │           ├── base.py    # interfaz Translator (Protocol) + excepciones
-│   │           ├── deepl_provider.py
-│   │           └── registry.py # proveedor por TRANSLATION_PROVIDER (Fase 4: cuotas)
+│   │           ├── deepl_provider.py  # informa de su cupo (ConCupo)
+│   │           ├── azure_provider.py  # no informa: cupo por registro de la app
+│   │           ├── registry.py        # nombre → proveedor; límites configurados
+│   │           ├── consumo.py         # cupo de cada proveedor (API o registro)
+│   │           └── eleccion.py        # proveedor según cupo libre
 │   ├── alembic/               # migraciones (env.py toma la URL de settings)
 │   ├── alembic.ini
 │   ├── tests/
@@ -245,8 +248,15 @@ Plan de desarrollo aprobado en 6 fases.
   **interfaz nueva** diseñada con el usuario (lienzo de diseño) y verificada en el
   navegador. 196 tests en verde (2026-09-28). Plan: `docs/plans/plan-fase3.md`.
   Bitácora: `docs/bitacora-fase3.md`. Repaso docente aplazado por el usuario.
-- [ ] **Fase 4 — Optimización de cuotas.** Tabla de uso por proveedor/mes, panel
-  en el front, selección de proveedor según cuota libre restante.
+- [x] **Fase 4 — Cupos por proveedor y elección automática.** **Azure Translator**
+  (plan gratuito F0) como segundo proveedor junto a DeepL. Cupo de cada proveedor:
+  lo que dice su API (DeepL) o el **registro de la app** del mes (Azure, que no
+  tiene API de consumo), más lo reservado por trabajos en cola. Cada traducción va
+  al primero de `TRANSLATION_PROVIDERS` con cupo libre; sin cupo, no se crea el
+  trabajo. Interfaz con el cupo de cada proveedor y de dónde sale la cifra. Tabla
+  `provider_usage` descartada (el consumo sale de `translation_job`). 227 tests en
+  verde y verificado con las cuentas reales (2026-09-28). Plan:
+  `docs/plans/plan-fase4.md`. Bitácora: `docs/bitacora-fase4.md`.
 - [ ] **Fase 5 — Soporte MKV.** Extracción de subtítulos embebidos (ffmpeg/pymkv2)
   e inyección del track bilingüe. **Requisito del usuario (2026-09-28): fusión
   desde pistas embebidas.** Si un MKV trae una pista ES/EN y hay coreano, ya sea
@@ -322,6 +332,14 @@ dentro del plan de esa fase, no en un fichero nuevo.
 - Warning de deprecación de `TestClient`/httpx (sugiere `httpx2`). Inofensivo;
   abordar cuando moleste.
 - Idioma destino por defecto coreano (`KO`), configurable con `DEFAULT_TARGET_LANG`.
+- **El cupo de Azure sale del registro de la app**: no ve lo gastado con esa clave
+  fuera de ella, y toma el mes natural aunque Azure pueda reiniciar el cupo en otra
+  fecha. Se avisa en la interfaz.
+- `frontend/src/utils/cupos.ts` (`repartir`) **reproduce la regla** de
+  `services/translation/eleccion.py` para prever el proveedor antes de generar. Si
+  se cambia la regla, hay que cambiar las dos.
+- **Nunca reescribir ficheros con `Get-Content | Set-Content`** en PowerShell 5.1:
+  corrompe el UTF-8 (pasó en la Fase 3; detalle en `docs/bitacora-fase4.md`).
 - Los tests crean el esquema con `Base.metadata.create_all()`, no con Alembic (más
   rápido). No detectan por sí solos que una migración se haya quedado desfasada
   respecto a los modelos; tras tocar un modelo, generar la migración y revisarla.

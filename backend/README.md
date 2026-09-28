@@ -1,14 +1,15 @@
 # Backend — srt-bilingual
 
 API FastAPI que inventaría la biblioteca de vídeo y subtítulos y genera los `.srt`
-bilingües, por traducción o por fusión con un coreano existente. Gestionado con
+bilingües, por traducción (Azure Translator o DeepL, según su cupo libre) o por
+fusión con un coreano existente. Gestionado con
 [uv](https://docs.astral.sh/uv/); base de datos SQLite.
 
 ## Puesta en marcha
 
 ```powershell
 uv sync                                          # instala dependencias en .venv
-cp .env.example .env                             # rellena DEEPL_API_KEY para traducir
+cp .env.example .env                             # claves de Azure y/o DeepL para traducir
 uv run alembic upgrade head                      # crea/actualiza la base de datos
 uv run uvicorn app.main:app --reload --port 8000
 ```
@@ -48,8 +49,11 @@ app/
     │   └── renombrado.py   propone y aplica nombres al estilo de Plex
     └── translation/
         ├── base.py            Protocol Translator (+ ConCupo) y excepciones
-        ├── deepl_provider.py  DeepL con el SDK oficial
-        └── registry.py        proveedor por TRANSLATION_PROVIDER
+        ├── deepl_provider.py  DeepL con el SDK oficial (informa de su cupo)
+        ├── azure_provider.py  Azure Translator por REST con httpx (no informa)
+        ├── registry.py        de un nombre a un proveedor; límites configurados
+        ├── consumo.py         cupo de cada proveedor: API o registro del mes
+        └── eleccion.py        elige proveedor según el cupo libre
 ```
 
 Ideas que explican el resto del diseño:
@@ -66,13 +70,19 @@ Ideas que explican el resto del diseño:
   coreano por bloque, y `bilingual.py` no distingue de dónde viene.
 - **Solo ES/EN → KO**. Sin origen en español o inglés, la obra no es elegible
   (`SIN_ORIGEN`).
-- **Ningún fichero fuera de `services/translation/` conoce a DeepL**: cambiar de
-  proveedor es añadir un módulo y una entrada en `registry.py`.
+- **Ningún fichero fuera de `services/translation/` conoce a un proveedor
+  concreto**: añadir uno es un módulo nuevo y una entrada en `registry.py`.
+- **El proveedor de cada traducción se elige por cupo**: el primero de
+  `TRANSLATION_PROVIDERS` con cupo libre para toda la película (con un 5 % de
+  margen). El cupo sale de la API del proveedor si la tiene (DeepL) o del
+  **registro de la app** si no (Azure): la suma de `num_caracteres` de sus trabajos
+  en el mes, que no ve lo gastado con esa clave fuera de la app. Lo que falta por
+  enviar de los trabajos en cola queda reservado.
 
 ## Comandos
 
 ```powershell
-uv run pytest                    # tests (ninguno llama a DeepL: usan TraductorFalso)
+uv run pytest                    # tests (ninguno llama a un proveedor real: ver conftest.py)
 uv run ruff check .              # lint
 uv run ruff format .             # formateo
 uv add <paquete>                 # dependencia de runtime
@@ -113,7 +123,7 @@ respecto a los modelos. Tras migrar, `uv run alembic check` lo comprueba.
 | `GET` | `/subtitles` | Lista los subtítulos. Filtros: `?estado=` y `?idioma=` |
 | `GET` | `/subtitles/{id}` | Detalle de un subtítulo |
 | `GET` | `/subtitles/{id}/candidatos` | Candidatos de su obra con motivo de descarte, calidad de la fusión y una muestra. `?origen_id=` para un origen elegido a mano |
-| `POST` | `/translate` | Encola bilingües (`202`). Fusión si hay coreano; `forzar_traduccion` para traducir igualmente |
+| `POST` | `/translate` | Encola bilingües (`202`). Fusión si hay coreano; `forzar_traduccion` para traducir igualmente. Asigna el proveedor por cupo; sin cupo en ninguno, la obra va a `rechazados` |
 | `GET` | `/translate/jobs` | Trabajos (`?estado=`, `?activos=`) |
 | `GET` | `/translate/jobs/{id}` | Estado y progreso de un trabajo |
 | `GET` | `/translate/cupos` | Cupo de cada proveedor configurado, en orden de preferencia: usados, reservados, límite, libre y fuente de la cifra (API del proveedor o registro de la app) |

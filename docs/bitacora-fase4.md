@@ -180,3 +180,36 @@ sin lanzar ninguna traducción:
 
 Sin errores en consola. Backend: 227 tests en verde; frontend compila y el linter no
 marca nada.
+
+## Hito 5 y cierre de la fase (2026-09-28)
+
+### Documentación
+
+- `README.md` de la raíz: Azure y la elección por cupo en la descripción, tabla de
+  variables del `.env` con las de Azure y `TRANSLATION_PROVIDERS` (y el aviso de que
+  las claves van solo en ese fichero), y la Fase 4 marcada como hecha.
+- `backend/README.md`: estructura de `services/translation/` y cómo se elige el
+  proveedor.
+- `CLAUDE.md`: stack, estructura, Fase 4 cerrada y tres puntos de deuda: el cupo de
+  Azure por registro, la regla de elección duplicada en el frontend y la lección de
+  PowerShell.
+
+### Lo que deja la Fase 4
+
+- **Dos proveedores**, Azure (preferido) y DeepL, probados con las cuentas reales.
+- **Cupo libre total: ~3 M de caracteres**: 2 M/mes de Azure más lo que queda de 1 M
+  de DeepL. Traducir la biblioteca entera son ~6 M, así que con el plan gratuito de
+  Azure basta con unos tres meses.
+- **Elección automática** con reserva de cupo, rechazo antes de empezar si no cabe y
+  cambio de proveedor al reintentar si uno se agota.
+- **La interfaz dice de dónde sale cada cifra** y qué proveedor traducirá cada obra.
+- **227 tests** (196 al empezar la fase), ninguno llama a un proveedor real.
+
+### Pendiente y a tener en cuenta
+
+- **Mes de Azure**: se toma el natural. Si al revisar el portal de Azure el cupo se
+  reinicia en otra fecha, habrá que ajustar `consumo._usados_este_mes`.
+- **Calidad entre proveedores**: Azure y DeepL traducen parecido (ver la prueba de
+  humo del hito 3), pero una película por cada uno en Plex lo confirmaría.
+- **Repaso docente** (pendiente desde la Fase 3).
+- **Fase 5 (MKV)** y el **despliegue con Docker**, en ese orden según el plan.

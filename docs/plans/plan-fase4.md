@@ -1,5 +1,9 @@
 # Fase 4 — Cupos por proveedor y elección automática
 
+> **Estado: completada (2026-09-28).** Los cinco hitos están hechos. Lo que acabó
+> pasando, con las decisiones y cambios respecto a este plan, está en
+> `docs/bitacora-fase4.md`.
+
 ## Contexto
 
 El plan original de esta fase era una tabla `provider_usage` (proveedor, mes,
