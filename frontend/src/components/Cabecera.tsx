@@ -1,4 +1,4 @@
-import type { EstadoCupo, Trabajo } from '../types'
+import type { EstadoCupo, ProgresoSondeo, Trabajo } from '../types'
 import { libreTotal, nombreProveedor } from '../utils/cupos'
 import { numero, porcentaje, tituloDeRuta } from '../utils/formato'
 import { IconoMenu } from './Iconos'
@@ -11,12 +11,22 @@ interface Props {
   trabajos: Trabajo[]
   cupos: EstadoCupo[]
   numPropuestas: number
+  /** La lectura de pistas tras un escaneo, mientras dura; `null` si no hay ninguna. */
+  sondeo: ProgresoSondeo | null
   /** Solo en pantallas estrechas: abre el árbol de carpetas como cajón. */
   onAbrirArbol: () => void
 }
 
-/** Barra superior: marca, pestañas, trabajo en curso y cupo libre total. */
-export function Cabecera({ seccion, onCambiar, trabajos, cupos, numPropuestas, onAbrirArbol }: Props) {
+/** Barra superior: marca, pestañas, trabajo en curso, lectura de pistas y cupo libre total. */
+export function Cabecera({
+  seccion,
+  onCambiar,
+  trabajos,
+  cupos,
+  numPropuestas,
+  sondeo,
+  onAbrirArbol,
+}: Props) {
   const activos = trabajos.filter((trabajo) => trabajo.activo)
   const libre = libreTotal(cupos)
   // El que más avanzado va es el que se enseña en la píldora.
@@ -67,7 +77,21 @@ export function Cabecera({ seccion, onCambiar, trabajos, cupos, numPropuestas, o
           {tituloDeRuta(enCurso.ruta_origen)} ·{' '}
           {enCurso.estado === 'QUEUED'
             ? 'en cola'
-            : `${enCurso.modo === 'FUSION' ? 'fusionando' : 'traduciendo'} ${porcentaje(enCurso)} %`}
+            : enCurso.fase === 'EXTRAYENDO'
+              ? 'extrayendo pistas'
+              : `${enCurso.modo === 'FUSION' ? 'fusionando' : 'traduciendo'} ${porcentaje(enCurso)} %`}
+        </button>
+      )}
+
+      {sondeo && (
+        <button
+          className="pildora"
+          onClick={() => onCambiar('carpetas')}
+          title="Tras escanear se leen las pistas de subtítulo de cada vídeo nuevo o cambiado"
+        >
+          <span className="punto punto--coreano" />
+          Leyendo pistas
+          {sondeo.total > 0 && ` · ${numero(sondeo.hechos)} de ${numero(sondeo.total)}`}
         </button>
       )}
 

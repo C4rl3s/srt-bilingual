@@ -34,6 +34,7 @@ src/
 ├── api/client.ts            único punto de salida HTTP
 ├── hooks/
 │   ├── useTrabajos.ts       trabajos con sondeo mientras haya alguno activo
+│   ├── useSondeo.ts         lectura de pistas de los vídeos tras escanear
 │   └── usePersistente.ts    useState guardado en localStorage
 ├── utils/
 │   ├── formato.ts           números, fechas y títulos legibles

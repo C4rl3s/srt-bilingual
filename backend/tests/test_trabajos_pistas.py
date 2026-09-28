@@ -236,6 +236,19 @@ def test_si_la_pista_real_no_cabe_en_el_cupo_falla_antes_de_enviar(
     assert traductor.llamadas == []
 
 
+def test_el_arbol_da_la_misma_cifra_que_reservaria_el_trabajo(
+    client: TestClient, db: Session, mkv
+) -> None:
+    """*Shingeki* no trae estadísticas: el árbol enseña la estimación que se reservaría,
+    no un 0 que haría creer a la interfaz que traducirla no cuesta nada."""
+    mkv("Shingeki/Shingeki - 01.mkv", "shingeki_01")
+
+    obra = client.get("/library/tree").json()[0]["hijos"][0]["hijos"][0]
+
+    assert obra["num_caracteres"] == trabajos.ESTIMACION_SIN_ESTADISTICAS
+    assert not obra["caracteres_exactos"]
+
+
 def test_api_genera_desde_una_pista(client: TestClient, db: Session, tmp_path: Path, mkv) -> None:
     video = mkv("Moonrise/Moonrise - 01.mkv", "moonrise_01")
     fastapi_app.dependency_overrides[get_extractor] = lambda: FfmpegFalso(

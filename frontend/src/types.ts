@@ -8,10 +8,10 @@ export type Idioma = 'ES' | 'EN' | 'KO' | 'FR' | 'DE' | 'IT' | 'PT' | 'JA' | 'ZH
 
 /**
  * Estado de una obra (capítulo o película) de cara a la interfaz. No es lo mismo
- * que `Estado`, que describe un fichero `.srt` suelto: aquí cabe además el caso de
- * un vídeo sin ningún subtítulo externo, lo normal cuando van dentro del MKV, y
- * el de una obra con subtítulos pero sin ninguno en español o inglés que sirva de
- * origen (`SIN_ORIGEN`).
+ * que `Estado`, que describe un subtítulo suelto: aquí cabe además el caso de un
+ * vídeo sin ningún subtítulo (ni `.srt` al lado ni pistas de texto dentro, o aún no
+ * se han leído sus pistas), y el de una obra con subtítulos pero sin ninguno en
+ * español o inglés que sirva de origen (`SIN_ORIGEN`).
  */
 export type EstadoObra = 'DUAL' | 'PENDIENTE' | 'SIN_ORIGEN' | 'SIN_SUBTITULOS' | 'ERROR'
 
@@ -50,8 +50,12 @@ export interface NodoArbol {
   idiomas: Idioma[]
   dual: boolean
   ruta_bilingue: string | null
-  /** Caracteres del subtítulo de origen: lo que costaría traducir la obra. */
+  /** Lo que costaría traducir la obra: lo mismo que reservaría el trabajo. */
   num_caracteres: number
+  /** `false` si el origen es una pista sin extraer: `num_caracteres` es una estimación. */
+  caracteres_exactos: boolean
+  /** El origen propuesto es una pista dentro del vídeo, no un `.srt`. */
+  origen_en_video: boolean
   subtitulo_ids: number[]
   /** Origen ES/EN propuesto por la selección automática. */
   subtitulo_origen_id: number | null
@@ -70,6 +74,19 @@ export interface ResumenEscaneo {
   errores: number
   huerfanos_borrados: number
   total: number
+}
+
+/**
+ * Progreso de la lectura de pistas que sigue a cada escaneo (`GET /scan/sondeo`):
+ * `ffprobe` abre la cabecera de cada vídeo nuevo o cambiado, en segundo plano.
+ */
+export interface ProgresoSondeo {
+  en_curso: boolean
+  hechos: number
+  total: number
+  /** Vídeos que no se pudieron leer: se reintentan en el próximo escaneo. */
+  errores: number
+  ultimo_error: string | null
 }
 
 export interface EntradaDirectorio {
@@ -166,6 +183,13 @@ export interface Candidatos {
   video_id: number | null
   extrayendo: boolean
   error_extraccion: string | null
+}
+
+/** Respuesta de `POST /videos/{id}/extraer`. */
+export interface Extraccion {
+  video_id: number
+  en_curso: boolean
+  error: string | null
 }
 
 /** El cupo de un proveedor configurado (`GET /translate/cupos`). */

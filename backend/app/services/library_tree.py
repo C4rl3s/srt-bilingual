@@ -7,9 +7,9 @@ renombras carpetas en disco (el siguiente escaneo reescribe las rutas).
 
 La **hoja es la obra**, no el fichero: el vídeo de un capítulo y sus `.srt` en varios
 idiomas se presentan agrupados (reglas en `services/obras.py`), con los idiomas que
-hay, el subtítulo de origen propuesto y si existe ya su versión bilingüe. Un capítulo
-sin ningún `.srt` al lado aparece igualmente, marcado `SIN_SUBTITULOS`: es el caso de
-las bibliotecas donde los subtítulos viajan dentro del MKV.
+hay, el subtítulo de origen propuesto y si existe ya su versión bilingüe. Las pistas
+incrustadas en el vídeo (Fase 5) cuentan como subtítulos de la obra. Un capítulo sin
+ningún subtítulo aparece igualmente, marcado `SIN_SUBTITULOS`.
 """
 
 from dataclasses import dataclass, field
@@ -23,6 +23,7 @@ from app.models.library_folder import CarpetaBiblioteca
 from app.schemas.tree import EstadoObra, NodoArbol
 from app.services.obras import Obra, agrupar_en_obras
 from app.services.subtitles.seleccion import seleccionar
+from app.services.trabajos import caracteres_previstos
 
 
 @dataclass
@@ -145,8 +146,11 @@ def _nodo_obra(rama: _Rama, obra: Obra) -> NodoArbol:
         dual=dual,
         ruta_bilingue=next((sub.ruta_bilingue for sub in subs if sub.ruta_bilingue), None),
         # Lo que costaría traducirla: los caracteres del origen, no de todos sus
-        # subtítulos (una película con 25 idiomas no cuesta 25 veces más).
-        num_caracteres=seleccion.origen.num_caracteres if seleccion.origen else 0,
+        # subtítulos (una película con 25 idiomas no cuesta 25 veces más). La misma
+        # cifra que reservaría el trabajo, para que la previsión de la interfaz cuadre.
+        num_caracteres=caracteres_previstos(seleccion.origen) if seleccion.origen else 0,
+        caracteres_exactos=seleccion.origen.metricas_exactas if seleccion.origen else True,
+        origen_en_video=bool(seleccion.origen and seleccion.origen.es_pista),
         subtitulo_ids=[sub.id for sub in subs],
         subtitulo_origen_id=seleccion.origen.id if seleccion.origen else None,
         idioma_origen=seleccion.origen.idioma_origen if seleccion.origen else None,

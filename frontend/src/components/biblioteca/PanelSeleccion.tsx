@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { EstadoCupo } from '../../types'
 import type { Obra } from '../../utils/biblioteca'
 import { libreTotal, nombreProveedor, repartir } from '../../utils/cupos'
-import { numero } from '../../utils/formato'
+import { caracteres as formatoCaracteres, numero } from '../../utils/formato'
 import { IconoCerrar } from '../Iconos'
 
 interface Props {
@@ -24,6 +24,8 @@ export function PanelSeleccion({ obras, cupos, onGenerar, onQuitar, onQuitarToda
   // Las fusiones no gastan cupo: solo cuentan las que se traducen.
   const aTraducir = obras.filter((obra) => obra.nodo.subtitulo_coreano_id === null)
   const caracteres = aTraducir.reduce((suma, obra) => suma + obra.nodo.num_caracteres, 0)
+  // Con alguna pista sin extraer, el total es una estimación (por arriba).
+  const exactos = aTraducir.every((obra) => obra.nodo.caracteres_exactos)
 
   // Previsión del reparto entre proveedores, en el mismo orden en que el backend
   // creará los trabajos (ver `utils/cupos.ts`).
@@ -94,7 +96,9 @@ export function PanelSeleccion({ obras, cupos, onGenerar, onQuitar, onQuitarToda
                       : `Traducción · ${idioma} · ${nombreProveedor(proveedor ?? null)}`}
                 </div>
               </div>
-              <span className="cifra">{fusion ? '0' : numero(obra.nodo.num_caracteres)}</span>
+              <span className="cifra">
+                {fusion ? '0' : formatoCaracteres(obra.nodo.num_caracteres, obra.nodo.caracteres_exactos)}
+              </span>
               <button
                 className="boton-icono"
                 onClick={() => onQuitar(obra.nodo.ruta)}
@@ -111,8 +115,14 @@ export function PanelSeleccion({ obras, cupos, onGenerar, onQuitar, onQuitarToda
         <div className="resumen-cupo">
           <div className="calidad-fila">
             <span className="texto-2">Se enviarán a traducir</span>
-            <b>{numero(caracteres)} caracteres</b>
+            <b>{formatoCaracteres(caracteres, exactos)} caracteres</b>
           </div>
+          {!exactos && (
+            <div className="texto-3">
+              ≈: alguna obra sale de una pista del vídeo aún sin extraer. La cifra es por
+              arriba y se corrige al extraerla.
+            </div>
+          )}
           {libre !== null && (
             <>
               <div className="calidad-fila">

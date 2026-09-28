@@ -9,7 +9,7 @@ import {
   obrasDe,
   subcarpetas,
 } from '../../utils/biblioteca'
-import { numero, tituloLegible, tonoDe } from '../../utils/formato'
+import { caracteres, tituloLegible, tonoDe } from '../../utils/formato'
 import { IconoCarpeta, IconoLista, IconoMarca, IconoMosaico, IconoSeleccionar } from '../Iconos'
 
 export type Vista = 'mosaico' | 'lista'
@@ -229,7 +229,7 @@ function TarjetaObra({ obra, ...props }: Props & { obra: Obra }) {
 
 /** Las dos etiquetas «ES → KO»: el origen propuesto y si el coreano ya existe. */
 export function Pistas({ nodo }: { nodo: NodoArbol }) {
-  const origen = nodo.idioma_origen ?? (nodo.estado_obra === 'SIN_SUBTITULOS' ? 'MKV' : '—')
+  const origen = nodo.idioma_origen ?? '—'
   const conOrigen = nodo.idioma_origen !== null
   const conCoreano = nodo.subtitulo_coreano_id !== null || nodo.estado_obra === 'DUAL'
   return (
@@ -248,11 +248,13 @@ function nota(nodo: NodoArbol, progreso: Map<number, string>): string {
     case 'DUAL':
       return 'hecho'
     case 'PENDIENTE':
-      return nodo.subtitulo_coreano_id !== null ? 'fusión' : `${numero(nodo.num_caracteres)} c.`
+      return nodo.subtitulo_coreano_id !== null
+        ? 'fusión'
+        : `${caracteres(nodo.num_caracteres, nodo.caracteres_exactos)} c.`
     case 'SIN_ORIGEN':
       return 'falta ES/EN'
     case 'SIN_SUBTITULOS':
-      return 'subs en MKV'
+      return 'sin subtítulos'
     case 'ERROR':
       return 'error'
     default:

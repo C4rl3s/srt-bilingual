@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import type { Carpeta, EntradaDirectorio, ListadoDirectorio, ResumenEscaneo } from '../types'
+import type {
+  Carpeta,
+  EntradaDirectorio,
+  ListadoDirectorio,
+  ProgresoSondeo,
+  ResumenEscaneo,
+} from '../types'
 import { haceCuanto, nombreDeRuta, numero } from '../utils/formato'
 import { IconoCarpeta, IconoPapelera, IconoVolver } from './Iconos'
 
@@ -9,12 +15,24 @@ interface Props {
   onRecargar: () => Promise<void>
   escaneando: boolean
   resumen: ResumenEscaneo | null
+  /** La lectura de pistas que sigue al escaneo (la última, si ya acabó). */
+  sondeo: ProgresoSondeo | null
+  sondeoEnCurso: boolean
   onEscanear: (carpetaIds?: number[]) => void
   onVolver: () => void
 }
 
 /** Las carpetas vigiladas, el escaneo y el explorador para añadir más. */
-export function Carpetas({ carpetas, onRecargar, escaneando, resumen, onEscanear, onVolver }: Props) {
+export function Carpetas({
+  carpetas,
+  onRecargar,
+  escaneando,
+  resumen,
+  sondeo,
+  sondeoEnCurso,
+  onEscanear,
+  onVolver,
+}: Props) {
   const [error, setError] = useState<string | null>(null)
   // Quitar una carpeta pide confirmación en el propio botón (dos pulsaciones), en
   // vez de un `confirm()` del navegador que bloquea la página.
@@ -144,12 +162,51 @@ export function Carpetas({ carpetas, onRecargar, escaneando, resumen, onEscanear
                 </div>
               ))}
             </div>
+            <LecturaPistas sondeo={sondeo} enCurso={sondeoEnCurso} />
           </section>
         )}
       </main>
 
       <ExploradorCarpetas vigiladas={carpetas.map((c) => c.ruta)} onElegir={anadir} />
     </div>
+  )
+}
+
+/**
+ * Lo que pasa después del escaneo: la lectura de las pistas de subtítulo de los
+ * vídeos nuevos o cambiados, en segundo plano.
+ */
+function LecturaPistas({ sondeo, enCurso }: { sondeo: ProgresoSondeo | null; enCurso: boolean }) {
+  if (enCurso) {
+    return (
+      <div className="lectura-pistas">
+        <div className="calidad-fila">
+          <span className="texto-2">Leyendo las pistas de subtítulo de los vídeos…</span>
+          {sondeo && sondeo.total > 0 && (
+            <b>
+              {numero(sondeo.hechos)} de {numero(sondeo.total)}
+            </b>
+          )}
+        </div>
+        <div className="barra">
+          <div
+            className="barra-relleno barra-relleno--coreano"
+            style={{ width: sondeo?.total ? `${(100 * sondeo.hechos) / sondeo.total}%` : '0%' }}
+          />
+        </div>
+        <p className="texto-3">
+          Se puede seguir usando la app: las obras se van completando. La primera vez tarda
+          (unos minutos por cada cien vídeos); después solo se leen los nuevos.
+        </p>
+      </div>
+    )
+  }
+  if (!sondeo || sondeo.errores === 0) return null
+  return (
+    <p className="aviso aviso--error">
+      {numero(sondeo.errores)} {sondeo.errores === 1 ? 'vídeo no se pudo leer' : 'vídeos no se pudieron leer'}
+      : {sondeo.ultimo_error}. Se reintentará en el próximo escaneo.
+    </p>
   )
 }
 

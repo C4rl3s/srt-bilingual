@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { usePersistente } from '../hooks/usePersistente'
 import type { EstadoCupo, Trabajo } from '../types'
 import { nombreProveedor } from '../utils/cupos'
-import { haceCuanto, numero, porcentaje, tituloDeRuta } from '../utils/formato'
+import { esPista, haceCuanto, numero, porcentaje, tituloDeRuta } from '../utils/formato'
 import { IconoAviso } from './Iconos'
 
 interface Props {
@@ -83,29 +83,40 @@ export function Trabajos({ trabajos, cupos, onGenerar, numFusionables, onVerFusi
         <section className="seccion">
           <h2 className="rotulo">En curso y en cola · {activos.length}</h2>
           {activos.length === 0 && <p className="texto-2">No hay nada en marcha.</p>}
-          {activos.map((trabajo) => (
-            <div key={trabajo.id} className="fila-trabajo">
-              <span className={`modo modo--${trabajo.modo === 'FUSION' ? 'fusion' : 'traduccion'}`}>
-                {trabajo.modo === 'FUSION' ? 'Fusión' : 'Traducción'}
-              </span>
-              <div className="fila-trabajo-texto">
-                <b>{tituloDeRuta(trabajo.ruta_origen)}</b>
-                <span className="texto-2">
-                  {trabajo.modo === 'TRADUCCION' && `${nombreProveedor(trabajo.proveedor)} · `}
-                  {trabajo.estado === 'QUEUED'
-                    ? 'En cola'
-                    : `${numero(trabajo.bloques_procesados)} de ${numero(trabajo.bloques_totales)} bloques` +
-                      (trabajo.modo === 'TRADUCCION'
-                        ? ` · ${numero(trabajo.num_caracteres)} de ${numero(trabajo.caracteres_previstos)} caracteres`
-                        : '')}
+          {activos.map((trabajo) => {
+            const extrayendo = trabajo.fase === 'EXTRAYENDO'
+            return (
+              <div key={trabajo.id} className="fila-trabajo">
+                <span className={`modo modo--${trabajo.modo === 'FUSION' ? 'fusion' : 'traduccion'}`}>
+                  {trabajo.modo === 'FUSION' ? 'Fusión' : 'Traducción'}
                 </span>
+                <div className="fila-trabajo-texto">
+                  <b>
+                    {tituloDeRuta(trabajo.ruta_origen)}
+                    {esPista(trabajo.ruta_origen) && <span className="etiqueta-video">del vídeo</span>}
+                  </b>
+                  <span className="texto-2">
+                    {trabajo.modo === 'TRADUCCION' && `${nombreProveedor(trabajo.proveedor)} · `}
+                    {trabajo.estado === 'QUEUED'
+                      ? 'En cola'
+                      : extrayendo
+                        ? 'Extrayendo las pistas del vídeo: se lee el fichero entero'
+                        : `${numero(trabajo.bloques_procesados)} de ${numero(trabajo.bloques_totales)} bloques` +
+                          (trabajo.modo === 'TRADUCCION'
+                            ? ` · ${numero(trabajo.num_caracteres)} de ${numero(trabajo.caracteres_previstos)} caracteres`
+                            : '')}
+                  </span>
+                </div>
+                <div className={`barra barra--gruesa ${extrayendo ? 'barra--indeterminada' : ''}`}>
+                  <div
+                    className="barra-relleno"
+                    style={extrayendo ? undefined : { width: `${porcentaje(trabajo)}%` }}
+                  />
+                </div>
+                <span className="cifra">{extrayendo ? '' : `${porcentaje(trabajo)} %`}</span>
               </div>
-              <div className="barra barra--gruesa">
-                <div className="barra-relleno" style={{ width: `${porcentaje(trabajo)}%` }} />
-              </div>
-              <span className="cifra">{porcentaje(trabajo)} %</span>
-            </div>
-          ))}
+            )
+          })}
         </section>
 
         <section className="seccion">

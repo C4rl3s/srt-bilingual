@@ -169,3 +169,50 @@ Los carteles de *Shingeki* no se traducen ni se cuelan.
 **Aviso**: los 6.921 caracteres de Azure quedaron registrados en la **copia** de la
 base de datos, no en la de desarrollo. El registro de Azure de la app (que no puede
 consultar el consumo real) no los verá; son el 0,35 % del cupo mensual.
+
+Commit `5bcfa94`.
+
+## Hito 4 — Interfaz (2026-09-28)
+
+### Qué se hizo
+
+- **Backend**: el árbol da, por obra, `origen_en_video` y `caracteres_exactos`, y
+  su `num_caracteres` sale de la misma función con la que el trabajo reserva cupo
+  (`trabajos.caracteres_previstos`). Así la previsión de proveedor del frontend
+  (`utils/cupos.repartir`) cuadra con la del backend también para las pistas sin
+  estadísticas, que el árbol enseñaba como 0 caracteres.
+- **Detalle de una obra**:
+  - origen y coreano con la etiqueta «dentro del vídeo»;
+  - líneas con su precisión: exactas, «≈» si salen de la cabecera, «por saber» si
+    no hay estadísticas;
+  - coste con «≈» mientras la pista no está extraída;
+  - bloque «Pistas dentro del vídeo · sin extraer», con el botón **Extraer pistas**,
+    una barra indeterminada mientras dura (pregunta cada 3 s) y el error, si lo hay.
+- **Trabajos, cabecera y detalle**: la fase `EXTRAYENDO` («Extrayendo las pistas del
+  vídeo: se lee el fichero entero») con una barra indeterminada, sin porcentaje. Los
+  títulos de los trabajos desde pistas salen del nombre del vídeo (`Moonrise - 03`,
+  no la carpeta de la serie).
+- **Escaneo**: tras escanear, `useSondeo` sigue la lectura de pistas. La cabecera
+  muestra «Leyendo pistas · N de M», la tarjeta del escaneo su barra, y el árbol se
+  recarga cada 15 s mientras dura y al acabar. Si `ffprobe` falla, se dice.
+- Obras sin subtítulos: «sin subtítulos» en vez de «subs en MKV», y el aviso del
+  detalle ya no habla de una Fase 5 futura.
+- Selección múltiple: total con «≈» y la nota de por qué.
+
+### Verificación
+
+- `npm run build` y `oxlint` limpios; backend **298 passed**.
+- **En el navegador** (Chrome con `playwright-core`, backend sobre la copia de la BD,
+  sin errores en consola):
+  - *Jujutsu Kaisen* 01: «Pista 9 · ≈ 390 líneas», «Se traducirá con Azure · ≈
+    27.177 caracteres» y el bloque de extracción.
+  - *Moonrise* 02: **Extraer pistas** → barra indeterminada → a los **69 s** la
+    muestra y «Fusión · casan bien, calidad 0,99».
+  - Tres episodios de *Shingeki*: «≈ 120.000 caracteres» (3 × la estimación de
+    40.000: sus pistas no traen estadísticas) con la nota.
+  - *Moonrise* 03, **Generar bilingüe**: en Trabajos, «Extrayendo las pistas del
+    vídeo» con la barra indeterminada y la píldora «Moonrise - 03 · extrayendo
+    pistas»; termina como fusión con calidad 1,00, 0 caracteres. Su bilingüe queda
+    en el NAS junto al vídeo.
+  - Carpetas → **Escanear**: «Leyendo las pistas de subtítulo…» y, sin vídeos nuevos,
+    termina en segundos.

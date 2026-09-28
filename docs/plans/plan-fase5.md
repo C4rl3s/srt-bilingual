@@ -270,6 +270,38 @@ override manual. Dos ajustes:
 | **3** | Trabajos con pistas: fusión pista + pista, pista + `.srt`, y traducción | Tests con extractor falso; *Moonrise* 01 fusionado (0 cupo) y un episodio de *Shingeki* traducido, vistos en Plex |
 | **4** | Frontend | Recorrido en el navegador |
 | **5** | Documentación: bitácora, modelo de datos, READMEs | — |
+| **6** | **Prueba de calidad: fusión frente a traducción** (ver abajo) | Comparación escrita en la bitácora |
+
+### Prueba de calidad (petición del usuario, 2026-09-28)
+
+Al terminar la fase, comparar sobre una **misma obra** las dos formas de sacar el
+coreano:
+
+1. **Fusión** con un coreano que **no haya salido de ninguna API nuestra** (una pista
+   de Netflix, o un `.srt` coreano de la biblioteca).
+2. **Traducción** del origen en español con **Azure**.
+
+Candidato natural: *Moonrise* 01, cuya fusión con la pista `NF_Korean` ya está hecha
+(hito 3). Hay otros 58 MKV con coreano en texto si conviene más de una muestra
+(*PLUTO*, *Silo*, *Pluribus*…).
+
+Cuidado: los dos bilingües se llamarían igual (`<vídeo>.ES-KO.bilingue.srt`) y el
+segundo **sobrescribiría** al primero. Propuesta del usuario: antes de traducir,
+**renombrar el de la fusión con el sufijo `fusion`**
+(`<vídeo>.ES-KO.bilingue.fusion.srt`) y luego lanzar la traducción, que se escribe
+con el nombre normal. Al acabar la comparación se decide cuál se queda con el nombre
+que ve Plex. (Mientras tanto el escaneo no reconoce el `.fusion.srt` como bilingüe,
+y es lo esperado.)
+
+La comparación la hace Claude, bloque a bloque sobre los mismos tiempos:
+
+- fidelidad al original español;
+- naturalidad del coreano (registro, tuteo o respeto según el personaje);
+- nombres propios y términos del mundo de la serie;
+- cortes de línea y longitud, que importan para leer en pantalla.
+
+Conclusiones y ejemplos en la bitácora. Coste: una traducción de episodio con Azure
+(~8.000 caracteres).
 
 ## Riesgos
 

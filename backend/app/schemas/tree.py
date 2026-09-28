@@ -22,7 +22,9 @@ class EstadoObra(str, Enum):
     DUAL = "DUAL"  # ya existe el .bilingue.srt
     PENDIENTE = "PENDIENTE"  # tiene origen ES/EN válido: se le puede generar el bilingüe
     SIN_ORIGEN = "SIN_ORIGEN"  # tiene subtítulos, pero ninguno ES/EN válido como origen
-    SIN_SUBTITULOS = "SIN_SUBTITULOS"  # hay vídeo y ningún .srt al lado
+    # Hay vídeo y ningún subtítulo: ni un .srt al lado ni pistas de texto dentro (o
+    # aún no se han sondeado sus pistas).
+    SIN_SUBTITULOS = "SIN_SUBTITULOS"
     ERROR = "ERROR"  # sin origen válido y con algún subtítulo que no se pudo parsear
 
 
@@ -52,7 +54,13 @@ class NodoArbol(BaseModel):
     idiomas: list[Idioma] = []
     dual: bool = False
     ruta_bilingue: str | None = None
+    # Lo que costaría traducirla: lo mismo que reservaría el trabajo (ver
+    # `trabajos.caracteres_previstos`). Si el origen es una pista sin extraer, es una
+    # estimación (`caracteres_exactos = False`).
     num_caracteres: int = 0
+    caracteres_exactos: bool = True
+    # El origen propuesto es una pista incrustada en el vídeo, no un .srt.
+    origen_en_video: bool = False
     subtitulo_ids: list[int] = []
     # Propuesta de la selección automática (ver `services/subtitles/seleccion.py`).
     subtitulo_origen_id: int | None = None

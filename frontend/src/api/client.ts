@@ -11,8 +11,10 @@ import type {
   EntradaDirectorio,
   EstadoCupo,
   Estado,
+  Extraccion,
   ListadoDirectorio,
   NodoArbol,
+  ProgresoSondeo,
   PropuestaRenombrado,
   RespuestaTraduccion,
   ResultadoRenombrado,
@@ -78,6 +80,9 @@ export const api = {
       body: carpetaIds ? JSON.stringify({ carpeta_ids: carpetaIds }) : undefined,
     }),
 
+  /** Cómo va la lectura de pistas que el escaneo deja en segundo plano. */
+  progresoSondeo: () => peticion<ProgresoSondeo>('/scan/sondeo'),
+
   arbol: (estado?: Estado) =>
     peticion<NodoArbol[]>(`/library/tree${estado ? `?estado=${estado}` : ''}`),
 
@@ -100,6 +105,10 @@ export const api = {
     peticion<Candidatos>(
       `/subtitles/${subtituloId}/candidatos${origenId ? `?origen_id=${origenId}` : ''}`,
     ),
+
+  /** Saca del vídeo sus pistas de texto, en segundo plano (lee el fichero entero). */
+  extraerPistas: (videoId: number) =>
+    peticion<Extraccion>(`/videos/${videoId}/extraer`, { method: 'POST' }),
 
   // --- Renombrado para Plex ---
 

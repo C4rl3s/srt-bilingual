@@ -86,7 +86,8 @@ srt-bilingual/
     │   ├── App.tsx            # esqueleto: cabecera + sección activa + datos comunes
     │   ├── types.ts           # espejo TS de los DTOs del backend
     │   ├── api/client.ts      # envoltorio de fetch sobre /api/...
-    │   ├── hooks/             # useTrabajos (sondeo), usePersistente (localStorage)
+    │   ├── hooks/             # useTrabajos y useSondeo (polling), usePersistente
+    │   │                      #   (localStorage)
     │   ├── utils/             # formato (números, títulos), biblioteca (árbol, filtros)
     │   └── components/        # Cabecera, Trabajos, Renombrado, Carpetas, Iconos y
     │                          #   biblioteca/ (árbol, contenido, paneles de detalle

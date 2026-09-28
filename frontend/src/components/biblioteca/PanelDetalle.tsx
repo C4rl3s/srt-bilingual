@@ -3,7 +3,7 @@ import { api } from '../../api/client'
 import type { Candidato, Candidatos, EstadoCupo, MotivoDescarte, Trabajo } from '../../types'
 import type { Obra } from '../../utils/biblioteca'
 import { nombreProveedor, repartir } from '../../utils/cupos'
-import { numero, porcentaje } from '../../utils/formato'
+import { caracteres, numero, porcentaje } from '../../utils/formato'
 import { IconoCerrar, IconoInfo } from '../Iconos'
 
 interface Props {
@@ -50,6 +50,9 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
   }
 
   const idSubtitulo = nodo.subtitulo_ids[0]
+  // Se incrementa para volver a pedir los candidatos sin cambiar nada más: mientras
+  // se extraen las pistas del vídeo, y justo después.
+  const [recarga, setRecarga] = useState(0)
 
   useEffect(() => {
     if (idSubtitulo === undefined) return
@@ -63,7 +66,31 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
     return () => {
       vigente = false
     }
-  }, [idSubtitulo, origenElegido, nodo.estado_obra])
+  }, [idSubtitulo, origenElegido, nodo.estado_obra, recarga])
+
+  // Mientras el backend extrae las pistas, se pregunta cada pocos segundos: cuando
+  // acaba, los candidatos traen ya la muestra y la calidad de la fusión.
+  const extrayendo = candidatos?.extrayendo ?? false
+  useEffect(() => {
+    if (!extrayendo) return
+    const temporizador = setInterval(() => setRecarga((n) => n + 1), 3000)
+    return () => clearInterval(temporizador)
+  }, [extrayendo])
+
+  async function extraer() {
+    if (!candidatos?.video_id) return
+    setError(null)
+    try {
+      const respuesta = await api.extraerPistas(candidatos.video_id)
+      if (respuesta.en_curso) {
+        setCandidatos({ ...candidatos, extrayendo: true, error_extraccion: null })
+      } else {
+        setRecarga((n) => n + 1) // ya estaban extraídas: basta con volver a pedir
+      }
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
 
   async function generar(forzar: boolean) {
     const origen = candidatos?.origen_id
@@ -101,9 +128,9 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
       </div>
 
       {nodo.estado_obra === 'SIN_SUBTITULOS' && (
-        <Nota titulo="Subtítulos dentro del vídeo">
-          No hay ningún .srt junto a este vídeo: sus subtítulos van dentro del fichero. Se
-          podrán usar cuando llegue el soporte MKV (Fase 5).
+        <Nota titulo="Sin subtítulos">
+          Ni hay un .srt junto a este vídeo ni trae pistas de texto dentro. Si acabas de
+          escanear, puede que aún se estén leyendo sus pistas: espera a que termine.
         </Nota>
       )}
 
@@ -116,7 +143,8 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
             <Pista
               tipo="origen"
               etiqueta={`Origen · ${IDIOMAS[origen.idioma] ?? origen.idioma}`}
-              valor={`${origen.nombre} · ${numero(origen.num_bloques)} bloques`}
+              valor={`${origen.nombre} · ${bloques(origen)}`}
+              enVideo={origen.es_pista}
               accion={
                 <button className="boton-pequeno" onClick={() => setCambiando(!cambiando)}>
                   {cambiando ? 'Listo' : 'Cambiar'}
@@ -146,7 +174,8 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
               <Pista
                 tipo="coreano"
                 etiqueta="Coreano · ya existe"
-                valor={`${coreano.nombre} · ${numero(coreano.num_bloques)} bloques`}
+                valor={`${coreano.nombre} · ${bloques(coreano)}`}
+                enVideo={coreano.es_pista}
               />
             ) : (
               <Pista
@@ -156,11 +185,39 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
                   proveedorPrevisto === null
                     ? 'Sin cupo suficiente en ningún proveedor'
                     : `Se traducirá con ${nombreProveedor(proveedorPrevisto)}${
-                        origenElegido === null ? ` · ${numero(nodo.num_caracteres)} caracteres` : ''
+                        origenElegido === null
+                          ? ` · ${caracteres(nodo.num_caracteres, nodo.caracteres_exactos)} caracteres`
+                          : ''
                       }`
                 }
               />
             ))}
+
+          {candidatos.extraccion_pendiente && (
+            <div className="calidad">
+              <div className="calidad-fila">
+                <b>Pistas dentro del vídeo</b>
+                <span className="texto-2">sin extraer</span>
+              </div>
+              <p className="texto-2">
+                Para ver cómo quedará{coreano ? ' y si la fusión casa' : ''} hay que sacar las
+                pistas del vídeo, y eso obliga a leer el fichero entero: 1–2 min por episodio.
+                Si generas directamente, se extraen al empezar.
+              </p>
+              {candidatos.error_extraccion && (
+                <p className="aviso aviso--error">{candidatos.error_extraccion}</p>
+              )}
+              {extrayendo ? (
+                <div className="barra barra--indeterminada" aria-label="Extrayendo pistas">
+                  <div className="barra-relleno barra-relleno--coreano" />
+                </div>
+              ) : (
+                <button className="boton-secundario boton-ancho" onClick={extraer}>
+                  Extraer pistas
+                </button>
+              )}
+            </div>
+          )}
 
           {candidatos.calidad_alineacion !== null && (
             <div className={`calidad ${candidatos.fusion_aceptable ? '' : 'calidad--mala'}`}>
@@ -207,11 +264,22 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
         {trabajo ? (
           <div className="progreso">
             <div className="calidad-fila">
-              <b>{trabajo.estado === 'QUEUED' ? 'En cola' : trabajo.modo === 'FUSION' ? 'Fusionando' : `Traduciendo con ${nombreProveedor(trabajo.proveedor)}`}</b>
-              <span className="texto-2">{porcentaje(trabajo)} %</span>
+              <b>
+                {trabajo.estado === 'QUEUED'
+                  ? 'En cola'
+                  : trabajo.fase === 'EXTRAYENDO'
+                    ? 'Extrayendo las pistas del vídeo'
+                    : trabajo.modo === 'FUSION'
+                      ? 'Fusionando'
+                      : `Traduciendo con ${nombreProveedor(trabajo.proveedor)}`}
+              </b>
+              {trabajo.fase !== 'EXTRAYENDO' && <span className="texto-2">{porcentaje(trabajo)} %</span>}
             </div>
-            <div className="barra">
-              <div className="barra-relleno" style={{ width: `${porcentaje(trabajo)}%` }} />
+            <div className={`barra ${trabajo.fase === 'EXTRAYENDO' ? 'barra--indeterminada' : ''}`}>
+              <div
+                className="barra-relleno"
+                style={trabajo.fase === 'EXTRAYENDO' ? undefined : { width: `${porcentaje(trabajo)}%` }}
+              />
             </div>
           </div>
         ) : nodo.estado_obra === 'DUAL' ? (
@@ -237,22 +305,39 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
   )
 }
 
+/**
+ * Las líneas de un subtítulo, dichas con su precisión: exactas en un `.srt` o en una
+ * pista ya extraída; «≈» con las de la cabecera de una pista (cuentan carteles y
+ * karaoke); «por saber» si la pista no trae estadísticas.
+ */
+function bloques(c: Candidato): string {
+  if (c.metricas_exactas) return `${numero(c.num_bloques)} líneas`
+  if (c.num_bloques === 0) return 'líneas por saber'
+  return `≈ ${numero(c.num_bloques)} líneas`
+}
+
 function Pista({
   tipo,
   etiqueta,
   valor,
+  enVideo = false,
   accion,
 }: {
   tipo: 'origen' | 'coreano' | 'falta'
   etiqueta: string
   valor: string
+  /** Es una pista incrustada en el vídeo, no un `.srt`. */
+  enVideo?: boolean
   accion?: ReactNode
 }) {
   return (
     <div className={`fila-pista fila-pista--${tipo}`}>
       <span className={`fila-pista-barra fila-pista-barra--${tipo}`} aria-hidden="true" />
       <div className="fila-pista-texto">
-        <div className="texto-2">{etiqueta}</div>
+        <div className="texto-2">
+          {etiqueta}
+          {enVideo && <span className="etiqueta-video">dentro del vídeo</span>}
+        </div>
         <div className="recortar" title={valor}>
           {valor}
         </div>
@@ -284,9 +369,12 @@ function ListaCandidatos({
               disabled={!posible}
               onClick={() => onElegir(c.subtitulo_id)}
             >
-              <span className="recortar">{c.nombre}</span>
+              <span className="recortar">
+                {c.nombre}
+                {c.es_pista && <span className="etiqueta-video">vídeo</span>}
+              </span>
               <span className="texto-3">
-                {c.idioma === 'UNKNOWN' ? '¿?' : c.idioma} · {numero(c.num_bloques)}
+                {c.idioma === 'UNKNOWN' ? '¿?' : c.idioma} · {bloques(c)}
                 {c.descarte ? ` · ${MOTIVOS[c.descarte]}` : ''}
               </span>
             </button>

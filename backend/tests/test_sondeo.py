@@ -428,6 +428,9 @@ def test_api_escanear_sondea_en_segundo_plano_y_el_arbol_ve_las_pistas(
     assert obra["estado_obra"] == "PENDIENTE"
     assert obra["idioma_origen"] == "ES"
     assert obra["subtitulo_coreano_id"] is not None
+    # El coste, sin extraer: la cota de la cabecera (los bytes de la pista 7).
+    assert obra["origen_en_video"]
+    assert (obra["num_caracteres"], obra["caracteres_exactos"]) == (15099, False)
 
     candidatos = client.get(f"/subtitles/{obra['subtitulo_origen_id']}/candidatos").json()
     # Sin extraer no hay muestra ni calidad de fusión (costaría leer el MKV entero).

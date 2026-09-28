@@ -198,6 +198,59 @@
   background: var(--origen);
 }
 
+.punto--coreano {
+  background: var(--coreano);
+}
+
+/* Barra sin porcentaje (extraer pistas: se lee el vídeo entero y ffmpeg no dice
+   cuánto lleva). Un tramo que va y viene: «trabajando», sin prometer cuánto falta. */
+.barra--indeterminada {
+  position: relative;
+  overflow: hidden;
+}
+
+.barra--indeterminada .barra-relleno {
+  position: absolute;
+  width: 35%;
+  animation: barra-va-y-viene 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes barra-va-y-viene {
+  from {
+    left: 0;
+  }
+  to {
+    left: 65%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra--indeterminada .barra-relleno {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+/* La lectura de pistas tras el escaneo, al pie de la tarjeta del escaneo. */
+.lectura-pistas {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+/* Etiqueta «dentro del vídeo» junto a una pista incrustada. */
+.etiqueta-video {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid var(--borde-2);
+  color: var(--texto-3);
+  font-size: 11px;
+  vertical-align: 1px;
+}
+
 /* --- Controles comunes ------------------------------------------------------------ */
 
 .boton-primario,

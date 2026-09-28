@@ -5,6 +5,7 @@ import { Cabecera, type Seccion } from './components/Cabecera'
 import { Carpetas } from './components/Carpetas'
 import { Renombrado } from './components/Renombrado'
 import { Trabajos } from './components/Trabajos'
+import { useSondeo } from './hooks/useSondeo'
 import { useTrabajos } from './hooks/useTrabajos'
 import type { Carpeta, EstadoCupo, NodoArbol, ResumenEscaneo } from './types'
 import './App.css'
@@ -73,6 +74,9 @@ function App() {
   }, [cargarArbol, cargarCupos])
 
   const { trabajos, recargar: recargarTrabajos } = useTrabajos(alTerminarTrabajos)
+  // Tras escanear, el backend lee en segundo plano las pistas de los vídeos: el
+  // árbol se va completando según avanza.
+  const sondeo = useSondeo(cargarArbol)
 
   useEffect(() => {
     cargarArbol()
@@ -86,6 +90,7 @@ function App() {
     setError(null)
     try {
       setResumen(await api.escanear(carpetaIds))
+      sondeo.seguir()
       await Promise.all([cargarArbol(), cargarCarpetas(), cargarPropuestas()])
     } catch (e) {
       setError((e as Error).message)
@@ -115,6 +120,7 @@ function App() {
         trabajos={trabajos}
         cupos={cupos}
         numPropuestas={numPropuestas}
+        sondeo={sondeo.enCurso ? sondeo.progreso : null}
         onAbrirArbol={() => {
           setSeccion('biblioteca')
           setArbolAbiertoMovil(true)
@@ -159,6 +165,8 @@ function App() {
           }}
           escaneando={escaneando}
           resumen={resumen}
+          sondeo={sondeo.progreso}
+          sondeoEnCurso={sondeo.enCurso}
           onEscanear={escanear}
           onVolver={() => setSeccion('biblioteca')}
         />

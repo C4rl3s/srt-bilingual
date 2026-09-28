@@ -61,14 +61,27 @@ export function nombreDeRuta(ruta: string): string {
   return partes[partes.length - 1] ?? ruta
 }
 
+// La ruta de una pista incrustada: `<ruta del vídeo>#<índice del stream>`.
+const RUTA_PISTA = /([^\\/]+)\.[a-z0-9]+#\d+$/i
+
+/** Si la ruta de un subtítulo es la de una pista dentro de un vídeo. */
+export function esPista(ruta: string): boolean {
+  return RUTA_PISTA.test(ruta)
+}
+
 /**
  * Título de la obra de un trabajo o de un renombrado, a partir de la ruta de su
  * subtítulo: la carpeta que lo contiene, saltando la subcarpeta `Subs`.
  *
  * Si esa carpeta no parece de una película (no tiene año: `Pelis`, cuando el .srt
  * está suelto en la raíz), manda el nombre del fichero.
+ *
+ * Una pista incrustada (`…/Moonrise - 01 [1080p].mkv#7`) es del vídeo, que ya
+ * nombra la obra, capítulo incluido: manda siempre el nombre del vídeo.
  */
 export function tituloDeRuta(ruta: string): string {
+  const pista = ruta.match(RUTA_PISTA)
+  if (pista) return tituloLegible(pista[1]).titulo
   const partes = ruta.split(/[\\/]/).filter(Boolean)
   const fichero = (partes.pop() ?? ruta).replace(/\.srt$/i, '')
   let carpeta = partes.pop() ?? ruta
@@ -86,6 +99,14 @@ export function tonoDe(clave: string): string {
   let hash = 0
   for (const letra of clave) hash = (hash * 31 + letra.charCodeAt(0)) | 0
   return TONOS[Math.abs(hash) % TONOS.length]
+}
+
+/**
+ * Caracteres de una obra con su precisión: «≈ 15.099» si el origen es una pista
+ * aún sin extraer (la cifra es una estimación que el trabajo corregirá).
+ */
+export function caracteres(n: number, exactos: boolean): string {
+  return exactos ? numero(n) : `≈ ${numero(n)}`
 }
 
 /** Avance de un trabajo, de 0 a 100. */
