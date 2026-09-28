@@ -32,10 +32,22 @@ class EstadoTrabajo(str, Enum):
 
 
 class FormatoSubtitulo(str, Enum):
-    """Formato del fichero de subtítulos. Fase 1 solo soporta SRT; el enum deja la
-    puerta abierta a VTT/ASS/SUB sin necesidad de migrar el esquema."""
+    """Formato del subtítulo: el del fichero externo (siempre SRT) o el códec de la
+    pista incrustada en un vídeo (Fase 5)."""
 
     SRT = "SRT"
+    ASS = "ASS"  # también SSA: con estilos y posicionamiento
+    VTT = "VTT"
+    MOV_TEXT = "MOV_TEXT"  # el texto de los MP4
+    PGS = "PGS"  # imagen (Blu-ray)
+    VOBSUB = "VOBSUB"  # imagen (DVD)
+
+
+# Formatos que son imágenes de texto, no texto: sin OCR no se pueden leer, así que
+# nunca sirven de origen ni de coreano (decisión de la Fase 5).
+FORMATOS_IMAGEN: frozenset[FormatoSubtitulo] = frozenset(
+    {FormatoSubtitulo.PGS, FormatoSubtitulo.VOBSUB}
+)
 
 
 class Idioma(str, Enum):

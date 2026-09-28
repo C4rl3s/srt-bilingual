@@ -65,6 +65,8 @@ srt-bilingual/
 │   │       │                  #   renombrado (Plex), alineacion (modo fusión)
 │   │       ├── bilingual.py   # genera el .srt bilingüe (escritura atómica)
 │   │       ├── trabajos.py    # crear/ejecutar trabajos (BackgroundTasks)
+│   │       ├── mkv/           # pistas incrustadas: sondeo (ffprobe, en segundo
+│   │       │                  #   plano tras el escaneo) y extracción (Fase 5)
 │   │       └── translation/
 │   │           ├── base.py    # interfaz Translator (Protocol) + excepciones
 │   │           ├── deepl_provider.py  # informa de su cupo (ConCupo)
@@ -265,8 +267,14 @@ Plan de desarrollo aprobado en 6 fases.
   bilingüe** junto al vídeo. Cubre, por ejemplo, los 27 MKV de Anime que ya traen
   pista coreana. Por eso `alineacion.py` y `bilingual.py` trabajan con
   `list[Bloque]` y no con rutas de `.srt`: el origen puede ser una pista extraída.
+  **No se inyecta nada en el MKV.** Sondeo de los 428 MKV reales (2026-09-28): 278
+  con origen ES/EN en texto y 59 fusionables sin cupo; 130 capítulos de Series solo
+  tienen origen en imagen (PGS), y el **OCR queda fuera** (decisión del usuario).
+  Castellano antes que latino. Plan: `docs/plans/plan-fase5.md`.
 - [ ] **Al terminar — despliegue con Docker en un servidor local** (requisito del
-  usuario, 2026-09-28). La app acabará en un equipo propio que hará de **NAS**,
+  usuario, 2026-09-28). **El equipo aún no existe**: lo que se entrega es
+  **documentación e instrucciones** para cuando se monte, no un despliegue
+  ejecutado. La app acabará en un equipo propio que hará de **NAS**,
   con el sistema operativo aún por decidir, que despliega apps con **Docker** y
   donde correrá también **Plex**. Consecuencias para el diseño de lo que quede:
   - **No habrá SMB**: las carpetas de la biblioteca serán locales al equipo,

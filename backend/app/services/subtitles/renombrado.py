@@ -83,6 +83,9 @@ def proponer(db: Session, carpeta_ids: list[int] | None = None) -> list[Propuest
 def _proponer_uno(
     sub: ArchivoSubtitulo, video: Path, reservados: set[Path], forzado_encubierto: bool
 ) -> Propuesta | None:
+    # Una pista incrustada no es un fichero: no hay nada que renombrar.
+    if sub.es_pista:
+        return None
     ruta = Path(sub.ruta)
     # Solo los que están junto al vídeo: los de `Subs\` habría que moverlos de
     # carpeta, no solo renombrarlos, y eso cambia cómo el usuario organiza la suya.

@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import EstadoTrabajo, Idioma, ModoTrabajo
+from app.models.enums import EstadoTrabajo, FormatoSubtitulo, Idioma, ModoTrabajo
 from app.services.subtitles.seleccion import MotivoDescarte
 
 
@@ -68,6 +68,13 @@ class CandidatoOut(BaseModel):
     es_forzado: bool
     es_sdh: bool
     descarte: MotivoDescarte | None
+    formato: FormatoSubtitulo
+    # Pista incrustada en el vídeo (Fase 5): su índice y su título en el contenedor.
+    es_pista: bool
+    indice_pista: int | None
+    titulo_pista: str | None
+    # `False` si `num_bloques` sale de la cabecera de la pista (o es 0 = no se sabe).
+    metricas_exactas: bool
 
 
 class MuestraOut(BaseModel):

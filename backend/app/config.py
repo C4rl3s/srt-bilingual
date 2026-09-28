@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     # Red de seguridad por si un recurso de la biblioteca es de solo lectura.
     output_dir: str | None = None
 
+    # --- Pistas incrustadas (Fase 5) ---
+    # Ejecutables de ffmpeg. Por defecto, los del PATH; una ruta completa si no están.
+    ffprobe_path: str = "ffprobe"
+    ffmpeg_path: str = "ffmpeg"
+
     @property
     def proveedores(self) -> list[str]:
         """Nombres de los proveedores configurados, en orden de preferencia."""

@@ -120,7 +120,9 @@ export interface RespuestaTraduccion {
   rechazados: { subtitulo_id: number; motivo: string }[]
 }
 
-export type MotivoDescarte = 'ERROR' | 'IDIOMA' | 'FORZADO' | 'POCOS_BLOQUES'
+export type MotivoDescarte = 'ERROR' | 'IMAGEN' | 'IDIOMA' | 'FORZADO' | 'POCOS_BLOQUES'
+
+export type FormatoSubtitulo = 'SRT' | 'ASS' | 'VTT' | 'MOV_TEXT' | 'PGS' | 'VOBSUB'
 
 export interface Candidato {
   subtitulo_id: number
@@ -131,6 +133,13 @@ export interface Candidato {
   es_forzado: boolean
   es_sdh: boolean
   descarte: MotivoDescarte | null
+  formato: FormatoSubtitulo
+  /** Pista incrustada en el vídeo (Fase 5) en vez de un `.srt` propio. */
+  es_pista: boolean
+  indice_pista: number | null
+  titulo_pista: string | null
+  /** `false` si `num_bloques` sale de la cabecera de la pista (o es 0 = no se sabe). */
+  metricas_exactas: boolean
 }
 
 export interface Muestra {

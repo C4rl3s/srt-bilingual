@@ -3,7 +3,8 @@
 Esquema de la base de datos SQLite de srt-bilingual. Refleja las migraciones
 `4684c713e94f` (Fase 1), `bd028a52d162` (columna `activa`), `deb86f77e1a9`
 (tabla `media_file`), `6f170d42eb87` (flags y `version_analisis`), `b9edc39727eb`
-(tabla `translation_job`) y `4447e8a4d4c5` (`caracteres_previstos`). Si cambias un modelo en `backend/app/models/`, genera la
+(tabla `translation_job`), `4447e8a4d4c5` (`caracteres_previstos`) y `c3a9e5f17b20`
+(pistas incrustadas). Si cambias un modelo en `backend/app/models/`, genera la
 migración **y actualiza este documento en el mismo commit**.
 
 > **Este fichero es la fuente de verdad.** Al lado hay una versión visual del mismo
@@ -30,6 +31,7 @@ que solo exista en la base de datos: lo traducido se reconoce porque el
 erDiagram
     library_folder ||--o{ subtitle_file : "contiene"
     library_folder ||--o{ media_file : "contiene"
+    media_file |o--o{ subtitle_file : "pistas incrustadas"
     subtitle_file |o--o{ translation_job : "origen (SET NULL)"
     subtitle_file |o--o{ translation_job : "coreano (SET NULL)"
 
@@ -63,6 +65,7 @@ erDiagram
         string   base              "clave de agrupacion por obra"
         float    mtime             "deteccion de cambios"
         int      tamano_bytes      "deteccion de cambios"
+        float    sondeado_mtime    "mtime al sondear sus pistas"
         datetime creado_en
         datetime actualizado_en
     }
@@ -79,9 +82,9 @@ erDiagram
     subtitle_file {
         int      id             PK
         int      carpeta_id     FK "ON DELETE CASCADE"
-        string   ruta           UK "identidad del fichero"
+        string   ruta           UK "fichero, o video#indice"
         string   nombre
-        string   formato           "SRT"
+        string   formato           "SRT ASS VTT MOV_TEXT PGS VOBSUB"
         string   idioma_origen     "ES EN KO FR DE IT PT JA ZH UNKNOWN"
         bool     es_forzado        "flag del nombre"
         bool     es_sdh            "flag del nombre"
@@ -95,6 +98,11 @@ erDiagram
         int      tamano_bytes      "deteccion de cambios"
         int      version_analisis  "reglas con que se analizo"
         string   mensaje_error     "solo si estado = ERROR"
+        int      video_id       FK "solo pistas, ON DELETE CASCADE"
+        int      indice_pista      "solo pistas"
+        string   titulo_pista      "solo pistas"
+        bool     metricas_exactas  "false en pistas sin extraer"
+        string   ruta_extraida     "solo pistas, en la cache"
         datetime creado_en
         datetime actualizado_en
     }
@@ -125,7 +133,13 @@ acabaría reclamado por las dos, chocando contra el índice único de `subtitle_
 
 ## `subtitle_file`
 
-El inventario propiamente dicho: un `.srt` **de origen** encontrado en disco.
+El inventario propiamente dicho: un subtítulo **de origen**. Puede ser un `.srt`
+encontrado en disco o, desde la Fase 5, una **pista incrustada** en un vídeo
+(`video_id` no nulo). Van en la misma tabla a propósito: la selección de origen y
+coreano, los trabajos y la interfaz las tratan igual, y una obra puede mezclar una
+pista con un `.srt` de al lado. Solo se guardan las pistas ES/EN/KO o sin idioma
+declarado; las de imagen (PGS/VobSub) también, para que la interfaz explique por qué
+no sirven.
 
 Los ficheros `.bilingue.srt` **no tienen fila propia**: son un atributo del
 original (`ruta_bilingue`). El escáner los excluye explícitamente como fuente para
@@ -135,9 +149,9 @@ no acabar traduciendo traducciones.
 |---|---|---|---|
 | `id` | `INTEGER` PK | no | Clave primaria |
 | `carpeta_id` | `INTEGER` FK | no | Carpeta a la que pertenece. `ON DELETE CASCADE` |
-| `ruta` | `VARCHAR` | no | Ruta absoluta. **Única**: es la identidad del fichero |
-| `nombre` | `VARCHAR` | no | Nombre del fichero, para mostrarlo sin partir la ruta |
-| `formato` | `VARCHAR(3)` | no | `SRT`. Reservado para VTT/ASS sin migrar el esquema |
+| `ruta` | `VARCHAR` | no | Ruta absoluta. **Única**: es la identidad del fichero. En una pista, `<ruta del vídeo>#<índice>`, que no es un fichero |
+| `nombre` | `VARCHAR` | no | Nombre del fichero, para mostrarlo sin partir la ruta. En una pista, `Pista 7 · NF_Spanish` |
+| `formato` | `VARCHAR(8)` | no | `SRT` en los ficheros; en las pistas, su códec: `ASS`, `VTT`, `MOV_TEXT`, `SRT`, o de imagen `PGS`/`VOBSUB` |
 | `idioma_origen` | `VARCHAR(7)` | no | Idioma del subtítulo. Manda el **contenido** cuando da un veredicto claro (hangul para `KO`, densidad de palabras frecuentes para `ES`/`EN`); si no, el sufijo del nombre. `UNKNOWN` si ninguno lo aclara |
 | `es_forzado` | `BOOLEAN` | no | El nombre lo declara forzado (`.forced`, `(Forced)`): solo carteles, no sirve como origen |
 | `es_sdh` | `BOOLEAN` | no | El nombre lo declara SDH/CC/HI: trae descripciones sonoras; origen solo si no hay otro |
@@ -151,8 +165,16 @@ no acabar traduciendo traducciones.
 | `tamano_bytes` | `INTEGER` | no | Tamaño del fichero |
 | `version_analisis` | `INTEGER` | no | Versión de las reglas de análisis (`scanner.VERSION_ANALISIS`) con que se procesó. Si el código las mejora, el siguiente escaneo reprocesa la fila aunque el fichero no haya cambiado |
 | `mensaje_error` | `VARCHAR` | sí | Mensaje del parser cuando `estado = ERROR` |
+| `video_id` | `INTEGER` FK | sí | Solo en pistas: el vídeo que la contiene. `ON DELETE CASCADE`: la pista se va con su vídeo |
+| `indice_pista` | `INTEGER` | sí | Solo en pistas: índice del stream en el contenedor (`0:7` para ffmpeg). Identifica la pista al volver a sondear el vídeo |
+| `titulo_pista` | `VARCHAR` | sí | Solo en pistas: el título que trae (`NF_Spanish`, `Latin American (Forced)`). De ahí salen los flags de forzado y SDH, y la variante latina |
+| `metricas_exactas` | `BOOLEAN` | no | `true` en los `.srt`. En una pista sin extraer, `false`: `num_bloques` sale de las estadísticas de su cabecera (o es `0` = no se sabe) y `num_caracteres` es una cota superior (los bytes de la pista) |
+| `ruta_extraida` | `VARCHAR` | sí | Solo en pistas: dónde está extraída, en la caché. `NULL` hasta extraerla (Fase 5, hito 2) |
 | `creado_en` | `DATETIME` | no | Alta de la fila |
 | `actualizado_en` | `DATETIME` | no | Se refresca sola vía `onupdate` |
+
+En una pista, `mtime` y `tamano_bytes` son los de su vídeo, y `es_forzado`/`es_sdh`
+salen de su título y no del nombre de un fichero.
 
 **Índices:**
 
@@ -161,13 +183,14 @@ no acabar traduciendo traducciones.
 | `ix_subtitle_file_ruta` | `ruta` | sí | Identidad del fichero; el escaneo busca por ruta en cada pasada |
 | `ix_subtitle_file_carpeta_id` | `carpeta_id` | no | Recorrer los subtítulos de una carpeta |
 | `ix_subtitle_file_estado` | `estado` | no | El filtro `GET /subtitles?estado=` y el listado del frontend |
+| `ix_subtitle_file_video_id` | `video_id` | no | Las pistas de un vídeo |
 
 ## `media_file`
 
-Los contenedores de vídeo (`.mkv`, `.mp4`, `.avi`, `.m4v`, `.mov`). **No se abren
-ni se inspeccionan**: solo se registra que están ahí, para poder dibujar la
-biblioteca aunque no haya ningún `.srt` al lado. Es el caso habitual cuando los
-subtítulos viajan embebidos dentro del propio MKV.
+Los contenedores de vídeo (`.mkv`, `.mp4`, `.avi`, `.m4v`, `.mov`). El escaneo solo
+registra que están ahí, para poder dibujar la biblioteca aunque no haya ningún `.srt`
+al lado. Después, en segundo plano, se **sondea su cabecera** con `ffprobe` y sus
+pistas de subtítulo pasan a `subtitle_file` (Fase 5).
 
 | Columna | Tipo SQLite | Nulo | Para qué sirve |
 |---|---|---|---|
@@ -178,14 +201,12 @@ subtítulos viajan embebidos dentro del propio MKV.
 | `base` | `VARCHAR` | no | Nombre sin extensión ni sufijo de idioma. Es la clave por la que el árbol empareja el vídeo con sus subtítulos hermanos; se guarda calculada para no repetirlo en cada consulta |
 | `mtime` | `FLOAT` | no | Fecha de modificación (epoch) |
 | `tamano_bytes` | `INTEGER` | no | Tamaño del fichero |
+| `sondeado_mtime` | `FLOAT` | sí | El `mtime` con que se sondearon sus pistas. Si no coincide con `mtime` (o es `NULL`), está pendiente de sondeo; así un vídeo sin cambios no se vuelve a abrir por la red |
 | `creado_en` | `DATETIME` | no | Alta de la fila |
 | `actualizado_en` | `DATETIME` | no | Se refresca sola vía `onupdate` |
 
 **Índices:** `ix_media_file_ruta` (ÚNICO), `ix_media_file_carpeta_id`,
 `ix_media_file_base`.
-
-Las pistas de subtítulo embebidas son cosa de la Fase 5; esta tabla es donde
-colgarán.
 
 ## `translation_job`
 
@@ -295,11 +316,20 @@ El coste de agrupar por nombre: si el `.srt` no se llama como el vídeo, aparece
 como dos obras distintas. Es el mismo criterio que usa `derivar_nombre_bilingue`,
 así que la convención es coherente en todo el sistema.
 
-**7. Los vídeos se inventarían, pero no se abren.**
+**7. El escaneo no abre los vídeos; el sondeo, solo su cabecera.**
 El escaneo registra la existencia de cada contenedor y su huella (`mtime`+tamaño),
-nada más. Leer las pistas internas exige ffmpeg y es trabajo de la Fase 5. Gracias a
-esto, un escaneo de 215 MKV sobre un recurso de red tarda ~2 s: solo se listan
-nombres, no se lee un solo byte del contenido.
+nada más: 215 MKV sobre un recurso de red tardan ~2 s. Las pistas las lee después
+un sondeo en segundo plano con `ffprobe`, que lee solo la cabecera (0,3–0,8 s por
+fichero; ~6 min la primera pasada por Anime) y solo de los vídeos nuevos o cambiados
+(`sondeado_mtime`). Extraer el texto de una pista, en cambio, obliga a leer el MKV
+entero, así que no se hace en el escaneo (Fase 5, hito 2).
+
+**8. Una pista incrustada es una fila de `subtitle_file`, no de una tabla propia.**
+Con tabla propia habría que duplicar la selección de origen, los candidatos, los
+trabajos y sus claves foráneas, y el frontend. El coste: unas cuantas columnas que
+solo tienen sentido en pistas, y que `ruta` deja de ser siempre un fichero (en una
+pista es `<vídeo>#<índice>`); el código que lee un subtítulo del disco debe mirar
+`es_pista` antes.
 
 ## Descartada: `provider_usage`
 

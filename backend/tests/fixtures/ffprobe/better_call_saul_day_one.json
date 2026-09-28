@@ -1,0 +1,109 @@
+{
+ "streams": [
+  {
+   "index": 2,
+   "codec_name": "hdmv_pgs_subtitle",
+   "disposition": {
+    "default": 0,
+    "dub": 0,
+    "original": 0,
+    "comment": 0,
+    "lyrics": 0,
+    "karaoke": 0,
+    "forced": 0,
+    "hearing_impaired": 0,
+    "visual_impaired": 0,
+    "clean_effects": 0,
+    "attached_pic": 0,
+    "timed_thumbnails": 0,
+    "non_diegetic": 0,
+    "captions": 0,
+    "descriptions": 0,
+    "metadata": 0,
+    "dependent": 0,
+    "still_image": 0,
+    "multilayer": 0
+   },
+   "tags": {
+    "language": "eng",
+    "BPS": "66772",
+    "DURATION": "00:04:00.115000000",
+    "NUMBER_OF_FRAMES": "152",
+    "NUMBER_OF_BYTES": "2004121",
+    "_STATISTICS_WRITING_APP": "mkvmerge v56.1.0 ('My Friend') 64-bit",
+    "_STATISTICS_WRITING_DATE_UTC": "2022-11-15 18:54:07",
+    "_STATISTICS_TAGS": "BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES"
+   }
+  },
+  {
+   "index": 3,
+   "codec_name": "hdmv_pgs_subtitle",
+   "disposition": {
+    "default": 0,
+    "dub": 0,
+    "original": 0,
+    "comment": 0,
+    "lyrics": 0,
+    "karaoke": 0,
+    "forced": 0,
+    "hearing_impaired": 0,
+    "visual_impaired": 0,
+    "clean_effects": 0,
+    "attached_pic": 0,
+    "timed_thumbnails": 0,
+    "non_diegetic": 0,
+    "captions": 0,
+    "descriptions": 0,
+    "metadata": 0,
+    "dependent": 0,
+    "still_image": 0,
+    "multilayer": 0
+   },
+   "tags": {
+    "language": "ger",
+    "BPS": "64322",
+    "DURATION": "00:04:02.200000000",
+    "NUMBER_OF_FRAMES": "172",
+    "NUMBER_OF_BYTES": "1947354",
+    "_STATISTICS_WRITING_APP": "mkvmerge v56.1.0 ('My Friend') 64-bit",
+    "_STATISTICS_WRITING_DATE_UTC": "2022-11-15 18:54:07",
+    "_STATISTICS_TAGS": "BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES"
+   }
+  },
+  {
+   "index": 4,
+   "codec_name": "hdmv_pgs_subtitle",
+   "disposition": {
+    "default": 0,
+    "dub": 0,
+    "original": 0,
+    "comment": 0,
+    "lyrics": 0,
+    "karaoke": 0,
+    "forced": 0,
+    "hearing_impaired": 0,
+    "visual_impaired": 0,
+    "clean_effects": 0,
+    "attached_pic": 0,
+    "timed_thumbnails": 0,
+    "non_diegetic": 0,
+    "captions": 0,
+    "descriptions": 0,
+    "metadata": 0,
+    "dependent": 0,
+    "still_image": 0,
+    "multilayer": 0
+   },
+   "tags": {
+    "language": "spa",
+    "BPS": "66510",
+    "DURATION": "00:04:02.200000000",
+    "NUMBER_OF_FRAMES": "170",
+    "NUMBER_OF_BYTES": "2013615",
+    "_STATISTICS_WRITING_APP": "mkvmerge v56.1.0 ('My Friend') 64-bit",
+    "_STATISTICS_WRITING_DATE_UTC": "2022-11-15 18:54:07",
+    "_STATISTICS_TAGS": "BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES"
+   }
+  }
+ ]
+}

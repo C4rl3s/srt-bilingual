@@ -171,7 +171,10 @@ def candidatos(
 
     calidad = aceptable = None
     muestra: list[MuestraOut] = []
-    if seleccion.origen:
+    # Una pista sin extraer no se puede leer aquí: costaría leer el MKV entero por la
+    # red en mitad de una petición. Sin muestra ni calidad hasta que se extraiga.
+    hay_pistas = any(s is not None and s.es_pista for s in (seleccion.origen, seleccion.coreano))
+    if seleccion.origen and not hay_pistas:
         bloques_origen = parsear(Path(seleccion.origen.ruta))
         textos_coreano = None
         if seleccion.coreano:
@@ -197,6 +200,11 @@ def candidatos(
                 es_forzado=c.subtitulo.es_forzado,
                 es_sdh=c.subtitulo.es_sdh,
                 descarte=c.descarte,
+                formato=c.subtitulo.formato,
+                es_pista=c.subtitulo.es_pista,
+                indice_pista=c.subtitulo.indice_pista,
+                titulo_pista=c.subtitulo.titulo_pista,
+                metricas_exactas=c.subtitulo.metricas_exactas,
             )
             for c in seleccion.candidatos
         ],

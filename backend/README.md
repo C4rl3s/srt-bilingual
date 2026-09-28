@@ -15,6 +15,10 @@ uv run uvicorn app.main:app --reload --port 8000
 ```
 
 - API: http://localhost:8000 · OpenAPI: http://localhost:8000/docs
+- Para los subtítulos incrustados en los vídeos hace falta **ffmpeg** (`ffprobe` y
+  `ffmpeg`) en el `PATH`, o su ruta en `FFPROBE_PATH`/`FFMPEG_PATH`. En Windows:
+  `winget install Gyan.FFmpeg`. Sin él, todo lo demás funciona y el progreso del
+  sondeo (`GET /scan/sondeo`) dice que falta.
 
 Las carpetas a vigilar **no** se configuran aquí: se añaden desde la interfaz y
 viven en la tabla `library_folder`. Las variables del `.env` están explicadas en
@@ -41,6 +45,8 @@ app/
     ├── library_tree.py  árbol de la biblioteca, derivado de las rutas
     ├── bilingual.py     compone y escribe el bilingüe (escritura atómica)
     ├── trabajos.py      crea y ejecuta los trabajos en segundo plano
+    ├── mkv/
+    │   └── sondeo.py       pistas de subtítulo de cada vídeo (ffprobe, en segundo plano)
     ├── subtitles/
     │   ├── srt_parser.py   parseo, idioma por nombre y por contenido
     │   ├── naming.py       convención de nombres
@@ -70,6 +76,10 @@ Ideas que explican el resto del diseño:
   coreano por bloque, y `bilingual.py` no distingue de dónde viene.
 - **Solo ES/EN → KO**. Sin origen en español o inglés, la obra no es elegible
   (`SIN_ORIGEN`).
+- **Una pista incrustada es un subtítulo más**: una fila de `subtitle_file` con
+  `video_id`, candidata de la obra de su vídeo junto a los `.srt` de al lado. Su
+  `ruta` es `<vídeo>#<índice>`, que no es un fichero: lo que lea del disco debe
+  mirar antes `es_pista`.
 - **Ningún fichero fuera de `services/translation/` conoce a un proveedor
   concreto**: añadir uno es un módulo nuevo y una entrada en `registry.py`.
 - **El proveedor de cada traducción se elige por cupo**: el primero de
@@ -118,7 +128,8 @@ respecto a los modelos. Tras migrar, `uv run alembic check` lo comprueba.
 | `DELETE` | `/folders/{id}` | Deja de vigilarla y borra lo suyo (cascada) |
 | `GET` | `/fs/roots` | Unidades disponibles, para el selector |
 | `GET` | `/fs/browse` | Subdirectorios de una ruta |
-| `POST` | `/scan` | Escanea las carpetas marcadas (o las de `carpeta_ids`) |
+| `POST` | `/scan` | Escanea las carpetas marcadas (o las de `carpeta_ids`) y deja en segundo plano el sondeo de las pistas de los vídeos nuevos o cambiados |
+| `GET` | `/scan/sondeo` | Progreso del sondeo de pistas: hechos, total y errores |
 | `GET` | `/library/tree` | Árbol de la biblioteca hasta la obra, con estado, origen y coreano propuestos |
 | `GET` | `/subtitles` | Lista los subtítulos. Filtros: `?estado=` y `?idioma=` |
 | `GET` | `/subtitles/{id}` | Detalle de un subtítulo |

@@ -43,8 +43,18 @@ def test_mercy_elige_el_espanol_completo_y_descarta_los_forzados() -> None:
 
     seleccion = seleccionar([forzado, europeo, junto_al_video, latino])
 
-    assert seleccion.origen is latino  # el más completo
+    # Castellano antes que latino (Fase 5), aunque el latino tenga 6 bloques más; y
+    # entre los castellanos, el más completo.
+    assert seleccion.origen is junto_al_video
     assert _motivo(seleccion, forzado) is MotivoDescarte.FORZADO
+    assert _motivo(seleccion, latino) is None  # válido: se puede elegir a mano
+
+
+def test_el_latino_sirve_si_no_hay_castellano() -> None:
+    latino = _sub("Spanish[LAT].srt", Idioma.ES, 900)
+    ingles = _sub("English.srt", Idioma.EN, 950)
+
+    assert seleccionar([ingles, latino]).origen is latino
 
 
 def test_el_espanol_gana_al_ingles_aunque_tenga_menos_bloques() -> None:

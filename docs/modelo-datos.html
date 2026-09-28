@@ -491,9 +491,9 @@
     <div class="meta">
       <span>SQLite</span>
       <span>SQLAlchemy 2.0</span>
-      <span class="is-live">migración 4447e8a4d4c5</span>
-      <span>4 tablas · 54 columnas</span>
-      <span>+1 tabla prevista en Fase 4</span>
+      <span class="is-live">migración c3a9e5f17b20</span>
+      <span>4 tablas · 60 columnas</span>
+      <span>provider_usage descartada</span>
     </div>
   </header>
 
@@ -552,6 +552,7 @@
           <li><span class="key">FK</span> carpeta_id</li>
           <li><span class="key">UK</span> ruta</li>
           <li><span class="key is-plain">·</span> base</li>
+          <li><span class="key is-plain">·</span> sondeado_mtime</li>
           <li><span class="key is-plain">·</span> <span class="more">+ 4 columnas</span></li>
         </ul>
       </div>
@@ -564,7 +565,8 @@
           <li><span class="key">UK</span> ruta</li>
           <li><span class="key is-plain">·</span> estado</li>
           <li><span class="key is-plain">·</span> num_caracteres</li>
-          <li><span class="key is-plain">·</span> <span class="more">+ 15 columnas</span></li>
+          <li><span class="key">FK</span> video_id <span class="more">(pistas)</span></li>
+          <li><span class="key is-plain">·</span> <span class="more">+ 19 columnas</span></li>
         </ul>
       </div>
 
@@ -588,6 +590,8 @@
     </div>
 
     <p class="lede">
+      Un subtítulo cuelga de su carpeta y, si es una <strong>pista incrustada</strong>
+      (Fase 5), también de su vídeo: se va con él en cascada.
       Borrar una carpeta desde la interfaz borra su fila, y la cascada se lleva sus
       subtítulos. Volver a añadirla los redescubre —incluido su estado
       <code>TRANSLATED</code>—, porque el bilingüe sigue en disco. Los trabajos de
@@ -659,9 +663,12 @@
       <div class="eyebrow">Tabla</div>
       <h2>subtitle_file</h2>
       <p class="lede">
-        El inventario propiamente dicho: un <code>.srt</code> <strong>de origen</strong>.
-        Los ficheros <code>.bilingue.srt</code> no tienen fila propia — son un atributo del
-        original. El escáner los excluye como fuente para no traducir traducciones.
+        El inventario propiamente dicho: un subtítulo <strong>de origen</strong>, que puede
+        ser un <code>.srt</code> en disco o, desde la Fase 5, una <strong>pista
+        incrustada</strong> en un vídeo. Van juntos a propósito: la selección, los trabajos
+        y la interfaz los tratan igual. Los ficheros <code>.bilingue.srt</code> no tienen
+        fila propia — son un atributo del original. El escáner los excluye como fuente
+        para no traducir traducciones.
       </p>
     </div>
 
@@ -697,9 +704,9 @@
           </tr>
           <tr>
             <td>formato</td>
-            <td class="type">VARCHAR(3)</td>
+            <td class="type">VARCHAR(8)</td>
             <td class="nul no">no</td>
-            <td><code>SRT</code>. Reservado para VTT/ASS sin migrar el esquema</td>
+            <td><code>SRT</code> en ficheros · en pistas, su códec: <code>ASS</code>, <code>VTT</code>, <code>MOV_TEXT</code>, <code>SRT</code>, o de imagen <code>PGS</code>/<code>VOBSUB</code></td>
           </tr>
           <tr>
             <td>idioma_origen</td>
@@ -778,6 +785,36 @@
             <td class="type">VARCHAR</td>
             <td class="nul yes">sí</td>
             <td>Mensaje del parser cuando el estado es <code>ERROR</code></td>
+          </tr>
+          <tr>
+            <td>video_id<span class="tag">FK</span></td>
+            <td class="type">INTEGER</td>
+            <td class="nul yes">sí</td>
+            <td>Solo pistas: su vídeo · <code>ON DELETE CASCADE</code>. En una pista, <code>ruta</code> es <code>&lt;vídeo&gt;#&lt;índice&gt;</code></td>
+          </tr>
+          <tr>
+            <td>indice_pista</td>
+            <td class="type">INTEGER</td>
+            <td class="nul yes">sí</td>
+            <td>Solo pistas: índice del stream en el contenedor</td>
+          </tr>
+          <tr>
+            <td>titulo_pista</td>
+            <td class="type">VARCHAR</td>
+            <td class="nul yes">sí</td>
+            <td>Solo pistas: <code>NF_Spanish</code>, <code>Latin American (Forced)</code>… De ahí salen forzado, SDH y variante latina</td>
+          </tr>
+          <tr>
+            <td>metricas_exactas</td>
+            <td class="type">BOOLEAN</td>
+            <td class="nul no">no</td>
+            <td><code>false</code> en una pista sin extraer: bloques de su cabecera (o 0 = no se sabe) y caracteres como cota superior</td>
+          </tr>
+          <tr>
+            <td>ruta_extraida</td>
+            <td class="type">VARCHAR</td>
+            <td class="nul yes">sí</td>
+            <td>Solo pistas: dónde está extraída, en la caché</td>
           </tr>
           <tr>
             <td>creado_en</td>
@@ -1009,15 +1046,29 @@
       </article>
 
       <article class="decision">
-        <h3>Los vídeos se inventarían, pero no se abren</h3>
+        <h3>El escaneo no abre los vídeos; el sondeo, solo su cabecera</h3>
         <p>
-          De cada contenedor se registra su existencia y su huella
-          (<code>mtime</code> + tamaño), nada más. Leer las pistas internas exige ffmpeg y es
-          trabajo de la Fase 5.
+          El escaneo registra de cada contenedor su existencia y su huella
+          (<code>mtime</code> + tamaño). Las pistas las lee después, en segundo plano,
+          <code>ffprobe</code>, y solo de los vídeos nuevos o cambiados
+          (<code>sondeado_mtime</code>).
         </p>
         <div class="cost">
           <b>Por qué compensa</b>
-          <span>Un escaneo de 215 MKV sobre un recurso de red tarda ~2 s: solo se listan nombres, no se lee un byte del contenido.</span>
+          <span>Escanear 215 MKV por la red tarda ~2 s; sondear sus cabeceras, ~6 min la primera vez y nada después. Extraer una pista obliga a leer el MKV entero: eso va dentro del trabajo.</span>
+        </div>
+      </article>
+
+      <article class="decision">
+        <h3>Una pista es una fila de <code>subtitle_file</code></h3>
+        <p>
+          Sin tabla propia: la selección de origen y coreano, los trabajos y la interfaz
+          funcionan igual con un <code>.srt</code> que con una pista, y una obra puede
+          mezclar las dos cosas.
+        </p>
+        <div class="cost">
+          <b>El coste</b>
+          <span>Columnas que solo tienen sentido en pistas, y <code>ruta</code> deja de ser siempre un fichero: el código que lee del disco debe mirar antes si es una pista.</span>
         </div>
       </article>
     </div>

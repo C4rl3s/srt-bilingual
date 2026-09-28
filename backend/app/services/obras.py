@@ -16,6 +16,8 @@ Reglas, en este orden:
    `Jojo Rabbit.srt` junto a `Jojo.Rabbit.2019.1080p….mp4`).
 4. Si no, forma obra con los subtítulos de su misma base (carpetas de series con
    varios capítulos, o subtítulos sin vídeo).
+
+Una **pista incrustada** (Fase 5) no necesita reglas: es de la obra de su vídeo.
 """
 
 from collections import defaultdict
@@ -54,16 +56,24 @@ def agrupar_en_obras(videos: list[ArchivoMedia], subtitulos: list[ArchivoSubtitu
     """Reparte vídeos y subtítulos en obras según las reglas del módulo."""
     obras: dict[tuple[Path, str], Obra] = {}
     videos_por_directorio: dict[Path, list[ArchivoMedia]] = defaultdict(list)
+    obra_de_video: dict[int, Obra] = {}
 
     def obra(directorio: Path, nombre: str) -> Obra:
         return obras.setdefault((directorio, nombre), Obra(directorio, nombre))
 
     for video in videos:
         directorio = directorio_de_obra(Path(video.ruta))
-        obra(directorio, video.base).videos.append(video)
+        obra_de_video[video.id] = obra(directorio, video.base)
+        obra_de_video[video.id].videos.append(video)
         videos_por_directorio[directorio].append(video)
 
     for sub in subtitulos:
+        if sub.es_pista:
+            # Sin su vídeo en la lista (un filtro, o un vídeo que acaba de desaparecer)
+            # la pista no tiene dónde ir.
+            if sub.video_id in obra_de_video:
+                obra_de_video[sub.video_id].subtitulos.append(sub)
+            continue
         directorio = directorio_de_obra(Path(sub.ruta))
         base = base_sin_idioma(Path(sub.nombre))
         videos_del_directorio = videos_por_directorio.get(directorio, [])

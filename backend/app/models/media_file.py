@@ -15,9 +15,10 @@ def _ahora() -> datetime:
 class ArchivoMedia(Base):
     """Un contenedor de vídeo inventariado (`.mkv`, `.mp4`…).
 
-    No se abre ni se inspecciona: solo se registra su existencia, para que el árbol
-    de la biblioteca pueda mostrar los capítulos aunque no tengan ningún `.srt` al
-    lado. Las pistas de subtítulo embebidas son cosa de la Fase 5.
+    El escaneo solo registra su existencia, para que el árbol de la biblioteca pueda
+    mostrar los capítulos aunque no tengan ningún `.srt` al lado. Después, en segundo
+    plano, se **sondea** su cabecera con `ffprobe` y sus pistas de subtítulo pasan a
+    `subtitle_file` (Fase 5, `services/mkv/sondeo.py`).
     """
 
     __tablename__ = "media_file"
@@ -38,6 +39,9 @@ class ArchivoMedia(Base):
     # Detección de cambios, mismo criterio que en `subtitle_file`.
     mtime: Mapped[float] = mapped_column()
     tamano_bytes: Mapped[int] = mapped_column(Integer)
+    # El `mtime` con que se sondearon sus pistas. Distinto del actual (o nulo): hay que
+    # sondearlo. Así un vídeo sin cambios no se vuelve a abrir por la red.
+    sondeado_mtime: Mapped[float | None] = mapped_column()
 
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_ahora)
     actualizado_en: Mapped[datetime] = mapped_column(
@@ -47,3 +51,12 @@ class ArchivoMedia(Base):
     carpeta: Mapped["CarpetaBiblioteca"] = relationship(  # noqa: F821
         back_populates="videos"
     )
+    # Sus pistas de subtítulo. Si el vídeo desaparece, se van con él.
+    pistas: Mapped[list["ArchivoSubtitulo"]] = relationship(  # noqa: F821
+        back_populates="video",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def pendiente_de_sondeo(self) -> bool:
+        return self.sondeado_mtime != self.mtime

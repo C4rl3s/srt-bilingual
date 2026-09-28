@@ -6,7 +6,10 @@ subtítulos que cambiaron y borra los huérfanos. Lo ya traducido se redescubre 
 `.bilingue.srt`.
 
 Los vídeos se inventarían sin abrirlos, solo para que la biblioteca se pueda dibujar
-aunque no haya ningún `.srt` al lado (subtítulos embebidos → Fase 5).
+aunque no haya ningún `.srt` al lado. Sus pistas incrustadas las sondea después, en
+segundo plano, `services/mkv/sondeo.py` (Fase 5): aquí solo se respetan (no son
+ficheros, así que no pueden quedar huérfanas por no aparecer en el recorrido) y se
+les detecta el bilingüe igual que a un `.srt`.
 
 Las carpetas ni se crean ni se borran aquí: de eso se encarga el CRUD de `/folders`.
 El escaneo se limita a recorrer las que se le indiquen.
@@ -24,7 +27,7 @@ from app.models.library_folder import CarpetaBiblioteca
 from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.schemas.scan import ResumenEscaneo
-from app.services.obras import Obra, agrupar_en_obras, ruta_bilingue
+from app.services.obras import Obra, agrupar_en_obras, directorio_de_obra, ruta_bilingue
 from app.services.subtitles import srt_parser
 from app.services.subtitles.naming import base_sin_idioma, es_fichero_bilingue
 
@@ -72,7 +75,8 @@ def escanear(db: Session, carpeta_ids: list[int] | None = None) -> ResumenEscane
 
 def _escanear_carpeta(db: Session, carpeta: CarpetaBiblioteca, resumen: ResumenEscaneo) -> None:
     base = Path(carpeta.ruta)
-    subs_en_db = {sub.ruta: sub for sub in carpeta.subtitulos}
+    # Solo los `.srt`: las pistas viven y mueren con su vídeo (cascada).
+    subs_en_db = {sub.ruta: sub for sub in carpeta.subtitulos if not sub.es_pista}
     videos_en_db = {video.ruta: video for video in carpeta.videos}
     subs_vistos: set[str] = set()
     videos_vistos: set[str] = set()
@@ -95,12 +99,16 @@ def _escanear_carpeta(db: Session, carpeta: CarpetaBiblioteca, resumen: ResumenE
     # origen viva en `Subs\` (ver `naming.ruta_bilingue_de_obra`), así que no se
     # pueden buscar junto a cada subtítulo. Solo cuentan los ficheros vistos en esta
     # pasada: los huérfanos aún siguen en las relaciones hasta el borrado de abajo.
-    subs = [sub for sub in carpeta.subtitulos if sub.ruta in subs_vistos]
     videos = [video for video in carpeta.videos if video.ruta in videos_vistos]
+    subs = [
+        sub
+        for sub in carpeta.subtitulos
+        if sub.ruta in subs_vistos or (sub.es_pista and sub.video.ruta in videos_vistos)
+    ]
     for obra in agrupar_en_obras(videos, subs):
         for sub in obra.subtitulos:
             if sub.estado is not EstadoSubtitulo.ERROR:
-                _detectar_traducido(sub, obra)
+                detectar_traducido(sub, obra)
                 resumen.traducidos += sub.estado is EstadoSubtitulo.TRANSLATED
 
     # Huérfanos: filas cuyo fichero ya no está en disco.
@@ -201,7 +209,19 @@ def _procesar(sub: ArchivoSubtitulo, ruta_srt: Path, stat) -> None:
     sub.mensaje_error = None
 
 
-def _detectar_traducido(sub: ArchivoSubtitulo, obra: Obra) -> None:
+def detectar_traducidos_de_video(video: ArchivoMedia) -> None:
+    """Detecta el bilingüe de las pistas de un vídeo recién sondeado.
+
+    La obra de una pista es la de su vídeo (su carpeta y su nombre base), que es
+    todo lo que hace falta para saber dónde estaría su bilingüe.
+    """
+    obra = Obra(directorio_de_obra(Path(video.ruta)), video.base)
+    for pista in video.pistas:
+        if pista.estado is not EstadoSubtitulo.ERROR:
+            detectar_traducido(pista, obra)
+
+
+def detectar_traducido(sub: ArchivoSubtitulo, obra: Obra) -> None:
     """Si existe en disco el bilingüe de la obra con este origen, marca TRANSLATED."""
     destino = _idioma_destino()
     if sub.idioma_origen is Idioma.UNKNOWN or destino is Idioma.UNKNOWN:

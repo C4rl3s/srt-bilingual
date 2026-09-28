@@ -20,6 +20,7 @@ const MOTIVOS: Record<MotivoDescarte, string> = {
   FORZADO: 'forzado: solo carteles',
   POCOS_BLOQUES: 'demasiado corto: forzado encubierto',
   ERROR: 'no se puede leer',
+  IMAGEN: 'solo en imagen: sin texto que leer',
 }
 
 const IDIOMAS: Record<string, string> = { ES: 'español', EN: 'inglés', KO: 'coreano' }

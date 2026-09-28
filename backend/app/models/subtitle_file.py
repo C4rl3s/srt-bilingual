@@ -14,8 +14,14 @@ def _ahora() -> datetime:
 
 
 class ArchivoSubtitulo(Base):
-    """Un `.srt` inventariado: su métrica (caracteres/bloques), idioma de origen,
-    estado y, cuando exista, la ruta de su versión bilingüe."""
+    """Un subtítulo inventariado: su métrica (caracteres/bloques), idioma de origen,
+    estado y, cuando exista, la ruta de su versión bilingüe.
+
+    Puede ser un `.srt` externo o, desde la Fase 5, una **pista incrustada** en un
+    vídeo (`video_id` no nulo). Las dos cosas se guardan en la misma tabla a
+    propósito: así la selección de origen y coreano, los trabajos y la interfaz las
+    tratan igual, y una obra puede mezclar una pista con un `.srt` de al lado.
+    """
 
     __tablename__ = "subtitle_file"
 
@@ -24,6 +30,8 @@ class ArchivoSubtitulo(Base):
         ForeignKey("library_folder.id", ondelete="CASCADE"), index=True
     )
 
+    # En una pista, `<ruta del vídeo>#<índice>`: única y legible, pero no es un
+    # fichero. Para leerla hay que extraerla (`ruta_extraida`).
     ruta: Mapped[str] = mapped_column(String, unique=True, index=True)
     nombre: Mapped[str] = mapped_column(String)
     formato: Mapped[FormatoSubtitulo] = mapped_column(
@@ -58,6 +66,18 @@ class ArchivoSubtitulo(Base):
 
     mensaje_error: Mapped[str | None] = mapped_column(String)
 
+    # --- Solo en pistas incrustadas (Fase 5) ---
+    video_id: Mapped[int | None] = mapped_column(
+        ForeignKey("media_file.id", ondelete="CASCADE"), index=True
+    )
+    indice_pista: Mapped[int | None] = mapped_column(Integer)  # stream del contenedor
+    titulo_pista: Mapped[str | None] = mapped_column(String)  # `NF_Spanish`, `Forced`…
+    # Mientras la pista no se extrae, bloques y caracteres salen de las estadísticas
+    # de su cabecera (o no se saben: 0). Los caracteres, además, son una cota
+    # superior. En un `.srt` siempre son exactas.
+    metricas_exactas: Mapped[bool] = mapped_column(Boolean, default=True)
+    ruta_extraida: Mapped[str | None] = mapped_column(String)  # en la caché
+
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_ahora)
     actualizado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_ahora, onupdate=_ahora
@@ -66,3 +86,17 @@ class ArchivoSubtitulo(Base):
     carpeta: Mapped["CarpetaBiblioteca"] = relationship(  # noqa: F821
         back_populates="subtitulos"
     )
+    video: Mapped["ArchivoMedia | None"] = relationship(  # noqa: F821
+        back_populates="pistas"
+    )
+
+    @property
+    def es_pista(self) -> bool:
+        """Si está incrustada en un vídeo en vez de ser un fichero propio."""
+        return self.video_id is not None
+
+    @property
+    def bloques_conocidos(self) -> bool:
+        """Si `num_bloques` dice algo: una pista sin estadísticas sale con 0 hasta
+        que se extrae, y 0 no significa «vacía»."""
+        return self.metricas_exactas or self.num_bloques > 0

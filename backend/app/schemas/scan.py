@@ -1,6 +1,6 @@
 """DTOs del escaneo de carpetas."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class PeticionEscaneo(BaseModel):
@@ -27,3 +27,19 @@ class ResumenEscaneo(BaseModel):
     errores: int = 0
     huerfanos_borrados: int = 0
     total: int = 0
+
+
+class ProgresoSondeoOut(BaseModel):
+    """Progreso del sondeo de pistas que sigue a cada escaneo (`GET /scan/sondeo`).
+
+    `hechos` de `total` vídeos; `errores`, los que `ffprobe` no pudo leer (se
+    reintentan en el próximo escaneo), con el mensaje del último.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    en_curso: bool
+    hechos: int
+    total: int
+    errores: int
+    ultimo_error: str | None

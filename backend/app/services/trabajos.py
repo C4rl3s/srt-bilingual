@@ -83,6 +83,13 @@ def crear(
             rechazos.append(Rechazo(subtitulo_id, "No es un origen válido (ni español ni inglés)"))
             continue
 
+        # TODO(Fase 5, hito 3): generar desde pistas incrustadas (extraer y leer).
+        if sub.es_pista:
+            rechazos.append(
+                Rechazo(subtitulo_id, "Las pistas incrustadas aún no se pueden generar")
+            )
+            continue
+
         activo = _trabajo_activo(db, subtitulo_id)
         if activo is not None:
             trabajos.append(activo)

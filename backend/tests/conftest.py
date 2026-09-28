@@ -71,10 +71,27 @@ def db(engine: Engine) -> Iterator[Session]:
         sesion.close()
 
 
+def sondeador_sin_pistas(_ruta: Path) -> dict:
+    """`ffprobe` de pega: todos los vídeos salen sin pistas de subtítulo."""
+    return {"streams": []}
+
+
 @pytest.fixture
 def client(db: Session) -> Iterator[TestClient]:
-    """Cliente HTTP de la API con `get_db` apuntando a la sesión de test."""
+    """Cliente HTTP de la API con `get_db` apuntando a la sesión de test.
+
+    Las tareas de fondo también van contra la BD de pruebas, y el sondeo de pistas
+    que sigue a `POST /scan` usa un `ffprobe` de pega: sin esto abrirían la base de
+    datos de desarrollo e intentarían sondear vídeos de mentira con el real. Un test
+    puede sustituir cualquiera de las dos cosas después.
+    """
+    from app.api.scan import get_sondeador
+    from app.api.translate import get_fabrica_sesion
+
+    fabrica = sessionmaker(bind=db.get_bind(), autoflush=False, expire_on_commit=False)
     fastapi_app.dependency_overrides[get_db] = lambda: db
+    fastapi_app.dependency_overrides[get_fabrica_sesion] = lambda: fabrica
+    fastapi_app.dependency_overrides[get_sondeador] = lambda: sondeador_sin_pistas
     with TestClient(fastapi_app) as cliente:
         yield cliente
     fastapi_app.dependency_overrides.clear()
