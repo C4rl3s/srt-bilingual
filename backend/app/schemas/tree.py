@@ -20,9 +20,10 @@ class EstadoObra(str, Enum):
     """
 
     DUAL = "DUAL"  # ya existe el .bilingue.srt
-    PENDIENTE = "PENDIENTE"  # hay subtítulos externos, ninguno traducido
+    PENDIENTE = "PENDIENTE"  # tiene origen ES/EN válido: se le puede generar el bilingüe
+    SIN_ORIGEN = "SIN_ORIGEN"  # tiene subtítulos, pero ninguno ES/EN válido como origen
     SIN_SUBTITULOS = "SIN_SUBTITULOS"  # hay vídeo y ningún .srt al lado
-    ERROR = "ERROR"  # algún subtítulo no se pudo parsear
+    ERROR = "ERROR"  # sin origen válido y con algún subtítulo que no se pudo parsear
 
 
 class NodoArbol(BaseModel):
@@ -43,6 +44,7 @@ class NodoArbol(BaseModel):
     num_dual: int = 0
     num_errores: int = 0
     num_sin_subtitulos: int = 0
+    num_sin_origen: int = 0
 
     # Solo en las hojas.
     estado_obra: EstadoObra | None = None
@@ -52,3 +54,7 @@ class NodoArbol(BaseModel):
     ruta_bilingue: str | None = None
     num_caracteres: int = 0
     subtitulo_ids: list[int] = []
+    # Propuesta de la selección automática (ver `services/subtitles/seleccion.py`).
+    subtitulo_origen_id: int | None = None
+    # Coreano ya existente: si lo hay, el bilingüe sale de fusionar, sin traducir.
+    subtitulo_coreano_id: int | None = None

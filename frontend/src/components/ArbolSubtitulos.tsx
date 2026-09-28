@@ -5,6 +5,7 @@ import type { EstadoObra, NodoArbol } from '../types'
 const INSIGNIA: Record<EstadoObra, { texto: string; clase: string }> = {
   DUAL: { texto: '✅ dual', clase: 'badge--dual' },
   PENDIENTE: { texto: '⏳ pendiente', clase: '' },
+  SIN_ORIGEN: { texto: '⚠ sin subs ES/EN', clase: 'badge--aviso' },
   SIN_SUBTITULOS: { texto: '⚠ sin subs detectados', clase: 'badge--aviso' },
   ERROR: { texto: '✖ error', clase: 'badge--error' },
 }
@@ -26,6 +27,10 @@ function Nodo({ nodo, nivel }: { nodo: NodoArbol; nivel: number }) {
       <li className="nodo nodo--hoja" style={{ paddingLeft: `${nivel * 1.25}rem` }}>
         <span className="nodo-nombre">{nodo.nombre}</span>
         <span className="nodo-idiomas">{nodo.idiomas.join(' · ')}</span>
+        {/* Con coreano ya existente, el bilingüe saldrá de fusionar, sin gastar cuota. */}
+        {nodo.subtitulo_coreano_id !== null && nodo.estado_obra === 'PENDIENTE' && (
+          <span className="badge">🇰🇷 fusionable</span>
+        )}
         <span className={`badge ${insignia.clase}`}>{insignia.texto}</span>
       </li>
     )
@@ -44,6 +49,7 @@ function Nodo({ nodo, nivel }: { nodo: NodoArbol; nivel: number }) {
         <span className="nodo-conteo">
           {nodo.num_dual}/{nodo.num_obras} dual
           {nodo.num_sin_subtitulos > 0 && ` · ${nodo.num_sin_subtitulos} sin subs`}
+          {nodo.num_sin_origen > 0 && ` · ${nodo.num_sin_origen} sin ES/EN`}
         </span>
       </button>
 

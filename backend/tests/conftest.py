@@ -80,6 +80,21 @@ def registrar_carpetas(db: Session) -> Callable[..., list[CarpetaBiblioteca]]:
     return _registrar
 
 
+def srt_completo(num_bloques: int = 120, texto: str = "Hola, mundo.") -> str:
+    """Contenido `.srt` del tamaño de un subtítulo real.
+
+    `SRT_EJEMPLO` tiene 2 bloques, y la selección de origen descarta por forzado
+    encubierto lo que baja de 100 (`seleccion.MIN_BLOQUES`). Los tests que necesitan
+    un origen válido usan este.
+    """
+    bloques = []
+    for i in range(num_bloques):
+        inicio = f"00:{i // 30:02d}:{i % 30 * 2:02d},000"
+        fin = f"00:{i // 30:02d}:{i % 30 * 2:02d},900"
+        bloques.append(f"{i + 1}\n{inicio} --> {fin}\n{texto}\n")
+    return "\n".join(bloques)
+
+
 def escribir_srt(destino: Path, contenido: str = SRT_EJEMPLO) -> Path:
     """Crea un `.srt` de prueba en `destino` y devuelve su ruta."""
     destino.parent.mkdir(parents=True, exist_ok=True)

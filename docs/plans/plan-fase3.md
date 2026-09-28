@@ -238,8 +238,14 @@ una obra, puntúa cada candidato y propone el mejor:
 | Cualquier otro idioma o `UNKNOWN` | Descartado |
 | Marcado `forced` por nombre | Descartado |
 | `num_bloques` < 40 % del mayor candidato de la obra | Descartado (forzado encubierto) |
+| `num_bloques` < 100 (añadido en el hito 2) | Descartado: forzado encubierto sin nada con qué compararlo |
 | Marcado `SDH` / `CC` / `HI` | Penalizado, no descartado (sirve si no hay otro) |
 | Mayor `num_bloques` | Desempate |
+
+Ajustes del hito 2 (detalle en la bitácora): el "mayor candidato" se mide sin contar
+SDH ni forzados, y el override manual se salta las dos reglas de tamaño. La
+agrupación por obra (`Subs\` transparente, un solo vídeo por carpeta) vive en
+`services/obras.py`, compartida con el árbol.
 
 Devuelve el candidato elegido **y la lista completa con el motivo de cada descarte**,
 para que la interfaz pueda enseñar por qué y permitir el override. Como elige **uno

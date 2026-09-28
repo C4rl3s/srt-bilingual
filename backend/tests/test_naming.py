@@ -15,6 +15,8 @@ from app.services.subtitles.naming import derivar_nombre_bilingue, es_fichero_bi
         ("Pelicula.spa.srt", "Pelicula.ES-KO.bilingue.srt"),  # y también sus variantes
         ("Pelicula.srt", "Pelicula.ES-KO.bilingue.srt"),  # sin sufijo, igual de válido
         ("It.2017.es.srt", "It.2017.ES-KO.bilingue.srt"),  # el punto del título se respeta
+        ("Pelicula.es.sdh.srt", "Pelicula.ES-KO.bilingue.srt"),  # también quita los flags
+        ("Pelicula.forced.srt", "Pelicula.ES-KO.bilingue.srt"),
     ],
 )
 def test_derivar_nombre_bilingue(origen: str, esperado: str) -> None:

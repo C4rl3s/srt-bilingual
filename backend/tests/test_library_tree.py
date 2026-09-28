@@ -4,25 +4,31 @@ from collections.abc import Callable
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.enums import EstadoSubtitulo
 from app.models.library_folder import CarpetaBiblioteca
+from app.models.subtitle_file import ArchivoSubtitulo
 from app.schemas.tree import EstadoObra
 from app.services.library_tree import construir_arbol
 from app.services.scanner import escanear
-from tests.conftest import escribir_srt, escribir_video
+from tests.conftest import escribir_srt, escribir_video, srt_completo
 
 Registrar = Callable[..., list[CarpetaBiblioteca]]
+
+
+def _subs(db: Session) -> list[ArchivoSubtitulo]:
+    return list(db.scalars(select(ArchivoSubtitulo)).all())
 
 
 def _serie_de_prueba(raiz: Path) -> None:
     """Una serie con dos capítulos; el primero traducido y en dos idiomas."""
     temporada = raiz / "Breaking Bad" / "Season 1"
-    escribir_srt(temporada / "BB.S01E01.es.srt")
-    escribir_srt(temporada / "BB.S01E01.en.srt")
+    escribir_srt(temporada / "BB.S01E01.es.srt", srt_completo())
+    escribir_srt(temporada / "BB.S01E01.en.srt", srt_completo(texto="Hello, world."))
     escribir_srt(temporada / "BB.S01E01.ES-KO.bilingue.srt")
-    escribir_srt(temporada / "BB.S01E02.es.srt")
+    escribir_srt(temporada / "BB.S01E02.es.srt", srt_completo())
 
 
 def test_el_arbol_llega_hasta_la_obra(
@@ -57,7 +63,8 @@ def test_los_idiomas_de_un_capitulo_se_agrupan_en_una_hoja(
     assert sorted(idioma.value for idioma in capitulo.idiomas) == ["EN", "ES"]
     assert capitulo.dual is True
     assert capitulo.ruta_bilingue is not None
-    assert capitulo.num_caracteres == 36  # 18 por fichero
+    # Cuesta lo que su origen (el español, preferido al inglés): 120 × "Hola, mundo.".
+    assert capitulo.num_caracteres == 120 * 12
 
 
 def test_los_agregados_suben_por_las_ramas(
@@ -128,7 +135,7 @@ def test_el_video_y_su_subtitulo_hermano_son_una_sola_hoja(
     db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
     escribir_video(tmp_path / "Cap01.mkv")
-    escribir_srt(tmp_path / "Cap01.es.srt")
+    escribir_srt(tmp_path / "Cap01.es.srt", srt_completo())
     registrar_carpetas(tmp_path)
     escanear(db)
 
@@ -139,6 +146,59 @@ def test_el_video_y_su_subtitulo_hermano_son_una_sola_hoja(
     assert hoja.tiene_video is True
     assert hoja.estado_obra is EstadoObra.PENDIENTE
     assert len(hoja.subtitulo_ids) == 1
+
+
+def test_sin_origen_espanol_ni_ingles_la_obra_no_es_elegible(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    escribir_video(tmp_path / "Pelicula.mkv")
+    escribir_srt(tmp_path / "Pelicula.fre.srt", srt_completo(texto="Bonjour."))
+    registrar_carpetas(tmp_path)
+    escanear(db)
+
+    (raiz,) = construir_arbol(db)
+
+    (hoja,) = raiz.hijos
+    assert hoja.estado_obra is EstadoObra.SIN_ORIGEN
+    assert hoja.subtitulo_origen_id is None
+    assert raiz.num_sin_origen == 1
+
+
+def test_la_hoja_propone_origen_y_coreano(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    """Los subtítulos de `Subs\\` cuelgan de la película, no de una rama `Subs`."""
+    pelicula = tmp_path / "Jaws (1975)"
+    escribir_video(pelicula / "Jaws.1975.mp4")
+    escribir_srt(pelicula / "Subs" / "Spanish.spa.srt", srt_completo())
+    escribir_srt(pelicula / "Subs" / "Korean.kor.srt", srt_completo(texto="안녕하세요."))
+    registrar_carpetas(tmp_path)
+    escanear(db)
+
+    (raiz,) = construir_arbol(db)
+
+    (carpeta,) = raiz.hijos
+    (hoja,) = carpeta.hijos  # ni rama `Subs` ni hojas sueltas
+    assert hoja.nombre == "Jaws.1975"
+    assert hoja.estado_obra is EstadoObra.PENDIENTE
+    ids = dict(zip([s.nombre for s in _subs(db)], [s.id for s in _subs(db)], strict=True))
+    assert hoja.subtitulo_origen_id == ids["Spanish.spa.srt"]
+    assert hoja.subtitulo_coreano_id == ids["Korean.kor.srt"]
+
+
+def test_un_subtitulo_roto_no_bloquea_si_hay_otro_origen(
+    db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    escribir_video(tmp_path / "Pelicula.mkv")
+    escribir_srt(tmp_path / "Pelicula.es.srt", "esto no es un subtítulo")
+    escribir_srt(tmp_path / "Pelicula.en.srt", srt_completo(texto="Hello."))
+    registrar_carpetas(tmp_path)
+    escanear(db)
+
+    (raiz,) = construir_arbol(db)
+
+    assert raiz.hijos[0].estado_obra is EstadoObra.PENDIENTE
+    assert raiz.num_errores == 0
 
 
 def test_el_estado_dual_gana_al_video(

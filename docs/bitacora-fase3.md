@@ -87,3 +87,68 @@ y su `.srt` es inglés.
 
 Todavía no se descartan los forzados encubiertos (por número de bloques): eso es el
 hito 2.
+
+## Hito 2 — Selección del origen y estado `SIN_ORIGEN` (2026-09-28)
+
+### Qué se hizo
+
+- **`services/obras.py`** (nuevo): agrupa vídeos y subtítulos en obras, y lo usan el
+  árbol y la selección. Reglas: la subcarpeta `Subs\` es transparente; un subtítulo
+  va con el vídeo de su misma base; si no casa pero la carpeta tiene **un solo
+  vídeo**, es de ese vídeo (carpeta de película); si no, forma obra por su base.
+- **`naming.base_sin_idioma`** quita ahora también los flags (`Pelicula.en.forced.srt`
+  → `Pelicula`), con el mismo criterio de sufijo que `analizar_nombre`.
+- **`services/subtitles/seleccion.py`** (nuevo): propone origen ES/EN y coreano, y
+  devuelve cada candidato con su motivo de descarte (`ERROR`, `IDIOMA`, `FORZADO`,
+  `POCOS_BLOQUES`). Admite un override manual (`origen_preferido_id`), que la API
+  expondrá en el hito 8.
+- **Árbol**: estado `SIN_ORIGEN`, contador `num_sin_origen` y, por hoja,
+  `subtitulo_origen_id` y `subtitulo_coreano_id`. `num_caracteres` pasa a ser el
+  del origen (lo que costaría traducir), no la suma de todos los subtítulos.
+- **Frontend (mínimo)**: `types.ts` al día, insignia `⚠ sin subs ES/EN` y marca
+  `🇰🇷 fusionable`. La selección manual y el resto de la interfaz van en el hito 9.
+
+### Decisiones tomadas por el camino
+
+1. **La referencia para detectar forzados encubiertos excluye los SDH.** En
+   *Predator: Killer of Killers* el SDH tiene 994 bloques, y el resto de idiomas unos
+   430: con el SDH como referencia, el inglés completo (367) se descartaba por
+   forzado.
+2. **Mínimo absoluto de 100 bloques.** La regla relativa (40 % del mayor) no ve un
+   forzado encubierto que es el único subtítulo de su obra: *Thunderbolts* (33
+   bloques) y *Frankenstein* (90) salían como origen. La película real con menos
+   diálogo, *Eraserhead*, tiene 144. El override manual se salta este mínimo y la
+   regla relativa, porque el usuario puede saber que un subtítulo corto es completo.
+3. **Un subtítulo ilegible ya no marca la obra entera como `ERROR`** si hay otro
+   origen válido. `ERROR` queda para las obras sin origen y con algún fichero roto.
+4. **El filtro del árbol por estado** conserva las obras enteras (con todos sus
+   subtítulos) si alguno cumple el filtro, porque la selección necesita verlos todos.
+5. En el orden de preferencia, **el idioma pesa más que el SDH**: un español SDH gana
+   a un inglés normal. El usuario prefiere el español.
+
+### Verificación
+
+- 134 tests en verde (111 previos + 23 nuevos: `test_seleccion.py` con los casos
+  reales, `test_obras.py`, y casos nuevos en el árbol y en `naming`). `ruff` limpio.
+  `npm run build` sin errores de tipos.
+- Sobre la carpeta `Pelis` real (BD temporal del hito 1):
+
+| | Resultado |
+|---|---|
+| Obras (hojas) | 228, ninguna rama `Subs` suelta |
+| `PENDIENTE` (con origen) | **173**, de ellas **11 fusionables** (con coreano) |
+| `SIN_ORIGEN` | 6 |
+| `SIN_SUBTITULOS` (solo vídeo) | 49 |
+| Origen elegido | 121 en español, 52 en inglés |
+
+Las 6 sin origen, una a una: dos solo con danés, *The Sixth Sense* solo con coreano,
+*The Naked Gun* solo con el anuncio de YTS, y *Frankenstein* y *Thunderbolts* con un
+único subtítulo forzado encubierto. Los casos del plan eligen lo esperado: *Mercy* →
+`Latin American.spa.srt` (2015 bloques), *Jojo Rabbit* → `Jojo Rabbit.srt`, *Bugonia*
+→ el `.spa.srt`, *Jaws* → español + coreano.
+
+**Caso límite conocido**: *Perfect Days* tiene dos copias del vídeo en la misma
+carpeta, así que no se sabe de cuál son sus `Subs\`. Se muestran como obras aparte en
+vez de adivinar. *A Quiet Place Part II* entra como origen con 343 bloques: el plan
+lo sospechaba forzado, pero es una película de muy poco diálogo y queda por encima
+del mínimo; si resultara incompleto, el override lo resuelve.

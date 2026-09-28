@@ -60,7 +60,8 @@ srt-bilingual/
 │   │   └── services/
 │   │       ├── scanner.py     # escaneo y reconciliación disco ↔ BD
 │   │       ├── library_tree.py # árbol derivado de las rutas de subtitle_file
-│   │       ├── subtitles/     # modelo (Bloque), naming, srt_parser
+│   │       ├── obras.py       # agrupación de vídeos y subtítulos en obras
+│   │       ├── subtitles/     # modelo (Bloque), naming, srt_parser, seleccion
 │   │       ├── bilingual.py   # (Fase 3) genera el .srt bilingüe
 │   │       └── translation/
 │   │           ├── base.py    # (Fase 3) interfaz Translator (protocol)
