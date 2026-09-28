@@ -60,7 +60,13 @@ def traducir(
     `GET /translate/jobs/{id}`.
     """
     creados, rechazos = trabajos.crear(
-        db, peticion.subtitulo_ids, peticion.forzar_traduccion, peticion.proveedor
+        db,
+        peticion.subtitulo_ids,
+        peticion.forzar_traduccion,
+        peticion.proveedor,
+        estados_cupo=lambda: consumo.estados(
+            db, settings.proveedores, fabrica_traductor, registry.limite_configurado
+        ),
     )
     for trabajo in creados:
         if trabajo.estado is EstadoTrabajo.QUEUED:

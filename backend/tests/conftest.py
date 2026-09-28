@@ -32,6 +32,22 @@ Adiós.
 """
 
 
+@pytest.fixture(autouse=True)
+def sin_proveedores_reales(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ningún test puede hablar con un proveedor real.
+
+    `settings` lee el `.env` de desarrollo, que tiene claves de verdad: sin esto, un
+    test que pase por la elección de proveedor consultaría el cupo real de DeepL (y
+    gastaría red, o cupo). Los tests que necesitan un proveedor lo inyectan falso.
+    """
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "deepl_api_key", None)
+    monkeypatch.setattr(settings, "azure_translator_key", None)
+    monkeypatch.setattr(settings, "translation_providers", None)
+    monkeypatch.setattr(settings, "translation_provider", "deepl")
+
+
 @pytest.fixture
 def engine(tmp_path: Path) -> Iterator[Engine]:
     """Engine SQLite sobre un fichero temporal, con el esquema ya creado."""
@@ -96,6 +112,14 @@ class TraductorFalso:
     def traducir(self, textos: list[str], origen: Idioma, destino: Idioma) -> list[str]:
         self.llamadas.append((list(textos), origen, destino))
         return [f"[{destino.value}] {texto}" for texto in textos]
+
+
+def cupo_de_sobra() -> list:
+    """Estados de cupo con un único proveedor falso, disponible y sin límite: para los
+    tests que llaman a `trabajos.crear` y no van de la elección de proveedor."""
+    from app.services.translation.consumo import EstadoCupo, FuenteCupo
+
+    return [EstadoCupo("falso", True, None, FuenteCupo.REGISTRO, 0, 0, None)]
 
 
 def srt_completo(num_bloques: int = 120, texto: str = "Hola, mundo.") -> str:

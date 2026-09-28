@@ -1,8 +1,8 @@
-"""Tests de la API de generaciÃ³n de bilingÃ¼es y del renombrado.
+"""Tests de la API de generación de bilingües y del renombrado.
 
-`TestClient` ejecuta las `BackgroundTasks` al terminar cada peticiÃ³n, asÃ­ que tras un
+`TestClient` ejecuta las `BackgroundTasks` al terminar cada petición, así que tras un
 `POST /translate` el trabajo ya ha corrido de verdad, con el traductor falso y una
-sesiÃ³n contra la BD de pruebas.
+sesión contra la BD de pruebas.
 """
 
 import random
@@ -22,7 +22,13 @@ from app.models.subtitle_file import ArchivoSubtitulo
 from app.services import trabajos
 from app.services.scanner import escanear
 from app.services.translation.base import Consumo, CuotaAgotada
-from tests.conftest import TraductorFalso, escribir_srt, escribir_video, srt_completo
+from tests.conftest import (
+    TraductorFalso,
+    cupo_de_sobra,
+    escribir_srt,
+    escribir_video,
+    srt_completo,
+)
 
 Registrar = Callable[..., list[CarpetaBiblioteca]]
 
@@ -64,12 +70,12 @@ def _srt(tramos: list[tuple[float, float, str]]) -> str:
 
 
 def _sub(db: Session, nombre: str) -> ArchivoSubtitulo:
-    db.expire_all()  # la tarea de fondo escribiÃ³ con otra sesiÃ³n
+    db.expire_all()  # la tarea de fondo escribió con otra sesión
     return db.scalars(select(ArchivoSubtitulo).where(ArchivoSubtitulo.nombre == nombre)).one()
 
 
 def _pelicula(raiz: Path, registrar: Registrar, db: Session, **subtitulos: str) -> Path:
-    """Carpeta con `Pelicula.mkv` y los subtÃ­tulos dados (`es=contenido`, â€¦)."""
+    """Carpeta con `Pelicula.mkv` y los subtítulos dados (`es=contenido`, …)."""
     escribir_video(raiz / "Pelicula.mkv")
     for sufijo, contenido in subtitulos.items():
         escribir_srt(raiz / f"Pelicula.{sufijo}.srt", contenido)
@@ -114,7 +120,7 @@ def test_con_coreano_fusiona_sin_gastar_cuota(
     registrar_carpetas: Registrar,
     traductor: TraductorFalso,
 ) -> None:
-    _pelicula(tmp_path, registrar_carpetas, db, es=srt_completo(), ko=srt_completo(texto="ì•ˆë…•."))
+    _pelicula(tmp_path, registrar_carpetas, db, es=srt_completo(), ko=srt_completo(texto="안녕."))
     origen = _sub(db, "Pelicula.es.srt")
 
     (trabajo,) = api.post("/translate", json={"subtitulo_ids": [origen.id]}).json()["trabajos"]
@@ -124,7 +130,7 @@ def test_con_coreano_fusiona_sin_gastar_cuota(
     assert final["num_caracteres"] == 0 and final["proveedor"] is None
     assert final["calidad_alineacion"] == 1.0
     assert traductor.llamadas == []
-    assert "Hola, mundo.\nì•ˆë…•." in (tmp_path / "Pelicula.ES-KO.bilingue.srt").read_text(
+    assert "Hola, mundo.\n안녕." in (tmp_path / "Pelicula.ES-KO.bilingue.srt").read_text(
         encoding="utf-8"
     )
 
@@ -139,9 +145,9 @@ def test_una_fusion_mala_falla_y_no_traduce_por_su_cuenta(
     """Gastar cuota lo decide el usuario: sin `forzar_traduccion` no se traduce."""
     azar = random.Random(3)
     ajeno, t = [], 5.0
-    for _ in range(120):  # un coreano de otra pelÃ­cula: ritmo sin relaciÃ³n
+    for _ in range(120):  # un coreano de otra película: ritmo sin relación
         duracion = azar.uniform(1.0, 4.0)
-        ajeno.append((t, t + duracion, "ë‹¤ë¥¸ ì˜í™”"))
+        ajeno.append((t, t + duracion, "다른 영화"))
         t += duracion + azar.uniform(0.5, 9.0)
     _pelicula(tmp_path, registrar_carpetas, db, es=srt_completo(), ko=_srt(ajeno))
     origen = _sub(db, "Pelicula.es.srt")
@@ -154,7 +160,7 @@ def test_una_fusion_mala_falla_y_no_traduce_por_su_cuenta(
     assert traductor.llamadas == []
     assert not (tmp_path / "Pelicula.ES-KO.bilingue.srt").exists()
 
-    # Con forzar_traduccion, sÃ­.
+    # Con forzar_traduccion, sí.
     (forzado,) = api.post(
         "/translate", json={"subtitulo_ids": [origen.id], "forzar_traduccion": True}
     ).json()["trabajos"]
@@ -176,7 +182,7 @@ def test_si_se_agota_la_cuota_el_trabajo_falla_y_cuenta_lo_enviado(
     final = api.get(f"/translate/jobs/{trabajo['id']}").json()
     assert final["estado"] == "FAILED"
     assert "Cuota de pega agotada" in final["mensaje_error"]
-    # El primer paso ya lo cobrÃ³ el proveedor: cuenta para la cuota de la Fase 4.
+    # El primer paso ya lo cobró el proveedor: cuenta para la cuota de la Fase 4.
     assert final["num_caracteres"] == 50 * len("Hola, mundo.")
     assert not (tmp_path / "Pelicula.ES-KO.bilingue.srt").exists()
     assert _sub(db, "Pelicula.es.srt").estado is EstadoSubtitulo.PENDING
@@ -185,7 +191,7 @@ def test_si_se_agota_la_cuota_el_trabajo_falla_y_cuenta_lo_enviado(
 def test_rechaza_lo_que_no_sirve_de_origen_sin_fallar_entera(
     api: TestClient, db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
-    _pelicula(tmp_path, registrar_carpetas, db, es=srt_completo(), ko=srt_completo(texto="ì•ˆë…•."))
+    _pelicula(tmp_path, registrar_carpetas, db, es=srt_completo(), ko=srt_completo(texto="안녕."))
     espanol, coreano = _sub(db, "Pelicula.es.srt"), _sub(db, "Pelicula.ko.srt")
 
     respuesta = api.post("/translate", json={"subtitulo_ids": [espanol.id, coreano.id, 9999]})
@@ -202,8 +208,9 @@ def test_no_duplica_un_trabajo_activo(
     _pelicula(tmp_path, registrar_carpetas, db, es=srt_completo())
     origen = _sub(db, "Pelicula.es.srt")
 
-    (primero,), _ = trabajos.crear(db, [origen.id])
-    (segundo,), _ = trabajos.crear(db, [origen.id])  # aÃºn en QUEUED: no se ha ejecutado
+    (primero,), _ = trabajos.crear(db, [origen.id], estados_cupo=cupo_de_sobra)
+    # Aún en QUEUED (no se ha ejecutado): se devuelve el mismo trabajo.
+    (segundo,), _ = trabajos.crear(db, [origen.id], estados_cupo=cupo_de_sobra)
 
     assert segundo.id == primero.id
 
@@ -211,7 +218,7 @@ def test_no_duplica_un_trabajo_activo(
 def test_un_origen_en_subs_escribe_el_bilingue_junto_al_video(
     api: TestClient, db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
-    """Y el siguiente escaneo lo reconoce: la detecciÃ³n es por obra, no por fichero."""
+    """Y el siguiente escaneo lo reconoce: la detección es por obra, no por fichero."""
     pelicula = tmp_path / "Jaws (1975)"
     escribir_video(pelicula / "Jaws.1975.mp4")
     escribir_srt(pelicula / "Subs" / "Spanish.spa.srt", srt_completo())
@@ -250,7 +257,7 @@ def test_candidatos_de_una_obra(
         registrar_carpetas,
         db,
         es=srt_completo(),
-        ko=srt_completo(texto="ì•ˆë…•."),
+        ko=srt_completo(texto="안녕."),
         fre=srt_completo(texto="Bonjour."),
     )
     espanol, coreano = _sub(db, "Pelicula.es.srt"), _sub(db, "Pelicula.ko.srt")
@@ -289,7 +296,7 @@ def test_renombrado_por_la_api(
 
 
 class TraductorConCupo(TraductorFalso):
-    """Traductor falso que ademÃ¡s informa de su cupo, como DeepL."""
+    """Traductor falso que además informa de su cupo, como DeepL."""
 
     def consumo(self) -> Consumo:
         return Consumo(usados=31_200, limite=1_000_000)
@@ -320,7 +327,7 @@ def test_la_muestra_de_una_fusion_trae_el_coreano(
         registrar_carpetas,
         db,
         es=srt_completo(texto="Una frase de ejemplo bastante larga."),
-        ko=srt_completo(texto="ì•„ì£¼ ê¸´ ì˜ˆë¬¸ìž…ë‹ˆë‹¤."),
+        ko=srt_completo(texto="아주 긴 예문입니다."),
     )
     espanol = _sub(db, "Pelicula.es.srt")
 
@@ -328,14 +335,14 @@ def test_la_muestra_de_una_fusion_trae_el_coreano(
 
     assert len(muestra) == 2
     assert muestra[0]["origen"] == "Una frase de ejemplo bastante larga."
-    assert muestra[0]["coreano"] == "ì•„ì£¼ ê¸´ ì˜ˆë¬¸ìž…ë‹ˆë‹¤."
+    assert muestra[0]["coreano"] == "아주 긴 예문입니다."
     assert muestra[0]["tiempo"].count(":") == 2 and "," in muestra[0]["tiempo"]
 
 
 def test_la_muestra_de_una_traduccion_no_trae_coreano(
     api: TestClient, db: Session, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:
-    """Traducir la muestra gastarÃ­a cupo: solo se enseÃ±a el original."""
+    """Traducir la muestra gastaría cupo: solo se enseña el original."""
     _pelicula(tmp_path, registrar_carpetas, db, es=srt_completo(texto="Una frase de ejemplo."))
     espanol = _sub(db, "Pelicula.es.srt")
 
@@ -352,7 +359,7 @@ def test_los_candidatos_respetan_el_origen_elegido_a_mano(
 
     cuerpo = api.get(f"/subtitles/{ingles.id}/candidatos", params={"origen_id": ingles.id}).json()
 
-    assert cuerpo["origen_id"] == ingles.id  # sin override, ganarÃ­a el espaÃ±ol
+    assert cuerpo["origen_id"] == ingles.id  # sin override, ganaría el español
 
 
 def test_el_arbol_dice_el_idioma_del_origen(

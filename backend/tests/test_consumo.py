@@ -21,7 +21,13 @@ from app.services.scanner import escanear
 from app.services.translation import consumo
 from app.services.translation.base import Consumo, ErrorTraduccion, ProveedorNoDisponible
 from app.services.translation.consumo import FuenteCupo
-from tests.conftest import TraductorFalso, escribir_srt, escribir_video, srt_completo
+from tests.conftest import (
+    TraductorFalso,
+    cupo_de_sobra,
+    escribir_srt,
+    escribir_video,
+    srt_completo,
+)
 
 Registrar = Callable[..., list[CarpetaBiblioteca]]
 AHORA = datetime(2026, 9, 28, 12, 0, tzinfo=UTC)
@@ -161,7 +167,9 @@ def test_una_traduccion_reserva_su_texto_y_una_fusion_nada(
     escanear(db)
     ids = {s.nombre: s.id for s in db.scalars(select(ArchivoSubtitulo))}
 
-    creados, _ = trabajos.crear(db, [ids["Uno.es.srt"], ids["Dos.es.srt"]])
+    creados, _ = trabajos.crear(
+        db, [ids["Uno.es.srt"], ids["Dos.es.srt"]], estados_cupo=cupo_de_sobra
+    )
 
     previstos = {t.modo: t.caracteres_previstos for t in creados}
     assert previstos == {ModoTrabajo.TRADUCCION: 120 * len("Hola, mundo."), ModoTrabajo.FUSION: 0}

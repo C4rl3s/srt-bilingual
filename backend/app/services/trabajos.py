@@ -1,8 +1,8 @@
 """Trabajos de generación de bilingües: se crean al pedirlos y se ejecutan en segundo
 plano (`BackgroundTasks` de FastAPI, sin Celery).
 
-Crear es rápido y no toca ningún proveedor: valida, decide el modo y deja el trabajo
-en `QUEUED`. Ejecutar es lo lento (leer de la red, traducir o alinear, escribir) y
+Crear es rápido: valida, decide el modo, elige el proveedor según su cupo (como mucho
+una consulta de cupo por petición) y deja el trabajo en `QUEUED`. Ejecutar es lo lento (leer de la red, traducir o alinear, escribir) y
 va aparte, con **su propia sesión de base de datos**: la que inyecta `get_db` se
 cierra en cuanto la petición HTTP responde, antes de que empiece la tarea de fondo.
 """
@@ -23,7 +23,11 @@ from app.services.obras import obra_de, ruta_bilingue
 from app.services.subtitles.alineacion import UMBRAL_CALIDAD, alinear
 from app.services.subtitles.seleccion import IDIOMA_DESTINO, IDIOMAS_ORIGEN, seleccionar
 from app.services.subtitles.srt_parser import parsear
+from app.config import settings
+from app.services.translation import consumo, registry
 from app.services.translation.base import ErrorTraduccion, Translator
+from app.services.translation.consumo import EstadoCupo
+from app.services.translation.eleccion import Asignador
 from app.services.translation.registry import obtener_traductor
 
 # Bloques que se traducen entre dos actualizaciones del progreso. El proveedor
@@ -51,6 +55,7 @@ def crear(
     subtitulo_ids: list[int],
     forzar_traduccion: bool = False,
     proveedor: str | None = None,
+    estados_cupo: Callable[[], list[EstadoCupo]] | None = None,
 ) -> tuple[list[TrabajoTraduccion], list[Rechazo]]:
     """Crea (en `QUEUED`) un trabajo por cada origen pedido.
 
@@ -58,9 +63,16 @@ def crear(
     **traducción** si no, o si se pide `forzar_traduccion` (el camino para cuando
     la fusión sale de mala calidad). Si ya hay un trabajo activo para ese origen,
     se devuelve ese en vez de duplicarlo.
+
+    Cada traducción recibe **proveedor según su cupo** (`eleccion.Asignador`), salvo
+    que se pida uno concreto. Si ninguno llega, la obra va a los rechazos y no se
+    crea el trabajo. `estados_cupo` da el cupo de cada proveedor en su orden de
+    preferencia; solo se consulta si hay algo que traducir (preguntar a la API de
+    DeepL cuesta una llamada de red, y una fusión no la necesita).
     """
     trabajos: list[TrabajoTraduccion] = []
     rechazos: list[Rechazo] = []
+    asignador: Asignador | None = None
 
     for subtitulo_id in dict.fromkeys(subtitulo_ids):  # sin repetidos, en orden
         sub = db.get(ArchivoSubtitulo, subtitulo_id)
@@ -83,6 +95,15 @@ def crear(
         fusion = coreano is not None and not forzar_traduccion
         destino = ruta_bilingue(obra, Path(sub.carpeta.ruta), sub.idioma_origen, IDIOMA_DESTINO)
 
+        elegido = proveedor
+        if not fusion and elegido is None:
+            if asignador is None:
+                asignador = Asignador((estados_cupo or _estados_por_defecto(db))())
+            elegido = asignador.asignar(sub.num_caracteres)
+            if elegido is None:
+                rechazos.append(Rechazo(subtitulo_id, asignador.motivo(sub.num_caracteres)))
+                continue
+
         trabajo = TrabajoTraduccion(
             modo=ModoTrabajo.FUSION if fusion else ModoTrabajo.TRADUCCION,
             subtitulo_id=sub.id,
@@ -91,7 +112,7 @@ def crear(
             ruta_coreano=coreano.ruta if fusion else None,
             ruta_bilingue=str(destino),
             idioma_origen=sub.idioma_origen,
-            proveedor=None if fusion else proveedor,
+            proveedor=None if fusion else elegido,
             # Una fusión no gasta cupo; una traducción, el texto de su origen.
             caracteres_previstos=0 if fusion else sub.num_caracteres,
             bloques_totales=sub.num_bloques,
@@ -101,6 +122,13 @@ def crear(
 
     db.commit()
     return trabajos, rechazos
+
+
+def _estados_por_defecto(db: Session) -> Callable[[], list[EstadoCupo]]:
+    """El cupo de los proveedores configurados, con el registro real de proveedores."""
+    return lambda: consumo.estados(
+        db, settings.proveedores, obtener_traductor, registry.limite_configurado
+    )
 
 
 def _trabajo_activo(db: Session, subtitulo_id: int) -> TrabajoTraduccion | None:
