@@ -338,3 +338,54 @@ prudente (~4 KB), no un límite de DeepL.
   línea y los guiones de diálogo; el texto vacío vuelve vacío sin enviarse. El
   contador de uso de la cuenta (límite 1 000 000) aún marcaba 0 justo después:
   DeepL lo actualiza con retraso.
+
+## Hito 7 — Generación del bilingüe (2026-09-28)
+
+### Qué se hizo
+
+- **`services/bilingual.py`** (nuevo), en tres piezas:
+  - `componer(bloques_origen, textos_coreano)` pone el coreano debajo de cada bloque
+    y conserva índice, inicio y fin. Un bloque sin coreano (en la fusión, una frase
+    que el coreano no traduce) queda solo con el original, sin línea vacía. Verifica
+    la invariante de un texto por bloque.
+  - `escribir(bloques, ruta)` escribe en UTF-8 de forma **atómica**: primero a un
+    temporal en la misma carpeta (`.nombre.xxxx.tmp`, que el escáner ignora) y luego
+    un renombrado con `os.replace`. Si falla, borra el temporal y no toca un bilingüe
+    anterior.
+  - `generar` = `componer` + `escribir`.
+- Recibe **bloques y no rutas** (el cambio del 2026-09-28): sirve igual para la
+  traducción, para la fusión y, en la Fase 5, para pistas extraídas de un MKV.
+- **`naming.ruta_bilingue_de_obra(directorio, nombre_obra, origen)`**: el bilingüe va
+  junto al vídeo y con su nombre, aunque el origen viva en `Subs\`.
+  `derivar_nombre_bilingue` pasa a apoyarse en ella.
+
+### Detalle de la librería `srt` que había que saber
+
+`srt.compose` **renumera por defecto** (`reindex=True`). Sin `reindex=False` el
+bilingüe saldría numerado 1, 2, 3… aunque el original empezara en 5 o tuviera saltos.
+Se comprobó antes de escribir el código, y hay un test que lo vigila.
+
+### Verificación
+
+- 177 tests en verde (9 nuevos en `test_bilingual.py`): índices y tiempos idénticos
+  releyendo el fichero, numeración original sin renumerar, UTF-8, los dos modos
+  (salida de un traductor y de la alineación) y la escritura atómica ante un fallo.
+- **Bilingüe real de *Jaws* por fusión, sin gastar cuota**, escrito fuera de la
+  biblioteca: 1253 bloques con índices y tiempos **idénticos** al original, y 1130
+  (90 %) con su coreano debajo. Muestra:
+
+```
+6
+00:02:40,626 --> 00:02:43,094
+No estoy borracho. ¡Espera!
+나 안 취했어!
+좀 천천히 가!
+```
+
+### Pendiente para el hito 8
+
+El escáner detecta un bilingüe existente buscándolo **junto al subtítulo de origen**
+(`derivar_nombre_bilingue`). Con la regla nueva, el bilingüe de un origen en `Subs\`
+va junto al vídeo, así que el escáner no lo vería y la obra no pasaría a `DUAL`. Al
+crear los trabajos en el hito 8 hay que llevar esa detección al nivel de obra, con
+`ruta_bilingue_de_obra`.

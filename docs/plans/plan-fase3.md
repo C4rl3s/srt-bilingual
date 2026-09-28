@@ -393,6 +393,9 @@ junto al original, `<base>.<ORIGEN>-KO.bilingue.srt`. Dos ajustes:
 - Si el origen está en `Subs\`, el bilingüe se escribe **en la carpeta de la obra** (el
   padre) y con la base del **vídeo** de la obra, no la del subtítulo. Es donde Plex lo
   busca, y evita nombres como `English.EN-KO.bilingue.srt`.
+- Hecho en el hito 7: `naming.ruta_bilingue_de_obra`. Queda para el hito 8 que el
+  escáner detecte el bilingüe al nivel de obra (hoy lo busca junto al subtítulo, y
+  no vería el de un origen en `Subs\`).
 - Nueva opción `OUTPUT_DIR` en `config.py`, vacía por defecto. Si se rellena, los
   bilingües van ahí replicando la estructura relativa. Queda como red de seguridad por
   si otro recurso vuelve a ser de solo lectura; **no es el camino por defecto**.

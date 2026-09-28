@@ -42,11 +42,21 @@ def base_sin_idioma(ruta_origen: Path) -> str:
     return ".".join(partes)
 
 
+def ruta_bilingue_de_obra(
+    directorio: Path, nombre_obra: str, origen: Idioma, destino: Idioma = Idioma.KO
+) -> Path:
+    """Dónde va el bilingüe de una obra: en su carpeta y con su nombre (el del vídeo).
+
+    Aunque el origen viva en `Subs\\English.srt`, el bilingüe se escribe junto al
+    vídeo y con la base del vídeo, que es donde Plex lo busca; `English.EN-KO…` no
+    le diría a Plex de qué película es.
+    """
+    return directorio / f"{nombre_obra}.{origen.value}-{destino.value}{SUFIJO_BILINGUE}"
+
+
 def derivar_nombre_bilingue(ruta_origen: Path, origen: Idioma, destino: Idioma) -> Path:
-    """Ruta determinista del bilingüe correspondiente a `ruta_origen`."""
-    base = base_sin_idioma(ruta_origen)
-    nombre = f"{base}.{origen.value}-{destino.value}{SUFIJO_BILINGUE}"
-    return ruta_origen.with_name(nombre)
+    """Ruta determinista del bilingüe correspondiente a `ruta_origen`, junto a él."""
+    return ruta_bilingue_de_obra(ruta_origen.parent, base_sin_idioma(ruta_origen), origen, destino)
 
 
 def es_fichero_bilingue(nombre: str) -> bool:
