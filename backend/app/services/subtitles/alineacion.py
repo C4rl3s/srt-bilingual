@@ -18,7 +18,11 @@ Pasos:
    corregidos, cada par se solapa, el bloque coreano `i` va con el de origen `i`.
 3. **Vía general.** Cada bloque coreano va con el bloque de origen con el que más se
    solapa; si uno de origen recibe varios, se unen en orden.
-4. **Calidad**: fracción de bloques coreanos bien colocados. Por debajo del umbral,
+4. **Reparto por líneas.** Si un bloque coreano abarca varias frases de origen (el
+   coreano junta en uno lo que el origen dice en dos) y trae tantas líneas como
+   frases abarca, cada línea va, en orden, con su frase. Sin esto, la primera frase
+   de origen se quedaba sola y la siguiente recibía todo el coreano de golpe.
+5. **Calidad**: fracción de bloques coreanos bien colocados. Por debajo del umbral,
    el coreano es probablemente de otra versión y no se fusiona sin preguntar.
 """
 
@@ -67,6 +71,8 @@ class ResultadoAlineacion:
     calidad: float
     # Bloques coreanos que no encontraron sitio (su texto no aparece en `textos`).
     descolocados: int
+    # Bloques coreanos repartidos por líneas entre varias frases de origen.
+    repartidos: int = 0
 
     @property
     def aceptable(self) -> bool:
@@ -97,9 +103,13 @@ def alinear(origen: list[Bloque], coreano: list[Bloque]) -> ResultadoAlineacion:
         )
 
     asignacion = _asignar_por_solape(tramos_origen, corregidos)
+    repartos = _repartir_por_lineas(tramos_origen, corregidos, coreano)
     por_bloque: list[list[str]] = [[] for _ in origen]
     for indice_coreano, indice_origen in enumerate(asignacion):
-        if indice_origen is not None:
+        if indice_coreano in repartos:
+            for indice, linea in repartos[indice_coreano]:
+                por_bloque[indice].append(linea)
+        elif indice_origen is not None:
             por_bloque[indice_origen].append(coreano[indice_coreano].contenido)
 
     return ResultadoAlineacion(
@@ -107,8 +117,11 @@ def alinear(origen: list[Bloque], coreano: list[Bloque]) -> ResultadoAlineacion:
         desplazamiento=timedelta(seconds=desplazamiento),
         factor=factor,
         metodo=MetodoAlineacion.SOLAPE,
+        # La calidad se mide sobre la asignación por solape, sin el reparto: así el
+        # umbral calibrado (0,7) y su control negativo siguen valiendo tal cual.
         calidad=_calidad(tramos_origen, corregidos, asignacion),
         descolocados=sum(indice is None for indice in asignacion),
+        repartidos=len(repartos),
     )
 
 
@@ -198,6 +211,50 @@ def _asignar_por_solape(origen: list[_Intervalo], coreano: list[_Intervalo]) -> 
         else:
             asignacion.append(None)
     return asignacion
+
+
+def _repartir_por_lineas(
+    origen: list[_Intervalo], coreano: list[_Intervalo], bloques_coreano: list[Bloque]
+) -> dict[int, list[tuple[int, str]]]:
+    """Bloques coreanos que se reparten línea a línea entre varias frases de origen.
+
+    Devuelve, para cada bloque coreano repartible, la lista `(índice de origen,
+    línea)`. Un bloque es repartible si **cubre al menos la mitad** de cada una de dos
+    o más frases de origen y trae **exactamente tantas líneas** como frases cubre: las
+    líneas de un subtítulo siguen el orden en que se habla, así que la primera línea
+    va con la primera frase. Con un número de líneas distinto no hay emparejamiento
+    fiable y el bloque va entero a su frase de mayor solape, como antes.
+
+    Caso real (*Jaws*, 2:36): `천천히 가 / 천천히 좀 가라고` cubría `Espera.` y
+    `Más despacio.`; antes iba entero a la segunda y la primera se quedaba sin coreano.
+    """
+    orden = sorted(range(len(origen)), key=lambda i: origen[i][0])
+    inicios = [origen[i][0] for i in orden]
+    repartos: dict[int, list[tuple[int, str]]] = {}
+
+    for indice_coreano, tramo in enumerate(coreano):
+        lineas = [
+            linea
+            for linea in bloques_coreano[indice_coreano].contenido.splitlines()
+            if linea.strip()
+        ]
+        if len(lineas) < 2:
+            continue
+        cercanos = orden[
+            bisect_left(inicios, tramo[0] - DURACION_MAXIMA_S) : bisect_left(inicios, tramo[1])
+        ]
+        cubiertos = sorted(
+            (i for i in cercanos if _cubre(tramo, origen[i])), key=lambda i: origen[i][0]
+        )
+        if len(cubiertos) >= 2 and len(cubiertos) == len(lineas):
+            repartos[indice_coreano] = list(zip(cubiertos, lineas, strict=True))
+    return repartos
+
+
+def _cubre(tramo: _Intervalo, frase: _Intervalo) -> bool:
+    """Si `tramo` tiene debajo al menos `SOLAPE_MINIMO` de la duración de `frase`."""
+    duracion = frase[1] - frase[0]
+    return duracion > 0 and _solape(tramo, frase) >= SOLAPE_MINIMO * duracion
 
 
 def _distancia(a: _Intervalo, b: _Intervalo) -> float:

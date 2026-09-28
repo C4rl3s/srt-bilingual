@@ -73,10 +73,8 @@ def test_corrige_el_cambio_de_velocidad_entre_versiones() -> None:
     assert resultado.aceptable
 
 
-def test_segmentacion_distinta() -> None:
-    """El caso *Jaws*: el coreano junta en un bloque lo que el origen parte en dos, y
-    parte en dos lo que el origen dice en uno."""
-    origen = _bloques(
+def _origen_jaws() -> list[Bloque]:
+    return _bloques(
         [
             (10.0, 12.0, "¿Cómo te llamas?"),
             (20.0, 21.5, "Espera."),
@@ -84,24 +82,67 @@ def test_segmentacion_distinta() -> None:
             (30.0, 34.0, "No estoy borracho. ¡Espera!"),
         ]
     )
+
+
+def test_segmentacion_distinta() -> None:
+    """El caso *Jaws*: el coreano junta en un bloque de una sola línea lo que el origen
+    parte en dos, y parte en dos lo que el origen dice en uno."""
     coreano = _bloques(
         [
             (10.0, 12.0, "이름이 뭐야?"),
-            (20.2, 23.8, "천천히 가"),  # cubre "Espera." y "Más despacio."
+            (20.2, 23.8, "천천히 가"),  # una línea que cubre "Espera." y "Más despacio."
             (30.0, 32.0, "나 안 취했어!"),  # "No estoy borracho…" partido en dos
             (32.0, 34.0, "좀 천천히 가!"),
         ]
     )
 
-    resultado = alinear(origen, coreano)
+    resultado = alinear(_origen_jaws(), coreano)
 
     assert resultado.metodo is MetodoAlineacion.SOLAPE
     assert resultado.textos == [
         "이름이 뭐야?",
-        "",  # el coreano va con el bloque con el que más comparte
+        "",  # una sola línea no se puede repartir: va a la frase de mayor solape
         "천천히 가",
         "나 안 취했어!\n좀 천천히 가!",  # dos bloques coreanos, unidos en orden
     ]
+    assert resultado.repartidos == 0
+
+
+def test_reparte_por_lineas_un_bloque_que_abarca_varias_frases() -> None:
+    """El problema visto en Plex con *Jaws*: sin repartir, `Espera.` se quedaba sola y
+    `Más despacio.` recibía las dos líneas coreanas de golpe."""
+    coreano = _bloques(
+        [
+            (10.0, 12.0, "이름이 뭐야?"),
+            (20.2, 23.8, "천천히 가\n천천히 좀 가라고"),  # dos líneas, dos frases
+            (30.0, 34.0, "나 안 취했어!"),
+        ]
+    )
+
+    resultado = alinear(_origen_jaws(), coreano)
+
+    assert resultado.textos[1:3] == ["천천히 가", "천천히 좀 가라고"]
+    assert resultado.repartidos == 1
+
+
+def test_no_reparte_si_las_lineas_no_cuadran_con_las_frases() -> None:
+    """Tres líneas para dos frases: no hay emparejamiento fiable, va entero."""
+    coreano = _bloques([(20.2, 23.8, "하나\n둘\n셋")])
+
+    resultado = alinear(_origen_jaws(), coreano)
+
+    assert resultado.repartidos == 0
+    assert "하나\n둘\n셋" in resultado.textos
+
+
+def test_no_reparte_un_dialogo_que_cae_en_una_sola_frase() -> None:
+    """Un `- A / - B` coreano bajo una sola frase de origen no se toca."""
+    coreano = _bloques([(30.0, 34.0, "- 나 안 취했어!\n- 기다려!")])
+
+    resultado = alinear(_origen_jaws(), coreano)
+
+    assert resultado.textos[3] == "- 나 안 취했어!\n- 기다려!"
+    assert resultado.repartidos == 0
 
 
 def test_hay_un_texto_por_bloque_de_origen() -> None:

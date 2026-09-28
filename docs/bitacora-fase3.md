@@ -382,6 +382,89 @@ No estoy borracho. ¡Espera!
 좀 천천히 가!
 ```
 
+### Prueba en Plex (2026-09-28)
+
+El usuario probó el bilingüe de *Jaws* copiado junto al vídeo. **Plex lo muestra como
+"Español (KO)"**, y el usuario da el nombre por bueno. La fusión se ve "bastante
+correcta", pero se detectó un problema, solo del modo fusión:
+
+**Bloques coreanos que abarcan varias frases de origen.** El coreano a veces junta en
+un bloque lo que el español dice en dos (*Jaws*, 2:36: `Espera.` + `Más despacio.`
+frente a un único `천천히 가 / 천천히 좀 가라고`). Como la alineación asigna cada bloque
+coreano entero a **una sola** frase de origen, la de mayor solape, en pantalla sale
+una frase española sola y, justo después, otra con dos frases coreanas de golpe.
+
+Medido en las 11 películas: **355 de 14 364 bloques coreanos (2,5 %)**, concentrados
+en las películas antiguas (*Se7en* 9,2 %, *Jaws* 7,6 %). En el **83 %** de esos casos
+el bloque coreano trae tantas líneas como frases de origen abarca, así que se puede
+**repartir por líneas en orden**. El 17 % restante (una sola línea coreana sobre dos
+frases) solo se arreglaría fundiendo las frases de origen en un bloque, lo que
+rompe la regla de que los tiempos del origen mandan: queda como idea para más
+adelante.
+
+#### Hecho: reparto por líneas (2026-09-28)
+
+`alineacion._repartir_por_lineas`: un bloque coreano que **cubre al menos la mitad**
+de cada una de dos o más frases de origen, y trae **exactamente tantas líneas** como
+frases cubre, se reparte línea a línea en orden. Con otro número de líneas va entero
+a su frase de mayor solape, como antes. La **calidad no cambia**: se sigue midiendo
+sobre la asignación por solape, así que el umbral de 0,7 y su control negativo siguen
+valiendo. `ResultadoAlineacion` informa de cuántos bloques se repartieron.
+
+Sobre las 11 películas: **296 repartos**, exactamente los que predijo la medición, y
+la calidad idéntica en todas. En *Jaws*, las frases españolas sin coreano bajan de
+**123 a 44**. El bilingüe de *Jaws* se regeneró junto al vídeo para verlo en Plex:
+
+```
+4
+00:02:36,255 --> 00:02:37,722
+Espera.
+천천히 가
+
+5
+00:02:38,624 --> 00:02:40,524
+Más despacio.
+천천히 좀 가라고
+```
+
+180 tests en verde (3 nuevos: reparto, líneas que no cuadran y diálogo bajo una sola
+frase).
+
+#### Idea del usuario para estudiar más adelante: agrupar por el lado que menos corta
+
+Propuesta del usuario (2026-09-28): en vez de que el origen marque siempre los
+tiempos, que mande **el lado que corta menos las frases**. En *Jaws*, el coreano dice
+en un bloque largo lo que el español dice en dos cortos, así que se **agrupan las dos
+frases españolas** en un único bloque bilingüe que dura lo que ambas juntas, con todo
+el coreano debajo. No quedaría ni la frase aislada ni el coreano amontonado.
+
+El propio usuario señala el límite: no sirve elegir un lado para toda la película,
+porque en la misma película unas veces junta el coreano y otras el español (en
+*Jaws*, `No estoy borracho. ¡Espera!` es un bloque en español y dos en coreano).
+
+**Cómo generalizarlo** (planteado al confirmarla): decidir **tramo a tramo**. Los
+bloques de los dos idiomas que se solapan de forma sustancial se encadenan en grupos
+(componentes conexas del grafo de solapes), y cada grupo sale como un solo bloque
+bilingüe: todo su origen arriba, todo su coreano abajo, desde el primer inicio hasta
+el último fin. Donde los cortes coinciden (grupos 1+1) queda igual que hoy.
+
+**A estudiar:**
+
+- **Cadenas largas**: con diálogo rápido y cortes desfasados, A1–K1–A2–K2… podrían
+  encadenarse en un bloque enorme. Hará falta un solape mínimo para encadenar y un
+  tope de duración o de frases por grupo.
+- **Excepción a "mandan los tiempos del origen"**, solo en el modo fusión: los bloques
+  agrupados duran más y llevan más texto a la vez en pantalla.
+- **Combinación con el reparto por líneas**: si el bloque coreano trae tantas líneas
+  como frases abarca, repartir conserva los cortes finos y se lee mejor. Agrupar
+  quedaría para el resto (el 17 % de una sola línea y los casos mezclados).
+- **Cambio de contrato**: hoy la alineación devuelve un texto por bloque de origen y
+  el generador conserva la lista de bloques. Agrupar obliga a que la alineación
+  devuelva **bloques nuevos** (tiempos y textos de los dos lados), así que toca
+  también a `bilingual.componer`.
+- Medirlo con el mismo script que contó los 355 casos, antes y después, y verlo en
+  Plex con *Jaws* y *Se7en*, las dos películas con más casos.
+
 ### Pendiente para el hito 8
 
 El escáner detecta un bilingüe existente buscándolo **junto al subtítulo de origen**
