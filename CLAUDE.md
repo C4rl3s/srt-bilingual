@@ -262,10 +262,14 @@ Plan de desarrollo aprobado en 6 fases.
   `provider_usage` descartada (el consumo sale de `translation_job`). 227 tests en
   verde y verificado con las cuentas reales (2026-09-28). Plan:
   `docs/plans/plan-fase4.md`. Bitácora: `docs/bitacora-fase4.md`.
-- [ ] **Fase 5 — Subtítulos dentro de los vídeos.** Hitos 1–5 hechos (2026-09-28);
-  **falta el hito 6, la prueba de calidad** pedida por el usuario (fusión con un
-  coreano no-API frente a traducción con Azure de la misma obra, comparada por
-  Claude; ver el plan). Lo hecho:
+- [x] **Fase 5 — Subtítulos dentro de los vídeos** (2026-09-28). Incluye la prueba
+  de calidad que pidió el usuario (*Moonrise* 01: fusión con la pista coreana de
+  Netflix frente a Azure y DeepL). Orden de calidad: fusión ≫ DeepL (~10 % de
+  líneas mal) > Azure (~15 %, ~20 % antes de la mejora). La mejora ya aplicada:
+  las líneas de un bloque se traducen unidas y el coreano vuelve en dos líneas
+  (`subtitles/lineas.py`), salvo los diálogos con guion. Decisión del usuario tras
+  la prueba: **elegir proveedor por obra** en el detalle (automático por defecto;
+  el elegido pasa la misma comprobación de clave y cupo). Lo hecho:
   - Una pista incrustada es una fila de `subtitle_file` con `video_id`: la
     selección, los trabajos y la interfaz la tratan como un `.srt` más, y una obra
     puede mezclar pista y `.srt` (p. ej. pista española + `.srt` coreano).

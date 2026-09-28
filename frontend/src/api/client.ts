@@ -88,11 +88,18 @@ export const api = {
 
   // --- Generación de bilingües ---
 
-  /** Encola un bilingüe por cada origen; responde enseguida (202), sin esperar. */
-  traducir: (subtituloIds: number[], forzarTraduccion = false) =>
+  /**
+   * Encola un bilingüe por cada origen; responde enseguida (202), sin esperar.
+   * `proveedor`: el elegido para traducir; sin él, el backend lo elige por cupo.
+   */
+  traducir: (subtituloIds: number[], forzarTraduccion = false, proveedor?: string) =>
     peticion<RespuestaTraduccion>('/translate', {
       method: 'POST',
-      body: JSON.stringify({ subtitulo_ids: subtituloIds, forzar_traduccion: forzarTraduccion }),
+      body: JSON.stringify({
+        subtitulo_ids: subtituloIds,
+        forzar_traduccion: forzarTraduccion,
+        proveedor: proveedor ?? null,
+      }),
     }),
 
   trabajos: () => peticion<Trabajo[]>('/translate/jobs'),

@@ -28,6 +28,7 @@ from app.services import bilingual
 from app.services.mkv import extraccion
 from app.services.mkv.extraccion import Extractor, ejecutar_ffmpeg
 from app.services.obras import obra_de, ruta_bilingue
+from app.services.subtitles import lineas
 from app.services.subtitles.alineacion import UMBRAL_CALIDAD, alinear
 from app.services.subtitles.lectura import esta_extraida, leer_bloques
 from app.services.subtitles.modelo import Bloque
@@ -83,8 +84,9 @@ def crear(
     la fusión sale de mala calidad). Si ya hay un trabajo activo para ese origen,
     se devuelve ese en vez de duplicarlo.
 
-    Cada traducción recibe **proveedor según su cupo** (`eleccion.Asignador`), salvo
-    que se pida uno concreto. Si ninguno llega, la obra va a los rechazos y no se
+    Cada traducción recibe **proveedor según su cupo** (`eleccion.Asignador`). Si se
+    pide uno concreto (el usuario lo elige por obra), se usa ese, pero con la misma
+    comprobación de clave y cupo. Si no llega, la obra va a los rechazos y no se
     crea el trabajo. `estados_cupo` da el cupo de cada proveedor en su orden de
     preferencia; solo se consulta si hay algo que traducir (preguntar a la API de
     DeepL cuesta una llamada de red, y una fusión no la necesita).
@@ -114,14 +116,16 @@ def crear(
         fusion = coreano is not None and not forzar_traduccion
         destino = ruta_bilingue(obra, Path(sub.carpeta.ruta), sub.idioma_origen, IDIOMA_DESTINO)
 
-        elegido = proveedor
+        elegido = None
         previstos = caracteres_previstos(sub)
-        if not fusion and elegido is None:
+        if not fusion:
             if asignador is None:
                 asignador = Asignador((estados_cupo or _estados_por_defecto(db))())
-            elegido = asignador.asignar(previstos)
+            # Un proveedor pedido pasa por la misma regla: si no tiene clave o no le
+            # cabe, se rechaza aquí, antes de crear un trabajo que fallaría después.
+            elegido = asignador.asignar(previstos, solo=proveedor)
             if elegido is None:
-                rechazos.append(Rechazo(subtitulo_id, asignador.motivo(previstos)))
+                rechazos.append(Rechazo(subtitulo_id, asignador.motivo(previstos, solo=proveedor)))
                 continue
 
         trabajo = TrabajoTraduccion(
@@ -242,7 +246,11 @@ def _generar(
     else:
         traductor = fabrica_traductor(trabajo.proveedor)
         trabajo.proveedor = traductor.nombre
-        textos = _traducir_con_progreso(db, trabajo, traductor, [b.contenido for b in origen])
+        # Cada bloque se envía como una frase (sus líneas unidas) y el coreano vuelve a
+        # sus líneas al escribirlo: ver `subtitles/lineas.py`.
+        enviados = [lineas.para_traducir(b.contenido) for b in origen]
+        traducidos = _traducir_con_progreso(db, trabajo, traductor, enviados)
+        textos = [lineas.recolocar(b.contenido, t) for b, t in zip(origen, traducidos, strict=True)]
 
     bilingual.generar(origen, textos, Path(trabajo.ruta_bilingue))
 

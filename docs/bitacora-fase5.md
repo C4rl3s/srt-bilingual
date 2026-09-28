@@ -263,3 +263,190 @@ Sin errores en consola.
   a bloque. Antes, el bilingüe de la fusión se renombra con el sufijo `fusion`.
 - Los bilingües de las pruebas (*Moonrise* 01–03, *Shingeki* 01) están en el NAS,
   por si se quieren ver en Plex.
+
+Commit `c4735b0`.
+
+## Hito 6 — Prueba de calidad: fusión frente a traducción (2026-09-28)
+
+### Cómo se hizo
+
+*Moonrise* 01, el mismo origen (pista 7, `NF_Spanish`, 292 bloques), dos coreanos:
+
+- **Fusión** con la pista `NF_Korean` de Netflix: hecha por humanos, sin ninguna API
+  nuestra. Calidad de alineación 1,0. Renombrada a `….ES-KO.bilingue.fusion.srt`
+  (idea del usuario) para que no la pisara la otra.
+- **Traducción** con Azure, forzada (`forzar_traduccion`): 7.966 caracteres, 3 s.
+
+Los dos bilingües comparten tiempos, así que se compararon bloque a bloque, los 292
+(Claude, leyendo el español y los dos coreanos).
+
+### Cifras
+
+| | Netflix (fusión) | Azure (traducción) |
+|---|---|---|
+| Coreano idéntico al otro (sin espacios) | 20 bloques | 20 bloques |
+| Longitud media del coreano | **11,3** caracteres | 14,4 caracteres (+27 %) |
+| Líneas con terminación formal (`요`/`니다`) | 23 | **65** |
+| Líneas con el sentido equivocado o roto | casi ninguna¹ | **~55–60 (≈20 %)** |
+
+¹ Ver «Matiz» abajo: a veces dice otra cosa que el español, pero no por error.
+
+### Lo que falla en Azure, por orden de peso
+
+1. **Frases partidas en dos líneas.** 58 de los 292 bloques traen el español en dos
+   líneas, y Azure traduce cada línea como si fuera una frase suelta. Es la causa
+   principal de los errores graves:
+   - «Concluyen ya los festejos por el proyecto / del eje orbital de Sapientia» →
+     «프로젝트 축하 행사는 이제 끝났습니다 / 사피엔티아 궤도 축에 위치해 있다» (dos
+     frases que no casan).
+   - «Noventa segundos / para atracar en el Eje Orbital E40» → «90초 / E40 궤도 축에
+     도킹하기 위해서였다».
+   - «te lo tomas todo a la ligera / y eres irresponsable» → «너는 이 모든 걸
+     가볍게 받아들이지 마 / 그리고 당신은 무책임해요»: el sentido **se invierte**
+     («no te lo tomes a la ligera») y cambia de registro a media frase.
+   También pasa entre bloques (una frase que sigue en el bloque siguiente), pero eso
+   es menos frecuente.
+2. **Coloquialismos traducidos al pie de la letra.**
+   - «¡Menudo inepto enchufado!» → «정말 서투른 연결고리네요!» («¡qué eslabón torpe!»);
+     Netflix: «그 금수저 한량 아들 말이군».
+   - «no puedes (ser) más estirado» → «이보다 더 스트레칭될 수 없어» (de estirar un
+     músculo); Netflix: «너는 진짜 딱딱하구나».
+   - «Hay que salir pitando» → «이제 휘파람 불고 나가야 해» (silbando).
+   - «me las pagarás» → «그것들에 대해 돈을 지불해야 합니다» (pagar dinero).
+   - «Hala, qué pasada» → «할라, 정말 신나네요» (transcribe «Hala»); «Jo, que Jack
+     está aquí» → «조, 잭이 왔어» (toma «Jo» por un nombre); «¡Largo!» → «롱!»; «Oye,
+     Phil» → «안녕, 필» («hola»); «¡Anda! ¡Pero si es un Eber!» → «어서! 하지만 이건
+     에버야!».
+3. **Registro sin coherencia.** Traduciendo línea a línea no sabe quién habla a
+   quién: pasa de tutear a tratar de usted dentro de la misma escena (a la hermana,
+   «언니, 어떻게 지내세요?»; en pleno combate, «E2 자료를 낭비하지 마세요!»). Casi el
+   triple de terminaciones formales que Netflix.
+4. **Términos de la serie.** El título «Rebelión lunar» sale como «달의 반란» (Netflix
+   usa el oficial, «문라이즈»); «rollo de carne» como «고기 롤» (es meatloaf,
+   «미트로프»); «Aplicar grabado» como «각인을 적용하세요» (en la serie es el comando
+   «인그레이브 실행»); «Capitán» como «선장님» (de barco; es militar, «대장님»);
+   «órbita de estacionamiento» como «주차 궤도» (de aparcar).
+5. **Más largo.** Netflix condensa para que dé tiempo a leer («No hay tiempo para
+   arreglarlo» → «수리할 시간 없어»); Azure traduce todo, con terminaciones largas.
+
+**Lo que Azure hace bien**: las frases cortas y directas, que son muchas («¿Estás
+bien?» → «괜찮아?», «¡Corred!» → «도망쳐!», «Mierda» → «젠장», los nombres propios).
+Una escena de diálogo rápido se sigue sin problema.
+
+### Matiz: el coreano de Netflix no es traducción del español
+
+Los dos subtítulos de Netflix están traducidos **del japonés**, no el uno del otro.
+Por eso la fusión a veces dice otra cosa que el español del mismo bloque («Toca
+defenderse» / «집중 좀 할게», «me concentro»), y a veces reparte la información de otra
+manera entre dos bloques seguidos: en «También quisiera aprovechar la oportunidad /
+para presentarles a mi hijo» + «Tras graduarse en la universidad, será miembro del
+consejo», el coreano pone el «tras graduarse» en el primero y el «presentarles a mi
+hijo» en el segundo, que es el orden natural en coreano. Para ver la serie no molesta
+(los dos dicen lo que dice el original); para estudiar comparando línea a línea, hay
+que saberlo.
+
+### Conclusiones
+
+1. **Cuando hay coreano de verdad, la fusión es claramente mejor**: natural, con el
+   registro de cada personaje, los términos oficiales y líneas más cortas. Confirma la
+   regla que ya aplica la app (fusión antes que traducción), y que las 59 obras con
+   coreano en texto de la biblioteca son lo primero que conviene generar.
+2. **La traducción de Azure sirve para seguir la serie, no para estudiar coreano**:
+   se entiende en la mayoría de líneas, pero uno de cada cinco bloques está mal o roto,
+   y el registro no es fiable.
+3. **Hay una mejora barata y con mucho efecto**: unir las líneas de cada bloque en una
+   sola frase antes de enviarla al proveedor (y repartir el coreano en dos líneas al
+   escribir el bilingüe). El usuario la aprobó: ver la segunda ronda.
+
+### Segunda ronda: la mejora, y DeepL (2026-09-28)
+
+A petición del usuario, en este orden: guardar la traducción de Azure de la primera
+ronda, hacer la mejora, traducir otra vez con Azure y luego con DeepL, y comparar las
+cuatro versiones.
+
+**La mejora** (`services/subtitles/lineas.py`, en todos los proveedores): las líneas
+de un bloque se envían unidas en una frase, y el coreano vuelve en dos líneas (por el
+espacio más cercano al centro) si el original venía en dos y el coreano pasa de 18
+caracteres. Los **diálogos** (una línea por personaje, con guion: 20 bloques en el
+episodio) se envían como estaban, para no juntar dos voces. 15 tests nuevos.
+
+**Coste**: 7.966 caracteres cada traducción (Azure, 3 s; DeepL, 6 s).
+
+| | Netflix (fusión) | Azure antes | Azure después | DeepL (con la mejora) |
+|---|---|---|---|---|
+| Líneas mal o rotas (a ojo, 292) | casi ninguna | ~55–60 (≈20 %) | **~45 (≈15 %)** | **~30 (≈10 %)** |
+| Longitud media del coreano | 11,0 | 14,0 | 13,6 | 15,0 |
+| Líneas en registro formal | 23 | 65 | 65 | **91** |
+| Nombres propios coherentes | sí | sí | casi (1 fallo) | **no** |
+
+**Azure después de la mejora.** Los bloques de frase partida, que eran lo peor, quedan
+casi todos bien. «te lo tomas todo a la ligera / y eres irresponsable», que salía con
+el sentido invertido, queda «당신은 모든 걸 가볍게 / 여기고 무책임해요» (correcto,
+aunque en «당신»). «Noventa segundos / para atracar…» queda «E40 궤도축에 도킹까지 /
+90초 남았습니다». Las líneas de una sola línea salen idénticas a la primera ronda
+(Azure es determinista): siguen los calcos («연결고리», «스트레칭», «휘파람»). Un fallo
+nuevo: «Shadow Corporation» traducido como «그림자 회사» («empresa sombra») en un bloque.
+El corte por el centro a veces cae en mitad de un sintagma («에피소드 1 모든 / 것이…»).
+
+**DeepL.** El que mejor entiende el español coloquial, justo donde Azure fallaba:
+«inepto enchufado» → «무능한 빽 있는 놈», «estirado» → «뻣뻣해질», «salir pitando» →
+«당장 서둘러 나가야 해», «Hala, qué pasada» → «와, 진짜 대박이네», «¡Largo!» →
+«물러나라!», «Jo, que Jack está aquí» → «야, 잭이 왔어». Sus fallos son otros:
+
+- **Registro**: el más formal de todos (91 líneas con `요`/`니다`), y cambia de uno a
+  otro en el mismo personaje («전 전혀 모르겠어요» justo después de «내가 뭘 알겠어»).
+- **Nombres incoherentes dentro del mismo episodio**: «게오르크», «게오르그» y
+  «조르그» para el mismo personaje; «사피엔티아», «사피엔시아» y «Sapientia» para la IA;
+  «코페르니코» (del español) en vez de «코페르니쿠스»; «Whiz» sin transcribir.
+- **Sin contexto**: «¿Cómo está?», dicho de un herido, → «잘 지내시나요?» («¿qué tal
+  le va?»); «Hermana» → «자매님» (monja); «¡Que me contestes!» → «답장 좀 해줘»
+  (conteste un mensaje); «Ay, madre…» → «아이고, 엄마…».
+- Las líneas más largas (15,0 de media).
+
+### Conclusiones de la prueba
+
+1. **Orden de calidad: fusión con coreano de verdad ≫ DeepL > Azure con la mejora >
+   Azure antes.** La fusión sigue sin rival y confirma la regla de la app.
+2. **La mejora compensa**: Azure baja de ≈20 % a ≈15 % de líneas mal, sin gastar un
+   carácter más, y beneficia igual a DeepL. Se queda.
+3. **DeepL traduce mejor que Azure**, sobre todo lo coloquial, pero su cupo es un
+   millón de caracteres **en total** (unos 125 episodios), frente a los 2 millones
+   **al mes** de Azure. Con `TRANSLATION_PROVIDERS=azure,deepl`, DeepL solo entra
+   cuando Azure se queda sin cupo. Invertir el orden, o poder elegir proveedor por
+   obra desde la interfaz, lo decide el usuario.
+4. **Lo que les falta a los dos** (y a la app) es **contexto**: cada bloque se traduce
+   solo. De ahí el registro errático y los nombres cambiantes. Mejoras posibles, por
+   orden de coste:
+   - cortar el coreano en dos líneas preferiblemente tras un signo de puntuación,
+     no solo por el centro;
+   - un glosario de la obra (nombres propios fijos), si el proveedor lo admite para
+     ES→KO;
+   - enviar el bloque anterior como contexto.
+
+**Decisión del usuario sobre el punto 3**: poder **elegir el proveedor por obra**
+desde la interfaz (ver abajo), manteniendo el orden automático por defecto.
+
+**Ficheros**: junto al vídeo se queda **el de la fusión**, con su nombre normal (el
+que ve Plex), por decisión del usuario. Las tres traducciones de prueba se guardaron
+fuera de la biblioteca (carpeta de trabajo de la sesión). Los 3 × 7.966 caracteres
+gastados (2 de Azure y 1 de DeepL) se registraron en la copia de la base de datos,
+no en la de desarrollo. El de DeepL sí se ve en su cupo real, porque DeepL lo informa
+por API.
+
+### Elegir el proveedor por obra (petición del usuario, tras la prueba)
+
+- **Interfaz**: en el detalle de una obra que se va a traducir (sin coreano, o con
+  uno que no casa), «Traducir con: **Automático** · Azure · DeepL», con el cupo libre
+  de cada uno. Automático indica cuál elegiría la app. Los que no pueden (sin clave, o
+  sin cupo para esa obra) salen desactivados con el motivo. En una obra que se
+  fusiona no aparece. Lo elegido se olvida al cambiar de obra.
+- **Backend**: `POST /translate` ya aceptaba `proveedor`, pero se lo saltaba todo: un
+  proveedor sin clave o sin cupo creaba un trabajo que fallaba al ejecutarse. Ahora
+  pasa por la misma regla que la elección automática (`Asignador.asignar(…, solo=)`):
+  si no puede, la obra va a los rechazos con el motivo, sin probar con otro (el
+  usuario eligió ese).
+- `utils/cupos.ts` gana `cabe()`, la regla de cupo que comparten la previsión y el
+  selector.
+- Tests: 6 nuevos (319). En el navegador, interceptando la petición para no gastar
+  cupo: con DeepL elegido, «Se traducirá con DeepL» y `"proveedor": "deepl"` en la
+  petición; en automático, `null`; en una obra con fusión, sin selector.

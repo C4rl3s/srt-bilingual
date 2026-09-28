@@ -1,8 +1,8 @@
 # Fase 5 — Subtítulos incrustados en MKV
 
-> **Estado (2026-09-28): hitos 1–5 hechos**, más los paneles redimensionables que
-> pidió el usuario durante el hito 5. **Falta el hito 6**, la prueba de calidad. Lo
-> que acabó pasando, en `docs/bitacora-fase5.md`.
+> **Estado: completada (2026-09-28).** Los seis hitos hechos, más los paneles
+> redimensionables que pidió el usuario durante el hito 5. Lo que acabó pasando, y el
+> resultado de la prueba de calidad, en `docs/bitacora-fase5.md`.
 
 ## Contexto
 

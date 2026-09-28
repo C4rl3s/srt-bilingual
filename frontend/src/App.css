@@ -433,6 +433,17 @@
   gap: 8px;
 }
 
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Elegir proveedor en el detalle de una obra. */
+.elegir-proveedor {
+  display: grid;
+  gap: 8px;
+}
+
 .conmutador {
   display: flex;
   gap: 2px;

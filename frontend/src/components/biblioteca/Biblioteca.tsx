@@ -36,7 +36,7 @@ interface Props {
   escaneando: boolean
   onEscanear: () => void
   onGestionar: () => void
-  onGenerar: (subtituloIds: number[], forzarTraduccion?: boolean) => Promise<void>
+  onGenerar: (subtituloIds: number[], forzarTraduccion?: boolean, proveedor?: string) => Promise<void>
   /** En pantallas estrechas el árbol es un cajón que se abre desde la cabecera. */
   arbolAbiertoMovil: boolean
   onCerrarArbolMovil: () => void
@@ -233,7 +233,7 @@ export function Biblioteca(props: Props) {
             obra={obraElegida}
             trabajo={trabajoDe(obraElegida.nodo.subtitulo_origen_id)}
             cupos={props.cupos}
-            onGenerar={(id, forzar) => props.onGenerar([id], forzar)}
+            onGenerar={(id, forzar, proveedor) => props.onGenerar([id], forzar, proveedor)}
             onCerrar={() => setRutaObra(null)}
           />
         )

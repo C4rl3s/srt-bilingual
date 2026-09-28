@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Candidato, Candidatos, EstadoCupo, MotivoDescarte, Trabajo } from '../../types'
 import type { Obra } from '../../utils/biblioteca'
-import { nombreProveedor, repartir } from '../../utils/cupos'
+import { cabe, nombreProveedor, repartir } from '../../utils/cupos'
 import { caracteres, numero, porcentaje } from '../../utils/formato'
 import { IconoCerrar, IconoInfo } from '../Iconos'
 
@@ -11,7 +11,8 @@ interface Props {
   /** Trabajo en marcha de esta obra, si lo hay. */
   trabajo: Trabajo | undefined
   cupos: EstadoCupo[]
-  onGenerar: (subtituloId: number, forzarTraduccion: boolean) => Promise<void>
+  /** `proveedor`: el elegido para traducir esta obra; sin él, lo elige el backend por cupo. */
+  onGenerar: (subtituloId: number, forzarTraduccion: boolean, proveedor?: string) => Promise<void>
   onCerrar: () => void
 }
 
@@ -36,14 +37,17 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
   const [origenElegido, setOrigenElegido] = useState<number | null>(null)
   const [cambiando, setCambiando] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  // Proveedor elegido a mano para traducir esta obra; `null` = automático, por cupo.
+  const [proveedorElegido, setProveedorElegido] = useState<string | null>(null)
 
-  // Al cambiar de obra se olvida el origen elegido a mano en la anterior.
-  // Ajustar el estado durante el render (y no en un efecto) es lo que recomienda
-  // React: evita pintar un fotograma con los datos de la obra de antes.
+  // Al cambiar de obra se olvida lo elegido a mano en la anterior (origen y
+  // proveedor). Ajustar el estado durante el render (y no en un efecto) es lo que
+  // recomienda React: evita pintar un fotograma con los datos de la obra de antes.
   const [rutaAnterior, setRutaAnterior] = useState(nodo.ruta)
   if (rutaAnterior !== nodo.ruta) {
     setRutaAnterior(nodo.ruta)
     setOrigenElegido(null)
+    setProveedorElegido(null)
     setCambiando(false)
     setCandidatos(null)
     setError(null)
@@ -98,7 +102,7 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
     setEnviando(true)
     setError(null)
     try {
-      await onGenerar(origen, forzar)
+      await onGenerar(origen, forzar, proveedorElegido ?? undefined)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -111,6 +115,14 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
   const porId = (id: number | null) => candidatos?.candidatos.find((c) => c.subtitulo_id === id)
   const origen = porId(candidatos?.origen_id ?? null)
   const coreano = porId(candidatos?.coreano_id ?? null)
+  // Se va a traducir (y no a fusionar): no hay coreano, o lo hay pero no casa.
+  const vaATraducir = Boolean(origen) && (!coreano || candidatos?.fusion_aceptable === false)
+  // Si el elegido a mano deja de caber (el cupo cambia al generar otras obras), se
+  // vuelve a automático en vez de enviar una petición que el backend rechazaría.
+  const elegidoCabe =
+    proveedorElegido === null ||
+    cupos.some((c) => c.proveedor === proveedorElegido && cabe(c, nodo.num_caracteres))
+  const proveedor = elegidoCabe ? (proveedorElegido ?? proveedorPrevisto) : proveedorPrevisto
 
   return (
     <aside className="detalle" aria-label="Detalle de la obra">
@@ -182,9 +194,9 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
                 tipo="falta"
                 etiqueta="Coreano · no hay"
                 valor={
-                  proveedorPrevisto === null
+                  proveedor === null
                     ? 'Sin cupo suficiente en ningún proveedor'
-                    : `Se traducirá con ${nombreProveedor(proveedorPrevisto)}${
+                    : `Se traducirá con ${nombreProveedor(proveedor)}${
                         origenElegido === null
                           ? ` · ${caracteres(nodo.num_caracteres, nodo.caracteres_exactos)} caracteres`
                           : ''
@@ -241,6 +253,16 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
                 </p>
               )}
             </div>
+          )}
+
+          {vaATraducir && cupos.length > 1 && (
+            <ElegirProveedor
+              cupos={cupos}
+              caracteres={nodo.num_caracteres}
+              previsto={proveedorPrevisto}
+              elegido={elegidoCabe ? proveedorElegido : null}
+              onElegir={setProveedorElegido}
+            />
           )}
 
           {candidatos.muestra.length > 0 && (
@@ -383,6 +405,74 @@ function ListaCandidatos({
       })}
     </ul>
   )
+}
+
+/**
+ * Con qué proveedor traducir esta obra: automático (el backend elige por cupo, en el
+ * orden de `TRANSLATION_PROVIDERS`) o uno concreto. Los que no pueden (sin clave, o
+ * sin cupo para esta obra) salen desactivados y dicen por qué al pasar el ratón.
+ */
+function ElegirProveedor({
+  cupos,
+  caracteres,
+  previsto,
+  elegido,
+  onElegir,
+}: {
+  cupos: EstadoCupo[]
+  caracteres: number
+  previsto: string | null
+  elegido: string | null
+  onElegir: (proveedor: string | null) => void
+}) {
+  return (
+    <div className="elegir-proveedor">
+      <div className="texto-2">Traducir con</div>
+      <div className="filtros" role="radiogroup" aria-label="Proveedor de traducción">
+        <button
+          role="radio"
+          aria-checked={elegido === null}
+          className={`chip ${elegido === null ? 'chip--activo' : ''}`}
+          onClick={() => onElegir(null)}
+          title="La app elige el primero de tu lista de preferencia con cupo suficiente"
+        >
+          Automático
+          {previsto && <span className="chip-cuenta">{nombreProveedor(previsto)}</span>}
+        </button>
+        {cupos.map((cupo) => {
+          const puede = cabe(cupo, caracteres)
+          const motivo = !cupo.disponible
+            ? `No disponible: ${cupo.motivo}`
+            : puede
+              ? undefined
+              : `Sin cupo suficiente: ${numero(cupo.libre ?? 0)} libres`
+          return (
+            <button
+              key={cupo.proveedor}
+              role="radio"
+              aria-checked={elegido === cupo.proveedor}
+              className={`chip ${elegido === cupo.proveedor ? 'chip--activo' : ''}`}
+              disabled={!puede}
+              title={motivo}
+              onClick={() => onElegir(cupo.proveedor)}
+            >
+              {nombreProveedor(cupo.proveedor)}
+              <span className="chip-cuenta">
+                {!cupo.disponible ? 'sin clave' : cupo.libre === null ? '¿?' : `${abreviar(cupo.libre)} libres`}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** 1.977.147 → «1,98 M»; 999.939 → «999,9 mil»: caben en un chip. */
+function abreviar(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2).replace('.', ',')} M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace('.', ',')} mil`
+  return numero(n)
 }
 
 function Nota({ titulo, children }: { titulo: string; children: ReactNode }) {

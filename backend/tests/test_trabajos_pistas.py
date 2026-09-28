@@ -144,6 +144,33 @@ def test_traduccion_de_una_pista_sin_estadisticas(
     assert f"{ESPANOL}\n[KO] {ESPANOL}" in texto
 
 
+def test_las_lineas_de_un_bloque_se_traducen_como_una_frase(
+    db: Session, tmp_path: Path, fabrica: sessionmaker, mkv
+) -> None:
+    """La mejora del hito 6: el proveedor recibe la frase entera y el coreano vuelve
+    partido en dos líneas en el bilingüe."""
+    video = mkv("Shingeki/Shingeki - 01.mkv", "shingeki_01")
+    espanol = next(p for p in video.pistas if p.idioma_origen is Idioma.ES)
+    partida = "Concluyen ya los festejos por el proyecto\\Ndel eje orbital de Sapientia"
+    traductor = TraductorFalso()
+    [trabajo], _ = trabajos.crear(db, [espanol.id], estados_cupo=cupo_de_sobra)
+
+    trabajo = _ejecutar(
+        db, fabrica, trabajo, FfmpegFalso({espanol.indice_pista: ass(partida)}), traductor
+    )
+
+    assert trabajo.estado is EstadoTrabajo.DONE, trabajo.mensaje_error
+    enviado = traductor.llamadas[0][0][0]
+    assert enviado == "Concluyen ya los festejos por el proyecto del eje orbital de Sapientia"
+    texto = (tmp_path / "Shingeki" / "Shingeki - 01.ES-KO.bilingue.srt").read_text(encoding="utf-8")
+    # El original conserva sus dos líneas; el coreano (aquí, el texto marcado por el
+    # traductor falso) vuelve también en dos.
+    assert (
+        "Concluyen ya los festejos por el proyecto\ndel eje orbital de Sapientia\n"
+        "[KO] Concluyen ya los festejos por el\nproyecto del eje orbital de Sapientia"
+    ) in texto
+
+
 def test_mientras_extrae_el_trabajo_esta_en_fase_extrayendo(
     db: Session, fabrica: sessionmaker, mkv
 ) -> None:

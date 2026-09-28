@@ -50,7 +50,7 @@ src/
         ├── Biblioteca.tsx        las tres columnas y las preferencias recordadas
         ├── ArbolCarpetas.tsx     árbol plegable (componente recursivo)
         ├── ContenidoCarpeta.tsx  mosaico o lista, filtros y selección
-        ├── PanelDetalle.tsx      origen, coreano, fusión, muestra, extraer pistas y generar
+        ├── PanelDetalle.tsx      origen, coreano, fusión, muestra, extraer pistas, proveedor y generar
         ├── PanelSeleccion.tsx    resumen de la selección y cupo que gastará
         └── Tirador.tsx           borde arrastrable para ensanchar o estrechar un lateral
 ```

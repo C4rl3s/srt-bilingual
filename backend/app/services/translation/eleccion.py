@@ -26,10 +26,14 @@ class Asignador:
         self._estados = estados
         self._asignado: dict[str, int] = defaultdict(int)
 
-    def asignar(self, caracteres: int) -> str | None:
-        """El proveedor para una traducción de `caracteres`, o `None` si no cabe."""
+    def asignar(self, caracteres: int, solo: str | None = None) -> str | None:
+        """El proveedor para una traducción de `caracteres`, o `None` si no cabe.
+
+        Con `solo`, el usuario ha elegido proveedor para esa obra: se le aplica la misma
+        regla (disponible y con cupo), pero sin probar con los demás.
+        """
         necesarios = caracteres * MARGEN
-        for estado in self._estados:
+        for estado in self._candidatos(solo):
             if not estado.disponible:
                 continue
             libre = self._libre(estado)
@@ -41,16 +45,25 @@ class Asignador:
                 return estado.proveedor
         return None
 
-    def motivo(self, caracteres: int) -> str:
-        """Por qué no cabe `caracteres` en ningún proveedor, para el usuario."""
+    def motivo(self, caracteres: int, solo: str | None = None) -> str:
+        """Por qué no cabe `caracteres` en ningún proveedor (o en el pedido), para el
+        usuario."""
+        estados = self._candidatos(solo)
+        if solo is not None and not estados:
+            return f"{solo} no es un proveedor configurado (ver TRANSLATION_PROVIDERS)"
         detalles = []
-        for estado in self._estados:
+        for estado in estados:
             if not estado.disponible:
                 detalles.append(f"{estado.proveedor}: {estado.motivo}")
             else:
                 detalles.append(f"{estado.proveedor}: {_miles(self._libre(estado) or 0)} libres")
         lista = "; ".join(detalles) if detalles else "no hay proveedores configurados"
         return f"Sin cupo suficiente para {_miles(caracteres)} caracteres ({lista})"
+
+    def _candidatos(self, solo: str | None) -> list[EstadoCupo]:
+        if solo is None:
+            return self._estados
+        return [estado for estado in self._estados if estado.proveedor == solo]
 
     def _libre(self, estado: EstadoCupo) -> int | None:
         if estado.libre is None:

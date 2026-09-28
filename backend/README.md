@@ -53,6 +53,7 @@ app/
     │   ├── srt_parser.py   parseo, idioma por nombre y por contenido
     │   ├── ass_parser.py   parseo de ASS: solo el diálogo (sin carteles ni karaoke)
     │   ├── lectura.py      lee un subtítulo, sea .srt o pista extraída
+    │   ├── lineas.py       líneas de un bloque: unidas al traducir, repartidas al volver
     │   ├── naming.py       convención de nombres
     │   ├── seleccion.py    elige el origen ES/EN y el coreano de cada obra
     │   ├── alineacion.py   alinea un coreano existente con el origen (fusión)
@@ -143,7 +144,7 @@ respecto a los modelos. Tras migrar, `uv run alembic check` lo comprueba.
 | `GET` | `/subtitles` | Lista los subtítulos. Filtros: `?estado=` y `?idioma=` |
 | `GET` | `/subtitles/{id}` | Detalle de un subtítulo |
 | `GET` | `/subtitles/{id}/candidatos` | Candidatos de su obra con motivo de descarte, calidad de la fusión y una muestra. `?origen_id=` para un origen elegido a mano |
-| `POST` | `/translate` | Encola bilingües (`202`). Fusión si hay coreano; `forzar_traduccion` para traducir igualmente. Asigna el proveedor por cupo; sin cupo en ninguno, la obra va a `rechazados` |
+| `POST` | `/translate` | Encola bilingües (`202`). Fusión si hay coreano; `forzar_traduccion` para traducir igualmente. Asigna el proveedor por cupo, o usa el de `proveedor` si se pide (con la misma comprobación de clave y cupo); si no cabe, la obra va a `rechazados` |
 | `GET` | `/translate/jobs` | Trabajos (`?estado=`, `?activos=`) |
 | `GET` | `/translate/jobs/{id}` | Estado y progreso de un trabajo |
 | `GET` | `/translate/cupos` | Cupo de cada proveedor configurado, en orden de preferencia: usados, reservados, límite, libre y fuente de la cifra (API del proveedor o registro de la app) |

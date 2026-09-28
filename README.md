@@ -26,7 +26,9 @@ El coreano sale de uno de dos sitios:
   gasta cupo de traducción.
 - **Traducción**: si no, lo traduce un proveedor (Azure Translator o DeepL), por
   lotes. La app elige el primero de tu lista de preferencia que tenga **cupo libre**
-  para toda la película, y enseña el cupo de cada uno.
+  para toda la película, y enseña el cupo de cada uno; también puedes elegirlo tú
+  para cada obra. DeepL traduce mejor el español coloquial, pero su cupo es mucho
+  menor (ver la prueba de calidad en `docs/bitacora-fase5.md`).
 
 El bilingüe se escribe junto al vídeo como `<vídeo>.ES-KO.bilingue.srt`, y Plex lo
 muestra como «Español (KO)». El vídeo nunca se modifica.
@@ -124,7 +126,7 @@ variables. Los requisitos están en `CLAUDE.md` (Estado del plan).
 ## Tests
 
 ```bash
-cd backend && uv run pytest               # 298 tests; ninguno llama a Azure, a DeepL ni a ffmpeg
+cd backend && uv run pytest               # 319 tests; ninguno llama a Azure, a DeepL ni a ffmpeg
 cd frontend && npm run build              # comprueba los tipos y compila
 ```
 
@@ -137,7 +139,7 @@ cd frontend && npm run build              # comprueba los tipos y compila
   bilingüe, selección del subtítulo de origen, renombrado para Plex e interfaz nueva.
 - [x] **Fase 4** — Azure Translator como segundo proveedor, cupo de cada proveedor
   (según su API o el registro de la app) y elección automática según el cupo libre.
-- [ ] **Fase 5** — Subtítulos dentro de los vídeos: lectura de sus pistas, extracción,
-  y traducción o fusión desde ellas (hecho); queda la prueba de calidad fusión frente
-  a traducción.
+- [x] **Fase 5** — Subtítulos dentro de los vídeos: lectura de sus pistas, extracción,
+  y traducción o fusión desde ellas. Prueba de calidad (fusión frente a Azure y
+  DeepL) en `docs/bitacora-fase5.md`.
 - [ ] **Despliegue** con Docker en el servidor local, y web de documentación.

@@ -33,13 +33,22 @@ export function repartir(cupos: EstadoCupo[], caracteres: number[]): (string | n
   const asignado = new Map<string, number>()
   return caracteres.map((cantidad) => {
     for (const cupo of cupos) {
-      if (!cupo.disponible) continue
-      const libre = cupo.libre === null ? null : cupo.libre - (asignado.get(cupo.proveedor) ?? 0)
-      if (libre === null || libre >= cantidad * MARGEN) {
+      if (cabe(cupo, cantidad, asignado.get(cupo.proveedor) ?? 0)) {
         asignado.set(cupo.proveedor, (asignado.get(cupo.proveedor) ?? 0) + cantidad)
         return cupo.proveedor
       }
     }
     return null
   })
+}
+
+/**
+ * Si una traducción de `caracteres` cabe en el cupo de un proveedor (disponible y con
+ * libre suficiente, con el margen). Un límite desconocido se da por bueno, como en el
+ * backend. `yaAsignado`: lo reservado por otras obras de la misma petición.
+ */
+export function cabe(cupo: EstadoCupo, caracteres: number, yaAsignado = 0): boolean {
+  if (!cupo.disponible) return false
+  if (cupo.libre === null) return true
+  return cupo.libre - yaAsignado >= caracteres * MARGEN
 }

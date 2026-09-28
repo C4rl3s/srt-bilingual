@@ -99,8 +99,8 @@ function App() {
     }
   }
 
-  async function generar(subtituloIds: number[], forzarTraduccion = false) {
-    const respuesta = await api.traducir(subtituloIds, forzarTraduccion)
+  async function generar(subtituloIds: number[], forzarTraduccion = false, proveedor?: string) {
+    const respuesta = await api.traducir(subtituloIds, forzarTraduccion, proveedor)
     if (respuesta.rechazados.length) {
       setError(respuesta.rechazados.map((r) => r.motivo).join(' · '))
     }

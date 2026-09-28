@@ -84,6 +84,35 @@ def test_sin_cupo_en_ninguno_explica_por_que() -> None:
     assert "deepl: Falta la clave" in motivo
 
 
+def test_un_proveedor_pedido_se_usa_aunque_no_sea_el_preferido() -> None:
+    asignador = Asignador([_estado("azure", 2_000_000), _estado("deepl", 1_000_000)])
+
+    assert asignador.asignar(50_000, solo="deepl") == "deepl"
+
+
+def test_un_proveedor_pedido_sin_cupo_no_cae_en_otro() -> None:
+    """El usuario eligió DeepL: si no le cabe, se le dice, no se manda a Azure."""
+    asignador = Asignador([_estado("azure", 2_000_000), _estado("deepl", 10_000)])
+
+    assert asignador.asignar(50_000, solo="deepl") is None
+    assert "deepl: 10.000 libres" in asignador.motivo(50_000, solo="deepl")
+    assert "azure" not in asignador.motivo(50_000, solo="deepl")
+
+
+def test_un_proveedor_pedido_sin_clave_se_rechaza() -> None:
+    asignador = Asignador([_estado("azure", 2_000_000), _estado("deepl", 1_000_000, False)])
+
+    assert asignador.asignar(50_000, solo="deepl") is None
+    assert "deepl: Falta la clave" in asignador.motivo(50_000, solo="deepl")
+
+
+def test_un_proveedor_pedido_que_no_esta_configurado() -> None:
+    asignador = Asignador([_estado("azure", 2_000_000)])
+
+    assert asignador.asignar(50_000, solo="google") is None
+    assert "no es un proveedor configurado" in asignador.motivo(50_000, solo="google")
+
+
 # --- De punta a punta, por la API --------------------------------------------------------
 
 
@@ -156,6 +185,37 @@ def test_sin_cupo_no_crea_el_trabajo(
     (rechazo,) = respuesta["rechazados"]
     assert "Sin cupo suficiente para 1.440 caracteres" in rechazo["motivo"]
     assert cliente.get("/translate/jobs").json() == []
+
+
+def test_api_traduce_con_el_proveedor_elegido(
+    api_dos_proveedores, db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    deepl = CupoApi("deepl", 0, 1_000_000)
+    cliente = api_dos_proveedores({"azure": CupoApi("azure", 0, 2_000_000), "deepl": deepl})
+    ids = _dos_peliculas(tmp_path, registrar_carpetas, db)
+
+    respuesta = cliente.post("/translate", json={"subtitulo_ids": ids[:1], "proveedor": "deepl"})
+
+    (trabajo,) = respuesta.json()["trabajos"]
+    assert trabajo["proveedor"] == "deepl"
+    assert cliente.get(f"/translate/jobs/{trabajo['id']}").json()["estado"] == "DONE"
+    assert deepl.llamadas  # tradujo DeepL, no Azure
+
+
+def test_api_el_proveedor_elegido_sin_cupo_se_rechaza(
+    api_dos_proveedores, db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    cliente = api_dos_proveedores(
+        {"azure": CupoApi("azure", 0, 2_000_000), "deepl": CupoApi("deepl", 999_000, 1_000_000)}
+    )
+    ids = _dos_peliculas(tmp_path, registrar_carpetas, db)
+
+    respuesta = cliente.post(
+        "/translate", json={"subtitulo_ids": ids[:1], "proveedor": "deepl"}
+    ).json()
+
+    assert respuesta["trabajos"] == []
+    assert "deepl: 1.000 libres" in respuesta["rechazados"][0]["motivo"]
 
 
 class SeAgotaAlTraducir(CupoApi):
