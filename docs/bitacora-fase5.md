@@ -72,3 +72,55 @@ solo el mínimo absoluto de 100 líneas. Queda un test con el caso real.
   - *Moonrise* 01: origen pista 7 `NF_Spanish` (no la latina de 297 líneas),
     coreano pista 25 del mismo MKV. *Jujutsu Kaisen* 01: la pista 9 castellana, no la
     6 latina.
+
+Commit `55e5ef6`.
+
+## Hito 2 — Parser ASS, extracción y caché (2026-09-28)
+
+### Qué se hizo
+
+- **`subtitles/ass_parser.py`**: lee el ASS directamente (la conversión de ffmpeg a
+  SRT mete `<font>` en cada línea) y se queda solo con el diálogo: fuera las
+  etiquetas `{\...}`, los carteles (por estilo, o por `\pos`/`\move`), los dibujos
+  (`\p1`), el karaoke (`\k`) y los estilos de opening/ending; las capas repetidas
+  del mismo texto quedan una vez; ordenado por inicio.
+- **`subtitles/lectura.py`**: `leer_bloques(sub)`, el único punto por el que se lee
+  un subtítulo, sea `.srt` o pista extraída (ASS o SRT según su códec).
+  `PistaSinExtraer` si la pista aún no está en la caché.
+- **`mkv/extraccion.py`**: **una sola pasada de ffmpeg por vídeo** saca todas sus
+  pistas de texto a `CACHE_DIR/pistas/<video_id>/`. Se escribe a `.part` y se
+  renombra al acabar, para que un corte no deje una pista truncada que parezca
+  buena. Tras extraer, métricas **exactas** e idioma por contenido. Un cerrojo por
+  vídeo evita leerlo dos veces si coinciden un trabajo y el botón. La caché se
+  borra si el vídeo cambia (al volver a sondearlo) o desaparece (escaneo).
+- **API**: `POST /videos/{id}/extraer` (`202`, en segundo plano). Los candidatos
+  dicen si falta extraer (`extraccion_pendiente`, `video_id`, `extrayendo`,
+  `error_extraccion`) y, con las pistas extraídas, dan muestra y calidad de fusión.
+
+### Calibración del filtro con ASS reales de fansub
+
+Extraídas las pistas de *Jujutsu Kaisen* 01 (**249 s**: rip de BD con FLAC) y
+*Kaiju No. 8* S02E00 (**36 s**):
+
+| Pista | Eventos | Diálogo | Qué salió |
+|---|---|---|---|
+| *Jujutsu* inglés | 1023 | **393** | 469 carteles (`Signs`), 88 dibujos del opening (`OP1`), 73 rótulos (`Sign2`) |
+| *Jujutsu* español | 390 | **364** | 26 carteles `Cart_A_Tre`/`Cart_C_Tre` |
+| *Kaiju* inglés | 369 | **347** | 22 carteles `sign_…` |
+| *Kaiju* español | 343 | **331** | 12 carteles `Cart_…` |
+| *Kaiju* `English[Signs]` | 20 | **0** | todo carteles: tras extraerla, se descarta sola |
+| *Shingeki* español | 287 | **279** | `Sign_Default*`, `EndCard` |
+| *Moonrise* español (Netflix) | 292 | **292** | nada: es todo diálogo |
+
+Tras el filtro, las cifras de las pistas de una misma obra ya son comparables (393
+frente a 364 en *Jujutsu*, frente a 1023 y 390 antes). El estilo `Cart_` del fansub
+español no estaba en la primera versión: se vio aquí y se añadió.
+
+### Verificación
+
+- `uv run pytest` → **288 passed**. `ruff` limpio; el frontend compila.
+- **Contra la biblioteca real**, con el backend sobre la copia de la BD: `POST
+  /videos/22/extraer` sobre *Moonrise* 01 → las 5 pistas en **120 s**, métricas
+  exactas, y en los candidatos **calidad de fusión 1,0** con muestra correcta
+  («Aunque… de pequeño la escuchaba un montón» / «근데 어릴 때 자주 들은
+  노래거든»).

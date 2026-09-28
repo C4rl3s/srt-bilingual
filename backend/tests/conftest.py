@@ -48,6 +48,16 @@ def sin_proveedores_reales(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "translation_provider", "deepl")
 
 
+@pytest.fixture(autouse=True)
+def cache_temporal(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Las pistas extraídas de los tests van a una caché propia, no a la de desarrollo."""
+    from app.config import settings
+
+    cache = tmp_path / "cache"
+    monkeypatch.setattr(settings, "cache_dir", str(cache))
+    return cache
+
+
 @pytest.fixture
 def engine(tmp_path: Path) -> Iterator[Engine]:
     """Engine SQLite sobre un fichero temporal, con el esquema ya creado."""

@@ -27,6 +27,7 @@ from app.models.library_folder import CarpetaBiblioteca
 from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.schemas.scan import ResumenEscaneo
+from app.services.mkv.extraccion import borrar_cache
 from app.services.obras import Obra, agrupar_en_obras, directorio_de_obra, ruta_bilingue
 from app.services.subtitles import srt_parser
 from app.services.subtitles.naming import base_sin_idioma, es_fichero_bilingue
@@ -119,6 +120,7 @@ def _escanear_carpeta(db: Session, carpeta: CarpetaBiblioteca, resumen: ResumenE
 
     for clave, video in videos_en_db.items():
         if clave not in videos_vistos:
+            borrar_cache(video.id)  # sus pistas extraídas
             db.delete(video)
             resumen.huerfanos_borrados += 1
 

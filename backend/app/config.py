@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Ejecutables de ffmpeg. Por defecto, los del PATH; una ruta completa si no están.
     ffprobe_path: str = "ffprobe"
     ffmpeg_path: str = "ffmpeg"
+    # Dónde se guardan las pistas extraídas. Es reconstruible como la base de datos:
+    # borrarla solo obliga a volver a extraer.
+    cache_dir: str = "./cache"
 
     @property
     def proveedores(self) -> list[str]:

@@ -157,6 +157,12 @@ export interface Candidatos {
   calidad_alineacion: number | null
   fusion_aceptable: boolean | null
   candidatos: Candidato[]
+  /** El origen o el coreano son pistas sin extraer: sin muestra ni calidad hasta
+   *  `POST /videos/{video_id}/extraer`. */
+  extraccion_pendiente: boolean
+  video_id: number | null
+  extrayendo: boolean
+  error_extraccion: string | null
 }
 
 /** El cupo de un proveedor configurado (`GET /translate/cupos`). */

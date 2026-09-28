@@ -1,7 +1,6 @@
 """Router de generación de bilingües: encolar, consultar trabajos y ver candidatos."""
 
 from datetime import timedelta
-from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -26,8 +25,9 @@ from app.services import trabajos
 from app.services.obras import obra_de
 from app.services.subtitles.alineacion import alinear
 from app.services.subtitles.modelo import Bloque
+from app.services.mkv import extraccion
+from app.services.subtitles.lectura import esta_extraida, leer_bloques
 from app.services.subtitles.seleccion import seleccionar
-from app.services.subtitles.srt_parser import parsear
 from app.services.translation import consumo, registry
 from app.services.translation.registry import obtener_traductor
 
@@ -173,17 +173,26 @@ def candidatos(
     muestra: list[MuestraOut] = []
     # Una pista sin extraer no se puede leer aquí: costaría leer el MKV entero por la
     # red en mitad de una petición. Sin muestra ni calidad hasta que se extraiga.
-    hay_pistas = any(s is not None and s.es_pista for s in (seleccion.origen, seleccion.coreano))
-    if seleccion.origen and not hay_pistas:
-        bloques_origen = parsear(Path(seleccion.origen.ruta))
+    elegidos = [s for s in (seleccion.origen, seleccion.coreano) if s is not None]
+    sin_extraer = [s for s in elegidos if not esta_extraida(s)]
+    if seleccion.origen and not sin_extraer:
+        bloques_origen = leer_bloques(seleccion.origen)
         textos_coreano = None
         if seleccion.coreano:
-            resultado = alinear(bloques_origen, parsear(Path(seleccion.coreano.ruta)))
+            resultado = alinear(bloques_origen, leer_bloques(seleccion.coreano))
             calidad, aceptable = round(resultado.calidad, 3), resultado.aceptable
             textos_coreano = resultado.textos
         muestra = _muestra(bloques_origen, textos_coreano)
 
+    # Las pistas de una obra son todas del mismo vídeo: con una basta para saber cuál.
+    video_id = sin_extraer[0].video_id if sin_extraer else None
+    estado_extraccion = extraccion.estado(video_id) if video_id is not None else None
+
     return CandidatosOut(
+        extraccion_pendiente=bool(sin_extraer),
+        video_id=video_id,
+        extrayendo=bool(estado_extraccion and estado_extraccion.en_curso),
+        error_extraccion=estado_extraccion.error if estado_extraccion else None,
         muestra=muestra,
         obra=obra.nombre,
         origen_id=seleccion.origen.id if seleccion.origen else None,

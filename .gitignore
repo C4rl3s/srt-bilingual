@@ -7,6 +7,8 @@ __pycache__/
 .ruff_cache/
 *.db
 *.sqlite3
+# Pistas extraídas de los vídeos (Fase 5): reconstruible
+backend/cache/
 
 # ---- Node / frontend ----
 node_modules/

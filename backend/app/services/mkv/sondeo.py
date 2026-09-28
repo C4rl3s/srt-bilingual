@@ -44,6 +44,7 @@ from app.models.enums import (
 )
 from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
+from app.services.mkv.extraccion import borrar_cache
 from app.services.scanner import detectar_traducidos_de_video
 
 type Sondeador = Callable[[Path], dict[str, Any]]
@@ -207,6 +208,9 @@ def reconciliar(video: ArchivoMedia, pistas: list[PistaSondeada]) -> None:
     """
     existentes = {fila.indice_pista: fila for fila in video.pistas}
     vistas: set[int] = set()
+    if video.sondeado_mtime is not None:
+        # Ya se había sondeado: si se vuelve a sondear es que el vídeo cambió.
+        borrar_cache(video.id)
 
     for pista in pistas:
         if pista.idioma not in IDIOMAS_GUARDADOS or pista.idioma_ajeno:

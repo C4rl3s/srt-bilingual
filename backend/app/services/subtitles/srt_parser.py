@@ -17,10 +17,10 @@ from app.models.enums import SUFIJOS_IDIOMA, TOKENS_FLAG, TOKENS_FORZADO, TOKENS
 from app.services.subtitles.modelo import Bloque
 
 
-def _leer_texto(ruta: Path) -> str:
+def leer_texto(ruta: Path) -> str:
     """Lee el fichero como texto manejando BOM y las codificaciones heredadas que
     aparecen en la biblioteca real: CP949 en subtítulos coreanos y latin-1 en los
-    europeos antiguos."""
+    europeos antiguos. La usa también el parser de ASS."""
     datos = ruta.read_bytes()
     try:
         return datos.decode("utf-8-sig")
@@ -44,7 +44,7 @@ def parsear(ruta: Path) -> list[Bloque]:
 
     Lanza excepción si el contenido está malformado (lo gestiona el scanner).
     """
-    contenido = _leer_texto(ruta)
+    contenido = leer_texto(ruta)
     return [
         Bloque(indice=sub.index, inicio=sub.start, fin=sub.end, contenido=sub.content)
         for sub in srt.parse(contenido)

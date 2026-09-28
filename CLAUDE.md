@@ -56,17 +56,19 @@ srt-bilingual/
 │   │   ├── schemas/           # Pydantic (DTOs request/response): scan, subtitle,
 │   │   │                      #   folder, tree
 │   │   ├── api/               # routers: subtitles, scan, folders, filesystem,
-│   │   │                      #   library, translate, renombrado (+ usage en Fase 4)
+│   │   │                      #   library, translate, renombrado, videos
 │   │   └── services/
 │   │       ├── scanner.py     # escaneo y reconciliación disco ↔ BD
 │   │       ├── library_tree.py # árbol derivado de las rutas de subtitle_file
 │   │       ├── obras.py       # agrupación en obras + dónde va su bilingüe
-│   │       ├── subtitles/     # modelo (Bloque), naming, srt_parser, seleccion,
+│   │       ├── subtitles/     # modelo (Bloque), naming, srt_parser, ass_parser,
+│   │       │                  #   lectura (srt o pista extraída), seleccion,
 │   │       │                  #   renombrado (Plex), alineacion (modo fusión)
 │   │       ├── bilingual.py   # genera el .srt bilingüe (escritura atómica)
 │   │       ├── trabajos.py    # crear/ejecutar trabajos (BackgroundTasks)
 │   │       ├── mkv/           # pistas incrustadas: sondeo (ffprobe, en segundo
-│   │       │                  #   plano tras el escaneo) y extracción (Fase 5)
+│   │       │                  #   plano tras el escaneo) y extracción a la caché
+│   │       │                  #   (ffmpeg, una pasada por vídeo) (Fase 5)
 │   │       └── translation/
 │   │           ├── base.py    # interfaz Translator (Protocol) + excepciones
 │   │           ├── deepl_provider.py  # informa de su cupo (ConCupo)

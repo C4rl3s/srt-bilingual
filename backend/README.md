@@ -38,7 +38,7 @@ app/
 ├── models/            library_folder, subtitle_file, media_file, translation_job
 ├── schemas/           DTOs Pydantic de entrada y salida
 ├── api/               folders, filesystem, scan, library, subtitles,
-│                      translate, renombrado
+│                      translate, renombrado, videos
 └── services/
     ├── scanner.py       recorre el disco y reconcilia la base de datos
     ├── obras.py         agrupa vídeos y subtítulos en obras; dónde va el bilingüe
@@ -46,9 +46,12 @@ app/
     ├── bilingual.py     compone y escribe el bilingüe (escritura atómica)
     ├── trabajos.py      crea y ejecuta los trabajos en segundo plano
     ├── mkv/
-    │   └── sondeo.py       pistas de subtítulo de cada vídeo (ffprobe, en segundo plano)
+    │   ├── sondeo.py       pistas de subtítulo de cada vídeo (ffprobe, en segundo plano)
+    │   └── extraccion.py   extrae las pistas de texto (ffmpeg, una pasada) a la caché
     ├── subtitles/
     │   ├── srt_parser.py   parseo, idioma por nombre y por contenido
+    │   ├── ass_parser.py   parseo de ASS: solo el diálogo (sin carteles ni karaoke)
+    │   ├── lectura.py      lee un subtítulo, sea .srt o pista extraída
     │   ├── naming.py       convención de nombres
     │   ├── seleccion.py    elige el origen ES/EN y el coreano de cada obra
     │   ├── alineacion.py   alinea un coreano existente con el origen (fusión)
@@ -138,6 +141,7 @@ respecto a los modelos. Tras migrar, `uv run alembic check` lo comprueba.
 | `GET` | `/translate/jobs` | Trabajos (`?estado=`, `?activos=`) |
 | `GET` | `/translate/jobs/{id}` | Estado y progreso de un trabajo |
 | `GET` | `/translate/cupos` | Cupo de cada proveedor configurado, en orden de preferencia: usados, reservados, límite, libre y fuente de la cifra (API del proveedor o registro de la app) |
+| `POST` | `/videos/{id}/extraer` | Extrae en segundo plano las pistas de texto del vídeo (`202`), para ver muestra y calidad de fusión antes de generar. Su estado sale en los candidatos |
 | `GET` | `/renombrado/propuestas` | Renombrados propuestos a la nomenclatura de Plex |
 | `POST` | `/renombrado` | Aplica los confirmados; nunca sobrescribe |
 

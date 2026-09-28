@@ -194,6 +194,9 @@ Nuevo `services/subtitles/ass_parser.py` → `list[Bloque]`, como el de SRT:
   espacio.
 - Se descartan los **dibujos** (`\p1`) y los estilos de **cartel** (el nombre
   contiene `sign`, `cartel`, `typeset`, `endcard`…).
+- **Ampliado en el hito 2**, calibrando con *Jujutsu Kaisen* y *Kaiju No. 8*:
+  también las líneas posicionadas a mano (`\pos`, `\move`), el karaoke (`\k`), los
+  estilos de opening/ending y letras, y la abreviatura `Cart_` del fansub español.
 - Ordenado por inicio; dos líneas simultáneas quedan como dos bloques.
 
 Un solo punto de lectura para los trabajos y los candidatos:

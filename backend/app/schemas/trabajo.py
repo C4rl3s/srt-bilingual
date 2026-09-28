@@ -114,6 +114,20 @@ class CandidatosOut(BaseModel):
     calidad_alineacion: float | None
     fusion_aceptable: bool | None
     candidatos: list[CandidatoOut]
+    # Si el origen o el coreano son pistas sin extraer, no hay muestra ni calidad
+    # hasta extraerlas (`POST /videos/{video_id}/extraer`).
+    extraccion_pendiente: bool = False
+    video_id: int | None = None
+    extrayendo: bool = False
+    error_extraccion: str | None = None
+
+
+class ExtraccionOut(BaseModel):
+    """Respuesta de `POST /videos/{id}/extraer`."""
+
+    video_id: int
+    en_curso: bool
+    error: str | None
 
 
 class PropuestaRenombradoOut(BaseModel):
