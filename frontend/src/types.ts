@@ -96,6 +96,9 @@ export interface Trabajo {
   id: number
   modo: ModoTrabajo
   estado: EstadoTrabajo
+  /** En qué está mientras corre: `EXTRAYENDO` las pistas del vídeo (sin progreso de
+   *  bloques, 1–1,5 min por episodio por la red) o `GENERANDO`. Nula fuera de `RUNNING`. */
+  fase: 'EXTRAYENDO' | 'GENERANDO' | null
   /** Aún no ha terminado: mientras haya alguno, el frontend sigue preguntando. */
   activo: boolean
   subtitulo_id: number | null

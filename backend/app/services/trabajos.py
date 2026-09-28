@@ -2,9 +2,14 @@
 plano (`BackgroundTasks` de FastAPI, sin Celery).
 
 Crear es rápido: valida, decide el modo, elige el proveedor según su cupo (como mucho
-una consulta de cupo por petición) y deja el trabajo en `QUEUED`. Ejecutar es lo lento (leer de la red, traducir o alinear, escribir) y
-va aparte, con **su propia sesión de base de datos**: la que inyecta `get_db` se
-cierra en cuanto la petición HTTP responde, antes de que empiece la tarea de fondo.
+una consulta de cupo por petición) y deja el trabajo en `QUEUED`. Ejecutar es lo
+lento (leer de la red, traducir o alinear, escribir) y va aparte, con **su propia
+sesión de base de datos**: la que inyecta `get_db` se cierra en cuanto la petición
+HTTP responde, antes de que empiece la tarea de fondo.
+
+Si el origen o el coreano son **pistas incrustadas** (Fase 5), ejecutar empieza por
+extraerlas del vídeo (fase `EXTRAYENDO`) y revisar lo elegido con el texto de verdad:
+hasta entonces solo se conocía lo que decía la cabecera de la pista.
 """
 
 from collections.abc import Callable
@@ -15,24 +20,38 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.enums import EstadoSubtitulo, EstadoTrabajo, Idioma, ModoTrabajo
+from app.config import settings
+from app.models.enums import EstadoSubtitulo, EstadoTrabajo, FaseTrabajo, Idioma, ModoTrabajo
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.models.translation_job import TrabajoTraduccion
 from app.services import bilingual
+from app.services.mkv import extraccion
+from app.services.mkv.extraccion import Extractor, ejecutar_ffmpeg
 from app.services.obras import obra_de, ruta_bilingue
 from app.services.subtitles.alineacion import UMBRAL_CALIDAD, alinear
-from app.services.subtitles.seleccion import IDIOMA_DESTINO, IDIOMAS_ORIGEN, seleccionar
+from app.services.subtitles.lectura import esta_extraida, leer_bloques
+from app.services.subtitles.modelo import Bloque
+from app.services.subtitles.seleccion import (
+    IDIOMA_DESTINO,
+    IDIOMAS_ORIGEN,
+    MIN_BLOQUES,
+    seleccionar,
+)
 from app.services.subtitles.srt_parser import parsear
-from app.config import settings
 from app.services.translation import consumo, registry
 from app.services.translation.base import ErrorTraduccion, Translator
 from app.services.translation.consumo import EstadoCupo
-from app.services.translation.eleccion import Asignador
+from app.services.translation.eleccion import MARGEN, Asignador
 from app.services.translation.registry import obtener_traductor
 
 # Bloques que se traducen entre dos actualizaciones del progreso. El proveedor
 # agrupa por su cuenta como le convenga; esto solo marca el ritmo de la barra.
 BLOQUES_POR_PASO = 50
+
+# Caracteres que se reservan para una pista sin extraer y sin estadísticas en su
+# cabecera (el 5 % de las pistas de texto de la biblioteca). Por encima de la mediana
+# de una película (34.000); un episodio de anime ronda los 10.000.
+ESTIMACION_SIN_ESTADISTICAS = 40_000
 
 type FabricaSesion = Callable[[], Session]
 type FabricaTraductor = Callable[[str | None], Translator]
@@ -83,13 +102,6 @@ def crear(
             rechazos.append(Rechazo(subtitulo_id, "No es un origen válido (ni español ni inglés)"))
             continue
 
-        # TODO(Fase 5, hito 3): generar desde pistas incrustadas (extraer y leer).
-        if sub.es_pista:
-            rechazos.append(
-                Rechazo(subtitulo_id, "Las pistas incrustadas aún no se pueden generar")
-            )
-            continue
-
         activo = _trabajo_activo(db, subtitulo_id)
         if activo is not None:
             trabajos.append(activo)
@@ -103,12 +115,13 @@ def crear(
         destino = ruta_bilingue(obra, Path(sub.carpeta.ruta), sub.idioma_origen, IDIOMA_DESTINO)
 
         elegido = proveedor
+        previstos = caracteres_previstos(sub)
         if not fusion and elegido is None:
             if asignador is None:
                 asignador = Asignador((estados_cupo or _estados_por_defecto(db))())
-            elegido = asignador.asignar(sub.num_caracteres)
+            elegido = asignador.asignar(previstos)
             if elegido is None:
-                rechazos.append(Rechazo(subtitulo_id, asignador.motivo(sub.num_caracteres)))
+                rechazos.append(Rechazo(subtitulo_id, asignador.motivo(previstos)))
                 continue
 
         trabajo = TrabajoTraduccion(
@@ -121,7 +134,7 @@ def crear(
             idioma_origen=sub.idioma_origen,
             proveedor=None if fusion else elegido,
             # Una fusión no gasta cupo; una traducción, el texto de su origen.
-            caracteres_previstos=0 if fusion else sub.num_caracteres,
+            caracteres_previstos=0 if fusion else previstos,
             bloques_totales=sub.num_bloques,
         )
         db.add(trabajo)
@@ -129,6 +142,18 @@ def crear(
 
     db.commit()
     return trabajos, rechazos
+
+
+def caracteres_previstos(sub: ArchivoSubtitulo) -> int:
+    """Lo que costará traducir el subtítulo, para reservar cupo.
+
+    En un `.srt` o una pista extraída, la cifra exacta. En una pista sin extraer, la
+    cota superior de su cabecera (los bytes de la pista, ~el doble del texto) o, si
+    no trae estadísticas, una estimación holgada. Al extraerla, el trabajo la corrige.
+    """
+    if sub.metricas_exactas or sub.num_caracteres > 0:
+        return sub.num_caracteres
+    return ESTIMACION_SIN_ESTADISTICAS
 
 
 def _estados_por_defecto(db: Session) -> Callable[[], list[EstadoCupo]]:
@@ -151,6 +176,7 @@ def ejecutar(
     trabajo_id: int,
     fabrica_sesion: FabricaSesion,
     fabrica_traductor: FabricaTraductor = obtener_traductor,
+    extractor: Extractor = ejecutar_ffmpeg,
 ) -> None:
     """Ejecuta un trabajo de principio a fin. Pensado para `BackgroundTasks`.
 
@@ -167,7 +193,7 @@ def ejecutar(
         db.commit()
 
         try:
-            _generar(db, trabajo, fabrica_traductor)
+            _generar(db, trabajo, fabrica_traductor, extractor)
         except Exception as exc:  # noqa: BLE001 — todo fallo acaba en el trabajo
             db.rollback()
             trabajo.estado = EstadoTrabajo.FAILED
@@ -175,16 +201,34 @@ def ejecutar(
         else:
             trabajo.estado = EstadoTrabajo.DONE
             _marcar_traducido(db, trabajo)
+        trabajo.fase = None
         trabajo.finalizado_en = _ahora()
         db.commit()
 
 
-def _generar(db: Session, trabajo: TrabajoTraduccion, fabrica_traductor: FabricaTraductor) -> None:
-    origen = parsear(Path(trabajo.ruta_origen))
+def _generar(
+    db: Session,
+    trabajo: TrabajoTraduccion,
+    fabrica_traductor: FabricaTraductor,
+    extractor: Extractor,
+) -> None:
+    sub_origen = db.get(ArchivoSubtitulo, trabajo.subtitulo_id) if trabajo.subtitulo_id else None
+    sub_coreano = (
+        db.get(ArchivoSubtitulo, trabajo.subtitulo_coreano_id)
+        if trabajo.subtitulo_coreano_id
+        else None
+    )
+    _extraer_si_hace_falta(db, trabajo, [s for s in (sub_origen, sub_coreano) if s], extractor)
+    if sub_origen is not None and sub_origen.es_pista:
+        _comprobar_pistas(db, trabajo, sub_origen, sub_coreano, fabrica_traductor)
+
+    trabajo.fase = FaseTrabajo.GENERANDO
+    db.commit()
+    origen = _leer(trabajo.ruta_origen, sub_origen)
     trabajo.bloques_totales = len(origen)
 
     if trabajo.modo is ModoTrabajo.FUSION:
-        resultado = alinear(origen, parsear(Path(trabajo.ruta_coreano)))
+        resultado = alinear(origen, _leer(trabajo.ruta_coreano, sub_coreano))
         trabajo.calidad_alineacion = round(resultado.calidad, 3)
         if not resultado.aceptable:
             # No se traduce por su cuenta: gastar cuota lo decide el usuario.
@@ -201,6 +245,98 @@ def _generar(db: Session, trabajo: TrabajoTraduccion, fabrica_traductor: Fabrica
         textos = _traducir_con_progreso(db, trabajo, traductor, [b.contenido for b in origen])
 
     bilingual.generar(origen, textos, Path(trabajo.ruta_bilingue))
+
+
+def _extraer_si_hace_falta(
+    db: Session, trabajo: TrabajoTraduccion, subs: list[ArchivoSubtitulo], extractor: Extractor
+) -> None:
+    """Saca del vídeo las pistas que use el trabajo y aún no estén en la caché.
+
+    Origen y coreano del mismo MKV salen en la misma pasada; un coreano `.srt` no
+    necesita nada.
+    """
+    videos = {s.video_id: s.video for s in subs if s.es_pista and not esta_extraida(s)}
+    if not videos:
+        return
+    trabajo.fase = FaseTrabajo.EXTRAYENDO
+    db.commit()
+    for video in videos.values():
+        extraccion.extraer(db, video, extractor)
+
+
+def _comprobar_pistas(
+    db: Session,
+    trabajo: TrabajoTraduccion,
+    origen: ArchivoSubtitulo,
+    coreano: ArchivoSubtitulo | None,
+    fabrica_traductor: FabricaTraductor,
+) -> None:
+    """Revisa lo que se eligió con los datos de la cabecera ahora que se conoce el
+    texto de verdad. Mejor fallar aquí, con un motivo, que generar un bilingüe
+    inservible o gastar cupo de más.
+    """
+    if origen.estado is EstadoSubtitulo.ERROR:
+        raise ErrorTraduccion(origen.mensaje_error or f"{origen.nombre} no se puede leer")
+    if origen.idioma_origen not in IDIOMAS_ORIGEN:
+        raise ErrorTraduccion(
+            f"Al extraerla, {origen.nombre} resulta no ser español ni inglés "
+            f"({origen.idioma_origen.value}): elige otro origen"
+        )
+    if origen.num_bloques < MIN_BLOQUES:
+        raise ErrorTraduccion(
+            f"Al extraerla, {origen.nombre} solo tiene {origen.num_bloques} líneas de "
+            "diálogo: es un forzado (carteles). Elige otro origen"
+        )
+    if trabajo.modo is ModoTrabajo.FUSION and coreano is not None:
+        if coreano.estado is EstadoSubtitulo.ERROR or coreano.idioma_origen is not IDIOMA_DESTINO:
+            raise ErrorTraduccion(
+                f"Al extraerla, {coreano.nombre} no resulta ser coreano legible: "
+                "se puede pedir con forzar_traduccion"
+            )
+
+    # La pista puede resultar inglesa aunque su etiqueta dijera español (o al revés):
+    # el nombre del bilingüe lo dice (`ES-KO`/`EN-KO`).
+    if origen.idioma_origen is not trabajo.idioma_origen:
+        trabajo.idioma_origen = origen.idioma_origen
+        destino = ruta_bilingue(
+            obra_de(origen), Path(origen.carpeta.ruta), origen.idioma_origen, IDIOMA_DESTINO
+        )
+        trabajo.ruta_bilingue = str(destino)
+
+    if trabajo.modo is ModoTrabajo.TRADUCCION:
+        _ajustar_reserva(db, trabajo, origen.num_caracteres, fabrica_traductor)
+
+
+def _ajustar_reserva(
+    db: Session, trabajo: TrabajoTraduccion, exactos: int, fabrica_traductor: FabricaTraductor
+) -> None:
+    """Cambia lo reservado por la cifra exacta. Si es más de lo reservado (solo pasa
+    con la estimación de las pistas sin estadísticas) y el proveedor ya no llega,
+    falla antes de enviar nada: al reintentar, la elección buscará otro."""
+    if exactos > trabajo.caracteres_previstos and trabajo.proveedor is not None:
+        cupo = consumo.estado(db, trabajo.proveedor, fabrica_traductor, registry.limite_configurado)
+        # `libre` ya descuenta lo que este trabajo tenía reservado: se le devuelve.
+        if cupo.libre is not None and cupo.libre + trabajo.caracteres_previstos < exactos * MARGEN:
+            raise ErrorTraduccion(
+                f"Al extraer la pista son {exactos:,} caracteres y {trabajo.proveedor} ya no "
+                f"tiene cupo suficiente: reinténtalo y se elegirá otro proveedor".replace(",", ".")
+            )
+    trabajo.caracteres_previstos = exactos
+    db.commit()
+
+
+def _leer(ruta: str, sub: ArchivoSubtitulo | None) -> list[Bloque]:
+    """Los bloques del origen o del coreano de un trabajo.
+
+    Con su fila, por el punto único de lectura (vale para `.srt` y pistas). Sin ella
+    (un escaneo la borró mientras el trabajo esperaba), la ruta copiada al crear el
+    trabajo, que solo sirve si es un fichero.
+    """
+    if sub is not None:
+        return leer_bloques(sub)
+    if not Path(ruta).is_file():
+        raise ErrorTraduccion(f"{ruta} ya no está en la biblioteca: vuelve a escanear")
+    return parsear(Path(ruta))
 
 
 def _traducir_con_progreso(

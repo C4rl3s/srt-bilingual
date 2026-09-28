@@ -6,7 +6,7 @@ from sqlalchemy import DateTime, Enum as SAEnum, Float, ForeignKey, Integer, Str
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
-from app.models.enums import EstadoTrabajo, Idioma, ModoTrabajo
+from app.models.enums import EstadoTrabajo, FaseTrabajo, Idioma, ModoTrabajo
 
 
 def _ahora() -> datetime:
@@ -19,11 +19,10 @@ class TrabajoTraduccion(Base):
     consulta aquí.
 
     Es a la vez **historial**: `num_caracteres` de los trabajos terminados es lo que
-    la Fase 4 agregará por proveedor y mes. Por eso sobrevive a sus subtítulos: si un
+    la Fase 4 agrega por proveedor y mes. Por eso sobrevive a sus subtítulos: si un
     escaneo borra el `.srt` de origen, la clave foránea pasa a nulo (`SET NULL`) pero
-    el trabajo y sus rutas se conservan. Esas rutas copiadas, además, dejan la puerta
-    abierta a que en la Fase 5 el origen sea una pista extraída de un MKV, que no es
-    una fila de `subtitle_file`.
+    el trabajo y sus rutas se conservan. Si el origen es una pista incrustada (Fase
+    5), `ruta_origen` es `<vídeo>#<índice>`.
     """
 
     __tablename__ = "translation_job"
@@ -34,6 +33,8 @@ class TrabajoTraduccion(Base):
     estado: Mapped[EstadoTrabajo] = mapped_column(
         SAEnum(EstadoTrabajo), default=EstadoTrabajo.QUEUED, index=True
     )
+    # Solo mientras está en curso; nula en cola y al terminar.
+    fase: Mapped[FaseTrabajo | None] = mapped_column(SAEnum(FaseTrabajo))
 
     subtitulo_id: Mapped[int | None] = mapped_column(
         ForeignKey("subtitle_file.id", ondelete="SET NULL"), index=True

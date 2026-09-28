@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import EstadoTrabajo, FormatoSubtitulo, Idioma, ModoTrabajo
+from app.models.enums import EstadoTrabajo, FaseTrabajo, FormatoSubtitulo, Idioma, ModoTrabajo
 from app.services.subtitles.seleccion import MotivoDescarte
 
 
@@ -26,6 +26,7 @@ class TrabajoOut(BaseModel):
     id: int
     modo: ModoTrabajo
     estado: EstadoTrabajo
+    fase: FaseTrabajo | None
     activo: bool
     subtitulo_id: int | None
     subtitulo_coreano_id: int | None

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.translate import get_fabrica_sesion
+from app.api.dependencias import get_extractor, get_fabrica_sesion
 from app.db import get_db
 from app.models.media_file import ArchivoMedia
 from app.schemas.trabajo import ExtraccionOut
@@ -12,11 +12,6 @@ from app.services.mkv import extraccion
 from app.services.subtitles.lectura import esta_extraida
 
 router = APIRouter(tags=["videos"])
-
-
-# Dependencia de la tarea de fondo, para que los tests pongan un ffmpeg de pega.
-def get_extractor() -> extraccion.Extractor:
-    return extraccion.ejecutar_ffmpeg
 
 
 @router.post(

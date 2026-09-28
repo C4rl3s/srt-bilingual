@@ -228,6 +228,11 @@ override manual. Dos ajustes:
   `CuotaAgotada`.
 - El resto (traducir, alinear, `bilingual.generar`) no cambia: trabaja con
   `list[Bloque]`.
+- **Añadido en el hito 3**: tras extraer, se revisa lo elegido con el texto real.
+  Si la pista resulta ser un forzado (menos de 100 líneas de diálogo), no es
+  ES/EN, o el coreano no es coreano, el trabajo falla con el motivo antes de gastar
+  nada. Si resulta inglesa en vez de española, el bilingüe pasa a llamarse `EN-KO`.
+  La fase va en una columna nueva, `translation_job.fase`.
 - `translation_job` ya guarda las rutas copiadas: `ruta_origen` será
   `<mkv>#<índice>`.
 

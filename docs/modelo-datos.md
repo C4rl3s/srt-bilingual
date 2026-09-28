@@ -3,8 +3,8 @@
 Esquema de la base de datos SQLite de srt-bilingual. Refleja las migraciones
 `4684c713e94f` (Fase 1), `bd028a52d162` (columna `activa`), `deb86f77e1a9`
 (tabla `media_file`), `6f170d42eb87` (flags y `version_analisis`), `b9edc39727eb`
-(tabla `translation_job`), `4447e8a4d4c5` (`caracteres_previstos`) y `c3a9e5f17b20`
-(pistas incrustadas). Si cambias un modelo en `backend/app/models/`, genera la
+(tabla `translation_job`), `4447e8a4d4c5` (`caracteres_previstos`), `c3a9e5f17b20`
+(pistas incrustadas) y `e81d4b0c9a37` (`fase` de los trabajos). Si cambias un modelo en `backend/app/models/`, genera la
 migración **y actualiza este documento en el mismo commit**.
 
 > **Este fichero es la fuente de verdad.** Al lado hay una versión visual del mismo
@@ -39,6 +39,7 @@ erDiagram
         int      id                   PK
         string   modo                    "TRADUCCION FUSION"
         string   estado                  "QUEUED RUNNING DONE FAILED"
+        string   fase                    "EXTRAYENDO GENERANDO, solo en curso"
         int      subtitulo_id         FK "ON DELETE SET NULL"
         int      subtitulo_coreano_id FK "ON DELETE SET NULL, solo FUSION"
         string   ruta_origen             "copia al crear el trabajo"
@@ -225,15 +226,16 @@ rutas y sus caracteres se conservan.
 | `id` | `INTEGER` PK | no | Clave primaria |
 | `modo` | `VARCHAR(10)` | no | `TRADUCCION` / `FUSION` |
 | `estado` | `VARCHAR(7)` | no | `QUEUED` / `RUNNING` / `DONE` / `FAILED` |
+| `fase` | `VARCHAR(10)` | sí | Solo en `RUNNING`: `EXTRAYENDO` (sacando del vídeo las pistas que usa, sin progreso de bloques) o `GENERANDO`. Nula en cola y al terminar |
 | `subtitulo_id` | `INTEGER` FK | sí | Subtítulo de origen (ES/EN). `ON DELETE SET NULL` |
 | `subtitulo_coreano_id` | `INTEGER` FK | sí | Solo en `FUSION`: el coreano que se alinea. `ON DELETE SET NULL` |
-| `ruta_origen` | `VARCHAR` | no | Copia de la ruta del origen al crear el trabajo. Un trabajo en curso sigue funcionando aunque un escaneo borre la fila, y en la Fase 5 el origen podrá ser una pista de un MKV, que no es una fila de `subtitle_file` |
+| `ruta_origen` | `VARCHAR` | no | Copia de la ruta del origen al crear el trabajo, para el historial. Si el origen es una pista incrustada, `<vídeo>#<índice>` |
 | `ruta_coreano` | `VARCHAR` | sí | Ídem para el coreano, solo en `FUSION` |
 | `ruta_bilingue` | `VARCHAR` | sí | Fichero generado; `NULL` hasta que termina |
 | `idioma_origen` | `VARCHAR(7)` | no | `ES` o `EN`. El destino es siempre coreano |
 | `proveedor` | `VARCHAR` | sí | Quién tradujo (DeepL…); `NULL` en `FUSION` |
 | `num_caracteres` | `INTEGER` | no | Caracteres enviados al proveedor; `0` en `FUSION`. Es el registro de consumo de la Fase 4: el de un proveedor en un mes es la suma de los de sus trabajos (cuentan también los fallidos: el proveedor ya los cobró) |
-| `caracteres_previstos` | `INTEGER` | no | Lo que se espera enviar, fijado al crear el trabajo. Mientras está en cola o en curso, `caracteres_previstos − num_caracteres` queda **reservado** del cupo de su proveedor |
+| `caracteres_previstos` | `INTEGER` | no | Lo que se espera enviar, fijado al crear el trabajo. Mientras está en cola o en curso, `caracteres_previstos − num_caracteres` queda **reservado** del cupo de su proveedor. Con una pista sin extraer es una cota (o 40.000 si no trae estadísticas) y se corrige a la cifra exacta al extraerla |
 | `calidad_alineacion` | `FLOAT` | sí | Solo en `FUSION`: fracción de bloques coreanos bien colocados (0 a 1) |
 | `bloques_totales` | `INTEGER` | no | Para la barra de progreso |
 | `bloques_procesados` | `INTEGER` | no | Para la barra de progreso |

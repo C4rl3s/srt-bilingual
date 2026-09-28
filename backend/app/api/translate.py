@@ -7,7 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.db import SessionLocal, get_db
+from app.api.dependencias import get_extractor, get_fabrica_sesion, get_fabrica_traductor
+from app.db import get_db
 from app.models.enums import EstadoTrabajo
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.models.translation_job import TrabajoTraduccion
@@ -29,19 +30,8 @@ from app.services.mkv import extraccion
 from app.services.subtitles.lectura import esta_extraida, leer_bloques
 from app.services.subtitles.seleccion import seleccionar
 from app.services.translation import consumo, registry
-from app.services.translation.registry import obtener_traductor
 
 router = APIRouter(tags=["translate"])
-
-
-# Dependencias de la tarea de fondo. Existen para que los tests las sustituyan: una
-# sesión contra la BD de pruebas y un traductor falso que no llama a DeepL.
-def get_fabrica_sesion() -> trabajos.FabricaSesion:
-    return SessionLocal
-
-
-def get_fabrica_traductor() -> trabajos.FabricaTraductor:
-    return obtener_traductor
 
 
 @router.post("/translate", response_model=RespuestaTraduccion, status_code=status.HTTP_202_ACCEPTED)
@@ -51,6 +41,7 @@ def traducir(
     db: Session = Depends(get_db),
     fabrica_sesion: trabajos.FabricaSesion = Depends(get_fabrica_sesion),
     fabrica_traductor: trabajos.FabricaTraductor = Depends(get_fabrica_traductor),
+    extractor: extraccion.Extractor = Depends(get_extractor),
 ) -> RespuestaTraduccion:
     """Encola la generación del bilingüe de cada origen y responde sin esperar.
 
@@ -68,7 +59,9 @@ def traducir(
     )
     for trabajo in creados:
         if trabajo.estado is EstadoTrabajo.QUEUED:
-            tareas.add_task(trabajos.ejecutar, trabajo.id, fabrica_sesion, fabrica_traductor)
+            tareas.add_task(
+                trabajos.ejecutar, trabajo.id, fabrica_sesion, fabrica_traductor, extractor
+            )
     return RespuestaTraduccion(
         trabajos=[TrabajoOut.model_validate(t) for t in creados],
         rechazados=[RechazoOut(subtitulo_id=r.subtitulo_id, motivo=r.motivo) for r in rechazos],

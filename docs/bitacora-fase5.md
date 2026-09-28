@@ -124,3 +124,48 @@ español no estaba en la primera versión: se vio aquí y se añadió.
   exactas, y en los candidatos **calidad de fusión 1,0** con muestra correcta
   («Aunque… de pequeño la escuchaba un montón» / «근데 어릴 때 자주 들은
   노래거든»).
+
+Commit `96c2bb6`.
+
+## Hito 3 — Trabajos desde pistas (2026-09-28)
+
+### Qué se hizo
+
+- `trabajos.crear` acepta pistas. Los tres casos del usuario salen de la selección
+  sin código aparte: fusión pista + pista del mismo MKV, fusión pista + `.srt`
+  coreano externo, y traducción de una pista.
+- **Reserva de cupo**: lo que diga la cabecera de la pista (cota superior) o, sin
+  estadísticas, `ESTIMACION_SIN_ESTADISTICAS` = 40.000 caracteres.
+- `trabajos.ejecutar`, si el origen o el coreano son pistas sin extraer:
+  1. **Fase `EXTRAYENDO`** (columna nueva `translation_job.fase`, migración
+     `e81d4b0c9a37`): extrae del vídeo, en una pasada, las pistas que use.
+  2. **Revisa lo elegido con el texto real**: una pista que resulta forzada (menos
+     de 100 líneas), que no es ES/EN, o un coreano que no es coreano, hacen fallar el
+     trabajo con el motivo, sin gastar nada. Si resulta inglesa en vez de española,
+     el bilingüe pasa a `EN-KO`.
+  3. **Ajusta la reserva** a la cifra exacta. Si es más de lo reservado y el
+     proveedor ya no llega, falla antes de enviar; al reintentar, la elección busca
+     otro.
+  4. **Fase `GENERANDO`**: lo de siempre, leyendo por `lectura.leer_bloques`.
+- Las dependencias de las tareas de fondo (sesión, traductor, sondeador,
+  extractor) pasan a `api/dependencias.py`: el router de generación necesitaba el
+  extractor, y tenerlas en cada router obligaba a importarse entre ellos.
+
+### Verificación
+
+- `uv run pytest` → **297 passed**. `ruff` limpio. Migración: `upgrade`, `alembic
+  check`, `downgrade -1` y `upgrade` sobre la copia de la BD.
+- **Contra la biblioteca real** (backend sobre la copia de la BD, `POST /translate`):
+
+| Obra | Modo | Tiempo | Resultado |
+|---|---|---|---|
+| *Moonrise* 01 | Fusión pista 7 + pista 25 | **3 s** (ya extraída en el hito 2) | Calidad 1,0; 0 caracteres gastados |
+| *Shingeki no Kyojin* 01 | Traducción con Azure | **60 s** extrayendo + **6 s** traduciendo | 279 líneas, 6.921 caracteres (reservados 40.000 por estimación y corregidos al extraer) |
+
+Los dos bilingües quedan junto a sus vídeos en el NAS, con el nombre del vídeo:
+`…Moonrise - 01 […].ES-KO.bilingue.srt` y `…Shingeki No Kyojin - 01.ES-KO.bilingue.srt`.
+Los carteles de *Shingeki* no se traducen ni se cuelan.
+
+**Aviso**: los 6.921 caracteres de Azure quedaron registrados en la **copia** de la
+base de datos, no en la de desarrollo. El registro de Azure de la app (que no puede
+consultar el consumo real) no los verá; son el 0,35 % del cupo mensual.

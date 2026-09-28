@@ -81,8 +81,13 @@ Ideas que explican el resto del diseño:
   (`SIN_ORIGEN`).
 - **Una pista incrustada es un subtítulo más**: una fila de `subtitle_file` con
   `video_id`, candidata de la obra de su vídeo junto a los `.srt` de al lado. Su
-  `ruta` es `<vídeo>#<índice>`, que no es un fichero: lo que lea del disco debe
-  mirar antes `es_pista`.
+  `ruta` es `<vídeo>#<índice>`, que no es un fichero: se lee siempre con
+  `subtitles/lectura.leer_bloques`, nunca por la ruta.
+- **Un trabajo con pistas empieza extrayéndolas** (fase `EXTRAYENDO`: lee el vídeo
+  entero, 1–1,5 min por episodio por la red) y revisa lo elegido con el texto de
+  verdad: si la pista resulta ser un forzado u otro idioma, falla con el motivo; si
+  el texto supera lo reservado y el proveedor ya no llega, falla antes de enviar
+  nada. El bilingüe sale siempre como `.srt` junto al vídeo: el MKV no se toca.
 - **Ningún fichero fuera de `services/translation/` conoce a un proveedor
   concreto**: añadir uno es un módulo nuevo y una entrada en `registry.py`.
 - **El proveedor de cada traducción se elige por cupo**: el primero de

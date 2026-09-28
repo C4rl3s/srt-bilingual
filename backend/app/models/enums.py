@@ -31,6 +31,15 @@ class EstadoTrabajo(str, Enum):
     FAILED = "FAILED"  # terminó con error: el motivo, en `mensaje_error`
 
 
+class FaseTrabajo(str, Enum):
+    """En qué está un trabajo en curso (`RUNNING`), para que la interfaz lo diga."""
+
+    # Leyendo el vídeo entero para sacar sus pistas (Fase 5): por la red, 1–1,5 min
+    # por episodio, sin progreso que enseñar.
+    EXTRAYENDO = "EXTRAYENDO"
+    GENERANDO = "GENERANDO"  # traduciendo o alineando: avanza `bloques_procesados`
+
+
 class FormatoSubtitulo(str, Enum):
     """Formato del subtítulo: el del fichero externo (siempre SRT) o el códec de la
     pista incrustada en un vídeo (Fase 5)."""

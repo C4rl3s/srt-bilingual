@@ -3,18 +3,13 @@
 from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
-from app.api.translate import get_fabrica_sesion
+from app.api.dependencias import get_fabrica_sesion, get_sondeador
 from app.db import get_db
 from app.schemas.scan import PeticionEscaneo, ProgresoSondeoOut, ResumenEscaneo
 from app.services import scanner
 from app.services.mkv import sondeo
 
 router = APIRouter(tags=["scan"])
-
-
-# Dependencia de la tarea de fondo, para que los tests pongan un ffprobe de pega.
-def get_sondeador() -> sondeo.Sondeador:
-    return sondeo.ejecutar_ffprobe
 
 
 @router.post("/scan", response_model=ResumenEscaneo)

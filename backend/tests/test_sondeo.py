@@ -394,17 +394,19 @@ def test_un_bilingue_ya_generado_marca_las_pistas_traducidas(
     assert espanol.ruta_bilingue.endswith("Moonrise - 01.ES-KO.bilingue.srt")
 
 
-def test_las_pistas_no_se_renombran_ni_se_generan_todavia(
+def test_las_pistas_no_se_renombran_y_si_se_pueden_generar(
     db: Session, fabrica: sessionmaker, video
 ) -> None:
     video("Moonrise/Moonrise - 01.mkv")
     sondear_pendientes(fabrica, lambda _ruta: _ffprobe("moonrise_01"))
+    db.expire_all()  # el sondeo escribió con otra sesión
     espanol = db.scalar(select(ArchivoSubtitulo).where(ArchivoSubtitulo.indice_pista == 7))
 
     assert renombrado.proponer(db) == []
     creados, rechazos = trabajos.crear(db, [espanol.id], estados_cupo=cupo_de_sobra)
-    assert creados == []
-    assert "pistas incrustadas" in rechazos[0].motivo
+    assert rechazos == []
+    assert creados[0].ruta_origen.endswith("Moonrise - 01.mkv#7")
+    assert creados[0].ruta_coreano.endswith("Moonrise - 01.mkv#25")
 
 
 def test_api_escanear_sondea_en_segundo_plano_y_el_arbol_ve_las_pistas(
