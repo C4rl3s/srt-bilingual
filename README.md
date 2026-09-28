@@ -1,12 +1,11 @@
 # srt-bilingual
 
-Aplicación web para generar subtítulos **bilingües** (idioma original + traducción,
-p. ej. coreano) a partir de ficheros `.srt`, pensada para usarse junto a una
-biblioteca tipo Plex.
+Aplicación web para generar subtítulos **bilingües** (español o inglés + coreano) a
+partir de ficheros `.srt`, pensada para usarse junto a una biblioteca **Plex**.
 
 En lugar de fusionar dos `.srt` independientes (que casi nunca cuadran en tiempos),
-parte del `.srt` original y traduce **bloque a bloque reutilizando las marcas de
-tiempo originales**, evitando cualquier desalineación:
+parte del `.srt` original y pone el coreano debajo de cada bloque, **reutilizando
+sus marcas de tiempo**:
 
 ```
 12
@@ -15,65 +14,60 @@ Texto original en español
 한국어 번역
 ```
 
+El coreano sale de uno de dos sitios:
+
+- **Fusión**: si la película ya tiene un `.srt` coreano, se alinea con el original
+  (corrigiendo desfases y cortes distintos). No gasta cupo de traducción.
+- **Traducción**: si no, lo traduce un proveedor (hoy DeepL), por lotes.
+
+El bilingüe se escribe junto al vídeo como `<vídeo>.ES-KO.bilingue.srt`, y Plex lo
+muestra como «Español (KO)».
+
 ## Stack
 
-- **Backend:** Python + FastAPI, gestionado con [uv](https://docs.astral.sh/uv/). BD: SQLite.
+- **Backend:** Python 3.14 + FastAPI, gestionado con [uv](https://docs.astral.sh/uv/). Base de datos SQLite.
 - **Frontend:** React + TypeScript + Vite.
-- **Traducción:** capa multi-proveedor (DeepL como primera implementación).
+- **Traducción:** capa multi-proveedor; DeepL como primera implementación.
 
 ## Estructura
 
 ```
 srt-bilingual/
-├── backend/    # API FastAPI (uv)
-└── frontend/   # SPA React + Vite
+├── backend/    # API FastAPI (uv): ver backend/README.md
+├── frontend/   # SPA React + Vite: ver frontend/README.md
+└── docs/       # modelo de datos, planes y bitácoras de cada fase
 ```
 
 ## Puesta en marcha (desarrollo)
 
-### Backend
+Hacen falta [uv](https://docs.astral.sh/uv/) y Node.js 24.
+
+### 1. Backend
 
 ```bash
 cd backend
 uv sync                                   # instala dependencias en .venv
-cp .env.example .env                      # opcional (idioma destino, clave de DeepL)
-uv run alembic upgrade head               # crea la base de datos SQLite
+cp .env.example .env                      # y rellena la clave de DeepL (ver abajo)
+uv run alembic upgrade head               # crea o actualiza la base de datos SQLite
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-Las carpetas a vigilar **se añaden desde la interfaz**, no por configuración.
+- API: http://localhost:8000 · documentación OpenAPI: http://localhost:8000/docs
 
-- API: http://localhost:8000
-- Health: http://localhost:8000/health
-- Docs (OpenAPI): http://localhost:8000/docs
+Variables del `.env` (todas opcionales salvo la clave, si se va a traducir):
 
-> **Escucha solo en local.** El endpoint `/fs/browse` lista directorios de la
-> máquina para que el selector de carpetas funcione. Deja uvicorn en `127.0.0.1`
-> (el valor por defecto); no lo expongas con `--host 0.0.0.0`.
-
-Endpoints disponibles:
-
-| Método | Ruta | Qué hace |
+| Variable | Para qué | Por defecto |
 |---|---|---|
-| `GET` | `/folders` | Carpetas vigiladas, con sus contadores y último escaneo |
-| `POST` | `/folders` | Añade una carpeta. Rechaza duplicados y solapamientos |
-| `PATCH` | `/folders/{id}` | Marca o desmarca la carpeta para el escaneo (`activa`) |
-| `DELETE` | `/folders/{id}` | Deja de vigilarla y borra sus subtítulos (cascada) |
-| `GET` | `/fs/roots` | Unidades disponibles, para el selector de carpetas |
-| `GET` | `/fs/browse` | Subdirectorios de una ruta, para navegar el disco |
-| `POST` | `/scan` | Escanea las carpetas marcadas: inventaría vídeos y `.srt` |
-| `GET` | `/library/tree` | Árbol de la biblioteca hasta la obra, con su estado |
-| `GET` | `/subtitles` | Lista los subtítulos. Filtros: `?estado=` y `?idioma=` |
-| `GET` | `/subtitles/{id}` | Detalle de un subtítulo |
+| `DEEPL_API_KEY` | Clave de la API de DeepL. Sin ella solo funciona la fusión | — |
+| `TRANSLATION_PROVIDER` | Proveedor de traducción activo | `deepl` |
+| `DATABASE_URL` | Base de datos | `sqlite:///./srt_bilingual.db` |
+| `OUTPUT_DIR` | Carpeta alternativa para los bilingües (si la biblioteca es de solo lectura) | vacía: junto al vídeo |
 
-Tests:
+> **Escucha solo en local.** `/fs/browse` lista directorios de la máquina para que
+> el selector de carpetas funcione. Deja uvicorn en `127.0.0.1`, el valor por
+> defecto.
 
-```bash
-cd backend
-uv run pytest
-```
-
-### Frontend
+### 2. Frontend
 
 ```bash
 cd frontend
@@ -81,16 +75,38 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 
-El frontend usa un proxy de Vite: las peticiones a `/api/*` se redirigen al backend
-en el puerto 8000.
+Vite reenvía las peticiones a `/api/*` al backend del puerto 8000.
+
+### 3. Primer uso
+
+1. En la interfaz: **Biblioteca › Gestionar carpetas**, añade las carpetas de tu
+   biblioteca y pulsa **Escanear**.
+2. Elige una película: el panel de la derecha dice qué subtítulo usará de origen,
+   si ya hay coreano (fusión) y cómo quedará.
+3. **Generar bilingüe**. El progreso aparece en **Trabajos**.
+
+## Despliegue
+
+**Aún no implementado.** El destino previsto es un servidor local que hará de NAS,
+con Docker, donde también correrá Plex. Las carpetas de la biblioteca serán locales
+(montadas como volúmenes), sin recursos compartidos de red. Cuando llegue ese paso,
+esta sección explicará la imagen, el `docker compose`, los volúmenes y las
+variables. Los requisitos están en `CLAUDE.md` (Estado del plan).
+
+## Tests
+
+```bash
+cd backend && uv run pytest               # 196 tests; ninguno llama a DeepL
+cd frontend && npm run build              # comprueba los tipos y compila
+```
 
 ## Estado del proyecto
 
-- [x] **Fase 0** — Esqueleto del proyecto y conexión front↔back (`/health`).
-- [x] **Fase 1** — Modelos SQLite, scanner de carpetas, parser SRT y conteo de caracteres.
-- [x] **Fase 2** — Gestión de carpetas desde la interfaz (explorador, alta/baja,
-  selección para escanear) y árbol de la biblioteca hasta el capítulo, mostrando
-  qué tiene ya su versión dual y qué no.
-- [ ] **Fase 3** — Traducción multi-proveedor (DeepL) y generación del `.srt` bilingüe.
-- [ ] **Fase 4** — Tracking de cuotas por proveedor.
-- [ ] **Fase 5** — Soporte MKV (extracción/inyección de subtítulos embebidos).
+- [x] **Fase 0** — Esqueleto del proyecto y conexión front↔back.
+- [x] **Fase 1** — Modelos SQLite, escáner de carpetas, parser SRT y conteo de caracteres.
+- [x] **Fase 2** — Gestión de carpetas desde la interfaz e inventario de vídeo.
+- [x] **Fase 3** — Traducción (DeepL), fusión con coreano existente, generación del
+  bilingüe, selección del subtítulo de origen, renombrado para Plex e interfaz nueva.
+- [ ] **Fase 4** — Cuotas por proveedor y elección de proveedor según el cupo libre.
+- [ ] **Fase 5** — Soporte MKV: bilingües a partir de las pistas embebidas.
+- [ ] **Despliegue** con Docker en el servidor local, y web de documentación.

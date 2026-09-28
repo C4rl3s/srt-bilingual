@@ -1,7 +1,8 @@
 # Frontend — srt-bilingual
 
-SPA en React + TypeScript sobre Vite. Una sola página con dos bloques: las carpetas
-vigiladas arriba y el árbol de la biblioteca abajo.
+SPA en React + TypeScript sobre Vite. Tres secciones (Biblioteca, Trabajos y
+Renombrar para Plex) más la gestión de carpetas. El diseño aprobado está resumido en
+`docs/plans/plan-fase3.md`, punto 10 del diseño.
 
 ## Puesta en marcha
 
@@ -25,14 +26,30 @@ npm run lint      # oxlint
 
 ```
 src/
-├── main.tsx              punto de entrada
-├── App.tsx               compone los dos bloques y guarda el estado compartido
-├── types.ts              espejo TypeScript de los DTOs del backend
-├── api/client.ts         único punto de salida HTTP
+├── main.tsx                 punto de entrada
+├── App.tsx                  esqueleto: cabecera, sección activa y datos compartidos
+├── index.css                tokens del diseño (colores, tipografías) y base
+├── App.css                  estilos por pantalla, y la adaptación a móvil al final
+├── types.ts                 espejo TypeScript de los DTOs del backend
+├── api/client.ts            único punto de salida HTTP
+├── hooks/
+│   ├── useTrabajos.ts       trabajos con sondeo mientras haya alguno activo
+│   └── usePersistente.ts    useState guardado en localStorage
+├── utils/
+│   ├── formato.ts           números, fechas y títulos legibles
+│   └── biblioteca.ts        qué carpetas salen en el árbol, qué obras en cada una, filtros
 └── components/
-    ├── PanelCarpetas.tsx     carpetas, casillas, contadores y botón de escanear
-    ├── SelectorCarpeta.tsx   modal para navegar el disco y elegir una carpeta
-    └── ArbolSubtitulos.tsx   árbol recursivo, plegable, hasta cada capítulo
+    ├── Cabecera.tsx          marca, pestañas, trabajo en curso y cupo
+    ├── Trabajos.tsx          decisiones pendientes, en curso, historial y cupo
+    ├── Renombrado.tsx        actual → nuevo con casillas
+    ├── Carpetas.tsx          carpetas vigiladas, escaneo y explorador del disco
+    ├── Iconos.tsx            iconos SVG en línea
+    └── biblioteca/
+        ├── Biblioteca.tsx        las tres columnas y las preferencias recordadas
+        ├── ArbolCarpetas.tsx     árbol plegable (componente recursivo)
+        ├── ContenidoCarpeta.tsx  mosaico o lista, filtros y selección
+        ├── PanelDetalle.tsx      origen, coreano, fusión, muestra y generar
+        └── PanelSeleccion.tsx    resumen de la selección y cupo que gastará
 ```
 
 ## Cómo se habla con el backend
@@ -48,9 +65,21 @@ cambia un DTO en el backend, hay que actualizarlo aquí.
 
 ## Detalles que conviene saber
 
+- **Sin router ni librería de estado.** Cuatro secciones caben en un `useState` de
+  `App`, que guarda lo que comparten (árbol, carpetas, trabajos, cupo).
+- **El árbol solo muestra carpetas que agrupan** (con subcarpetas o varias obras,
+  como una temporada). La carpeta de cada película no sale: sus obras se ven al
+  elegir `Pelis` (`utils/biblioteca.ts`, `esNavegable`).
+- **Preferencias recordadas en `localStorage`**: árbol plegado, carpetas
+  desplegadas, carpeta elegida y la vista (mosaico o lista) de cada carpeta.
+- **El progreso se ve por sondeo**: mientras haya trabajos activos se pregunta cada
+  2 s; al terminar el último se recargan el árbol y el cupo.
 - **El explorador de carpetas lo sirve el backend.** El navegador no puede dar la
-  ruta absoluta de una carpeta del sistema, así que `SelectorCarpeta` navega
-  pidiendo `/api/fs/roots` y `/api/fs/browse`.
-- **El árbol se pinta recursivamente** y cada nodo guarda su propio estado de
-  plegado con `useState`; no hay estado global de expansión.
-- Sin router ni librería de estado: la aplicación es una sola pantalla.
+  ruta absoluta de una carpeta del sistema, así que se navega con
+  `/api/fs/roots` y `/api/fs/browse`.
+- **Pósteres de pega**: un color estable por obra, derivado de su ruta. Traer las
+  carátulas reales (de Plex, por ejemplo) queda como mejora.
+- **Móvil (≤ 900 px)**: el árbol pasa a ser un cajón que se abre con ☰ y el panel de
+  la obra, una hoja inferior.
+- Tipografías de Google Fonts (`index.html`): Bricolage Grotesque, Figtree, Noto
+  Sans KR y JetBrains Mono.

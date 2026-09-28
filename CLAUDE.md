@@ -234,15 +234,15 @@ Plan de desarrollo aprobado en 6 fases.
   88 tests en verde y verificación e2e hecha (2026-08-11). Plan:
   `docs/plans/plan-inventario-video-y-arreglos.md`. Bitácora:
   `docs/bitacora-inventario-video-y-arreglos.md`. Commit `95c954c`.
-- [ ] **Fase 3 — Traducción + generación bilingüe.** Interfaz `Translator` +
-  DeepL (batch), servicio `bilingual.py` reutilizando tiempos, selección de
-  uno/varios subtítulos, registro de caracteres por trabajo. Traducción async vía
-  `BackgroundTasks` de FastAPI (sin Celery). Solo `ES-KO` / `EN-KO`: sin origen
-  ES/EN la obra no es elegible. Se le suman la **selección del subtítulo de origen**
-  (heurística automática + override manual), el **modo fusión** (si ya hay `.srt`
-  coreano se alinea con el origen en vez de traducir) y el **renombrado a
-  nomenclatura Plex** de los subtítulos cuyo idioma se deduce por contenido.
-  Plan: `docs/plans/plan-fase3.md`.
+- [x] **Fase 3 — Traducción + generación bilingüe.** Solo `ES-KO` / `EN-KO`: sin
+  origen ES/EN la obra no es elegible (`SIN_ORIGEN`). Detección de idioma por
+  nombre y contenido, **selección del subtítulo de origen** (heurística + override
+  manual), **modo fusión** (si ya hay coreano se alinea con el origen, sin gastar
+  cupo), `Translator` multi-proveedor con DeepL, `bilingual.py` reutilizando los
+  tiempos, trabajos en `BackgroundTasks` con progreso, **renombrado para Plex** e
+  **interfaz nueva** diseñada con el usuario (lienzo de diseño) y verificada en el
+  navegador. 196 tests en verde (2026-09-28). Plan: `docs/plans/plan-fase3.md`.
+  Bitácora: `docs/bitacora-fase3.md`. Repaso docente aplazado por el usuario.
 - [ ] **Fase 4 — Optimización de cuotas.** Tabla de uso por proveedor/mes, panel
   en el front, selección de proveedor según cuota libre restante.
 - [ ] **Fase 5 — Soporte MKV.** Extracción de subtítulos embebidos (ffmpeg/pymkv2)

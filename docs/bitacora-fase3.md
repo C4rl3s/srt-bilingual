@@ -473,6 +473,91 @@ va junto al vídeo, así que el escáner no lo vería y la obra no pasaría a `D
 crear los trabajos en el hito 8 hay que llevar esa detección al nivel de obra, con
 `ruta_bilingue_de_obra`.
 
+## Hito 8 — Trabajos y API (2026-09-28)
+
+### Qué se hizo
+
+- **`services/trabajos.py`** (nuevo):
+  - `crear(db, ids, forzar_traduccion, proveedor)` valida cada origen, reutiliza un
+    trabajo activo en vez de duplicarlo y **decide el modo**: fusión si la obra
+    tiene coreano válido, traducción si no o si se pide `forzar_traduccion`. Una
+    petición con varios orígenes no falla entera: lo que no sirve va a `rechazados`.
+  - `ejecutar(id, fabrica_sesion, fabrica_traductor)` corre en `BackgroundTasks`
+    con **su propia sesión**. Traduce en pasos de 50 bloques, actualizando el
+    progreso y `num_caracteres` en cada uno. Nunca deja escapar una excepción: todo
+    fallo queda en el trabajo (`FAILED` + `mensaje_error`). Al terminar marca el
+    origen como `TRANSLATED` sin esperar al próximo escaneo.
+  - **Una fusión de mala calidad falla y no traduce por su cuenta**: gastar cuota lo
+    decide el usuario, pidiendo de nuevo con `forzar_traduccion`.
+  - Lo enviado al proveedor **cuenta aunque el trabajo falle después**, porque el
+    proveedor ya lo cobró. Es lo que agregará la Fase 4.
+- **`obras.ruta_bilingue`**: única fuente de "dónde va el bilingüe" (junto al vídeo,
+  o bajo `OUTPUT_DIR` si se configura). La usan el escáner y los trabajos.
+- **Escáner**: la detección de lo ya traducido pasa a hacerse **por obra**, tras el
+  inventario. Resuelve el pendiente del hito 7.
+- **API**:
+
+| Endpoint | Qué hace |
+|---|---|
+| `POST /translate` | Encola; `202` con `trabajos` y `rechazados` |
+| `GET /translate/jobs` | Lista (filtros `estado` y `activos`), del más reciente al más antiguo |
+| `GET /translate/jobs/{id}` | Estado y progreso |
+| `GET /subtitles/{id}/candidatos` | Origen y coreano propuestos, descartes con motivo y calidad de la fusión calculada al vuelo |
+| `GET /renombrado/propuestas` | Propuestas de renombrado Plex |
+| `POST /renombrado` | Aplica las confirmadas |
+
+- Las dependencias `get_fabrica_sesion` y `get_fabrica_traductor` existen para que
+  los tests pongan la BD de pruebas y el traductor falso en la tarea de fondo.
+
+### Decisión tomada por el camino
+
+**El renombrado va en `/renombrado`, no en `/subtitles/renombrado`** como decía el
+plan. Esa ruta la capturaría antes `/subtitles/{subtitulo_id}`, que respondería 422
+al no poder leer `renombrado` como número.
+
+### Verificación
+
+- 190 tests en verde (10 nuevos en `test_translate_api.py`, con la tarea de fondo
+  ejecutándose de verdad): traducción completa, fusión sin gastar cuota, fusión mala
+  que falla sin traducir y luego se fuerza, cuota agotada a mitad (falla, cuenta lo
+  enviado y no deja fichero), rechazos parciales, sin duplicados, origen en `Subs\`
+  escrito junto al vídeo y detectado por el reescaneo, candidatos y renombrado.
+- **Punta a punta real** sobre la carpeta de *Jaws* (BD temporal, API completa):
+
+| Paso | Resultado |
+|---|---|
+| Escaneo | 4 subtítulos, y la obra ya sale `DUAL`: reconoce el bilingüe que dejamos junto al vídeo |
+| Candidatos | origen español, coreano propuesto, calidad 0,899, fusión aceptable |
+| `POST /translate` | `202`; la tarea de fondo elige **fusión** |
+| Trabajo | `DONE`, 1253 de 1253 bloques, **0 caracteres**, escrito junto al vídeo |
+| Reescaneo | 4 sin cambios, 1 traducido, obra `DUAL` |
+
+## Sesión de diseño del frontend (2026-09-28)
+
+Antes del hito 9, y a petición del usuario (la interfaz de la Fase 2 no le convencía
+ni por aspecto ni por organización), se diseñó la interfaz en un lienzo de diseño de
+claude.ai: https://claude.ai/artifact/7P5AmF9e2dkVyxrmxb2o64 (privado del usuario).
+
+Cómo se llegó al diseño:
+
+1. Cuatro preguntas de partida. Qué falla: el aspecto y la organización. Estilo:
+   oscuro tipo Plex. Biblioteca: pósteres. Dónde se usará: ordenador y también móvil.
+2. Tres direcciones de la biblioteca: **A · Cinemateca** (barra lateral + rejilla),
+   **B · Dos pistas** (pestañas, trabajos visibles, panel de detalle, un color por
+   idioma) y **C · Estanterías** (agrupada por lo que toca hacer).
+3. El usuario eligió **B con el árbol de navegación de A**, desplegable hasta una
+   temporada. Después pidió dos cosas más: **plegar el árbol** conservando la
+   selección, y un selector **mosaico / lista** por carpeta.
+4. Pantallas restantes en ese estilo: selección múltiple, Trabajos, Renombrar para
+   Plex y Carpetas y escaneo.
+
+Las maquetas usan datos reales de la biblioteca: títulos, carpetas de Anime con sus
+temporadas, cifras de caracteres, líneas reales de la fusión de *Se7en* y filas de la
+propuesta de renombrado. Las estimaciones iniciales de caracteres por película
+estaban mal y se sustituyeron por las reales. Donde la biblioteca no tiene un caso
+(una fusión que no casa), la maqueta usa `[Película de ejemplo]`. **Diseño
+aprobado**; el resumen para implementarlo está en el plan, punto 10 del diseño.
+
 ## Hito 9 — Frontend con el diseño aprobado (2026-09-28)
 
 ### Qué se hizo
@@ -552,87 +637,44 @@ Una nota de entorno: el backend lanzado desde la terminal del asistente no ve la
 unidad `Z:`, porque las unidades de red mapeadas van por sesión de Windows. Escanear
 por ruta UNC funciona igual; el explorador solo lista `C:`.
 
-## Sesión de diseño del frontend (2026-09-28)
+## Hito 10 y cierre de la fase (2026-09-28)
 
-Antes del hito 9, y a petición del usuario (la interfaz de la Fase 2 no le convencía
-ni por aspecto ni por organización), se diseñó la interfaz en un lienzo de diseño de
-claude.ai: https://claude.ai/artifact/7P5AmF9e2dkVyxrmxb2o64 (privado del usuario).
+### Documentación
 
-Cómo se llegó al diseño:
+- `README.md` de la raíz reescrito: qué hace la app (fusión y traducción), puesta
+  en marcha con las variables del `.env`, primer uso, y una sección de despliegue
+  que dice con claridad que **aún no existe**, con el destino previsto.
+- `backend/README.md`: estructura nueva, las ideas que explican el diseño y la
+  tabla completa de endpoints.
+- `frontend/README.md`: estructura nueva y el funcionamiento de las pantallas.
+- `backend/.env.example`: añadida `OUTPUT_DIR`, que faltaba.
+- `CLAUDE.md`: Fase 3 cerrada, y el requisito del usuario para el final del
+  desarrollo: despliegue con Docker en un servidor local tipo NAS, junto a Plex,
+  sin SMB, con un README de cómo levantar y desplegar la app.
 
-1. Cuatro preguntas de partida. Qué falla: el aspecto y la organización. Estilo:
-   oscuro tipo Plex. Biblioteca: pósteres. Dónde se usará: ordenador y también móvil.
-2. Tres direcciones de la biblioteca: **A · Cinemateca** (barra lateral + rejilla),
-   **B · Dos pistas** (pestañas, trabajos visibles, panel de detalle, un color por
-   idioma) y **C · Estanterías** (agrupada por lo que toca hacer).
-3. El usuario eligió **B con el árbol de navegación de A**, desplegable hasta una
-   temporada. Después pidió dos cosas más: **plegar el árbol** conservando la
-   selección, y un selector **mosaico / lista** por carpeta.
-4. Pantallas restantes en ese estilo: selección múltiple, Trabajos, Renombrar para
-   Plex y Carpetas y escaneo.
+### Lo que deja la Fase 3
 
-Las maquetas usan datos reales de la biblioteca: títulos, carpetas de Anime con sus
-temporadas, cifras de caracteres, líneas reales de la fusión de *Se7en* y filas de la
-propuesta de renombrado. Las estimaciones iniciales de caracteres por película
-estaban mal y se sustituyeron por las reales. Donde la biblioteca no tiene un caso
-(una fusión que no casa), la maqueta usa `[Película de ejemplo]`. **Diseño
-aprobado**; el resumen para implementarlo está en el plan, punto 10 del diseño.
+- **173 de 179 obras con subtítulos** tienen origen ES/EN. Las 6 que no, lo están
+  con razón.
+- **11 obras se hacen por fusión**, sin gastar cupo, y ya se fusionan bien.
+- Traducir el resto son **~6 M de caracteres**, 162 películas.
+- **Trabajos en segundo plano** con progreso, historial de cupo y decisiones
+  pendientes (la fusión que no casa no traduce sola).
+- **Renombrado para Plex**: 106 propuestas en `Pelis`, que el usuario aplicará
+  desde la pantalla.
+- **Interfaz nueva**, diseñada con el usuario y verificada en el navegador.
+- **196 tests** en el backend (88 al empezar la fase), ninguno llama a DeepL.
 
-## Hito 8 — Trabajos y API (2026-09-28)
+### Pendiente y a tener en cuenta
 
-### Qué se hizo
-
-- **`services/trabajos.py`** (nuevo):
-  - `crear(db, ids, forzar_traduccion, proveedor)` valida cada origen, reutiliza un
-    trabajo activo en vez de duplicarlo y **decide el modo**: fusión si la obra
-    tiene coreano válido, traducción si no o si se pide `forzar_traduccion`. Una
-    petición con varios orígenes no falla entera: lo que no sirve va a `rechazados`.
-  - `ejecutar(id, fabrica_sesion, fabrica_traductor)` corre en `BackgroundTasks`
-    con **su propia sesión**. Traduce en pasos de 50 bloques, actualizando el
-    progreso y `num_caracteres` en cada uno. Nunca deja escapar una excepción: todo
-    fallo queda en el trabajo (`FAILED` + `mensaje_error`). Al terminar marca el
-    origen como `TRANSLATED` sin esperar al próximo escaneo.
-  - **Una fusión de mala calidad falla y no traduce por su cuenta**: gastar cuota lo
-    decide el usuario, pidiendo de nuevo con `forzar_traduccion`.
-  - Lo enviado al proveedor **cuenta aunque el trabajo falle después**, porque el
-    proveedor ya lo cobró. Es lo que agregará la Fase 4.
-- **`obras.ruta_bilingue`**: única fuente de "dónde va el bilingüe" (junto al vídeo,
-  o bajo `OUTPUT_DIR` si se configura). La usan el escáner y los trabajos.
-- **Escáner**: la detección de lo ya traducido pasa a hacerse **por obra**, tras el
-  inventario. Resuelve el pendiente del hito 7.
-- **API**:
-
-| Endpoint | Qué hace |
-|---|---|
-| `POST /translate` | Encola; `202` con `trabajos` y `rechazados` |
-| `GET /translate/jobs` | Lista (filtros `estado` y `activos`), del más reciente al más antiguo |
-| `GET /translate/jobs/{id}` | Estado y progreso |
-| `GET /subtitles/{id}/candidatos` | Origen y coreano propuestos, descartes con motivo y calidad de la fusión calculada al vuelo |
-| `GET /renombrado/propuestas` | Propuestas de renombrado Plex |
-| `POST /renombrado` | Aplica las confirmadas |
-
-- Las dependencias `get_fabrica_sesion` y `get_fabrica_traductor` existen para que
-  los tests pongan la BD de pruebas y el traductor falso en la tarea de fondo.
-
-### Decisión tomada por el camino
-
-**El renombrado va en `/renombrado`, no en `/subtitles/renombrado`** como decía el
-plan. Esa ruta la capturaría antes `/subtitles/{subtitulo_id}`, que respondería 422
-al no poder leer `renombrado` como número.
-
-### Verificación
-
-- 190 tests en verde (10 nuevos en `test_translate_api.py`, con la tarea de fondo
-  ejecutándose de verdad): traducción completa, fusión sin gastar cuota, fusión mala
-  que falla sin traducir y luego se fuerza, cuota agotada a mitad (falla, cuenta lo
-  enviado y no deja fichero), rechazos parciales, sin duplicados, origen en `Subs\`
-  escrito junto al vídeo y detectado por el reescaneo, candidatos y renombrado.
-- **Punta a punta real** sobre la carpeta de *Jaws* (BD temporal, API completa):
-
-| Paso | Resultado |
-|---|---|
-| Escaneo | 4 subtítulos, y la obra ya sale `DUAL`: reconoce el bilingüe que dejamos junto al vídeo |
-| Candidatos | origen español, coreano propuesto, calidad 0,899, fusión aceptable |
-| `POST /translate` | `202`; la tarea de fondo elige **fusión** |
-| Trabajo | `DONE`, 1253 de 1253 bloques, **0 caracteres**, escrito junto al vídeo |
-| Reescaneo | 4 sin cambios, 1 traducido, obra `DUAL` |
+- **Repaso docente** de Python y React: el usuario lo aplaza por falta de tiempo.
+  Queda pendiente, sin fecha.
+- **Idea del usuario para la fusión**: agrupar por el lado que menos corta las
+  frases. Anotada en el hito 7 para estudiarla más adelante.
+- **Casos límite conocidos**: *Perfect Days* (dos vídeos en la misma carpeta) y los
+  pósteres, que son marcadores de color.
+- **DeepL ya no tiene API gratuita permanente**: la cuenta del usuario tiene 1 M de
+  caracteres en total. La Fase 4 (cupos y elección de proveedor) tiene ya la base:
+  `ConCupo` y `GET /translate/cupo`.
+- **Fase 5**: fusionar desde pistas embebidas de MKV, con el bilingüe fuera, como
+  `.srt`. `alineacion.py` y `bilingual.py` ya trabajan con bloques y no con rutas.

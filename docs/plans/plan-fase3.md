@@ -1,5 +1,10 @@
 # Fase 3 — Traducción + generación bilingüe
 
+> **Estado: completada (2026-09-28).** Los diez hitos están hechos. Lo que acabó
+> pasando, con las decisiones y cambios respecto a este plan, está en
+> `docs/bitacora-fase3.md`; los cambios importantes van también anotados aquí
+> mismo, junto a lo que modifican.
+
 ## Contexto
 
 El 2026-09-08 esta fase estaba **bloqueada por dos motivos**, ambos documentados en
