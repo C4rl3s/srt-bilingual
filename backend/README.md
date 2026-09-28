@@ -116,7 +116,7 @@ respecto a los modelos. Tras migrar, `uv run alembic check` lo comprueba.
 | `POST` | `/translate` | Encola bilingües (`202`). Fusión si hay coreano; `forzar_traduccion` para traducir igualmente |
 | `GET` | `/translate/jobs` | Trabajos (`?estado=`, `?activos=`) |
 | `GET` | `/translate/jobs/{id}` | Estado y progreso de un trabajo |
-| `GET` | `/translate/cupo` | Cupo gastado del proveedor activo, o `null` |
+| `GET` | `/translate/cupos` | Cupo de cada proveedor configurado, en orden de preferencia: usados, reservados, límite, libre y fuente de la cifra (API del proveedor o registro de la app) |
 | `GET` | `/renombrado/propuestas` | Renombrados propuestos a la nomenclatura de Plex |
 | `POST` | `/renombrado` | Aplica los confirmados; nunca sobrescribe |
 

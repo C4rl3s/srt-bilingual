@@ -15,7 +15,6 @@ from app.models.translation_job import TrabajoTraduccion
 from app.schemas.trabajo import (
     CandidatoOut,
     CandidatosOut,
-    CupoOut,
     EstadoCupoOut,
     MuestraOut,
     PeticionTraduccion,
@@ -30,7 +29,6 @@ from app.services.subtitles.modelo import Bloque
 from app.services.subtitles.seleccion import seleccionar
 from app.services.subtitles.srt_parser import parsear
 from app.services.translation import consumo, registry
-from app.services.translation.base import ConCupo, ErrorTraduccion
 from app.services.translation.registry import obtener_traductor
 
 router = APIRouter(tags=["translate"])
@@ -108,32 +106,18 @@ def cupos(
     fabrica_traductor: trabajos.FabricaTraductor = Depends(get_fabrica_traductor),
 ) -> list[EstadoCupoOut]:
     """El cupo de cada proveedor configurado, en su orden de preferencia: usados,
-    reservados por trabajos en marcha, límite, libre y de dónde sale la cifra."""
+    reservados por trabajos en marcha, límite, libre y de dónde sale la cifra.
+
+    Nunca falla por un proveedor: sin clave, sin red o desconocido, sale con
+    `disponible: false` y su motivo. La cabecera del frontend lo pide en cada carga.
+    Sustituye al `GET /translate/cupo` de la Fase 3, que solo veía un proveedor.
+    """
     return [
         EstadoCupoOut.model_validate(e)
         for e in consumo.estados(
             db, settings.proveedores, fabrica_traductor, registry.limite_configurado
         )
     ]
-
-
-@router.get("/translate/cupo", response_model=CupoOut | None)
-def cupo(
-    fabrica_traductor: trabajos.FabricaTraductor = Depends(get_fabrica_traductor),
-) -> CupoOut | None:
-    """Cupo gastado del proveedor activo, o `null` si no lo informa o no responde.
-
-    Nunca falla: la cabecera del frontend lo pide en cada carga, y un proveedor sin
-    configurar o sin red no debe romper la página.
-    """
-    try:
-        traductor = fabrica_traductor(None)
-        if not isinstance(traductor, ConCupo):
-            return None
-        consumo = traductor.consumo()
-    except ErrorTraduccion:
-        return None
-    return CupoOut(proveedor=traductor.nombre, usados=consumo.usados, limite=consumo.limite)
 
 
 # Bloques de la muestra: dos bastan para ver cómo quedará. Se saltan los primeros,

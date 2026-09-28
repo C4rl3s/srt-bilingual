@@ -37,6 +37,7 @@ src/
 │   └── usePersistente.ts    useState guardado en localStorage
 ├── utils/
 │   ├── formato.ts           números, fechas y títulos legibles
+│   ├── cupos.ts             cupos de los proveedores y previsión del reparto
 │   └── biblioteca.ts        qué carpetas salen en el árbol, qué obras en cada una, filtros
 └── components/
     ├── Cabecera.tsx          marca, pestañas, trabajo en curso y cupo

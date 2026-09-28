@@ -105,6 +105,7 @@ export interface Trabajo {
   idioma_origen: Idioma
   proveedor: string | null
   num_caracteres: number
+  caracteres_previstos: number
   calidad_alineacion: number | null
   bloques_totales: number
   bloques_procesados: number
@@ -149,10 +150,19 @@ export interface Candidatos {
   candidatos: Candidato[]
 }
 
-export interface Cupo {
+/** El cupo de un proveedor configurado (`GET /translate/cupos`). */
+export interface EstadoCupo {
   proveedor: string
+  /** `false` si no se puede usar ahora (sin clave, desconocido…); ver `motivo`. */
+  disponible: boolean
+  motivo: string | null
+  /** API: lo dice el proveedor · REGISTRO: suma de lo enviado por la app este mes. */
+  fuente: 'API' | 'REGISTRO'
   usados: number
+  /** Lo que aún no han enviado los trabajos en cola o en curso. */
+  reservados: number
   limite: number | null
+  libre: number | null
 }
 
 export interface PropuestaRenombrado {

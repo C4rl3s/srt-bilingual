@@ -183,10 +183,6 @@
   cursor: pointer;
 }
 
-.pildora--cupo {
-  cursor: default;
-}
-
 .pildora b {
   color: var(--texto);
   font-weight: 600;
@@ -1338,6 +1334,17 @@
   font-family: var(--fuente);
   font-size: 15px;
   font-weight: 700;
+}
+
+.tarjeta-cupo-cabecera {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tarjeta-lateral--apagada {
+  opacity: 0.7;
 }
 
 .cifra-grande {

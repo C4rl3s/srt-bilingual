@@ -21,7 +21,7 @@ from app.models.library_folder import CarpetaBiblioteca
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.services import trabajos
 from app.services.scanner import escanear
-from app.services.translation.base import Consumo, CuotaAgotada
+from app.services.translation.base import CuotaAgotada
 from tests.conftest import (
     TraductorFalso,
     cupo_de_sobra,
@@ -293,30 +293,6 @@ def test_renombrado_por_la_api(
 
     assert len(resultado["renombrados"]) == 1 and resultado["rechazados"] == []
     assert (tmp_path / "Psycho.1960.eng.srt").exists()
-
-
-class TraductorConCupo(TraductorFalso):
-    """Traductor falso que además informa de su cupo, como DeepL."""
-
-    def consumo(self) -> Consumo:
-        return Consumo(usados=31_200, limite=1_000_000)
-
-
-def test_el_cupo_del_proveedor(api: TestClient) -> None:
-    fastapi_app.dependency_overrides[get_fabrica_traductor] = lambda: (
-        lambda _nombre: TraductorConCupo()
-    )
-
-    assert api.get("/translate/cupo").json() == {
-        "proveedor": "falso",
-        "usados": 31_200,
-        "limite": 1_000_000,
-    }
-
-
-def test_sin_cupo_informado_devuelve_null(api: TestClient) -> None:
-    """Un proveedor que no informa (o no responde) no rompe la cabecera."""
-    assert api.get("/translate/cupo").json() is None
 
 
 def test_la_muestra_de_una_fusion_trae_el_coreano(

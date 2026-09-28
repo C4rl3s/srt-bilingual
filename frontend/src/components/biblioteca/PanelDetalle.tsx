@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { api } from '../../api/client'
-import type { Candidato, Candidatos, MotivoDescarte, Trabajo } from '../../types'
+import type { Candidato, Candidatos, EstadoCupo, MotivoDescarte, Trabajo } from '../../types'
 import type { Obra } from '../../utils/biblioteca'
+import { nombreProveedor, repartir } from '../../utils/cupos'
 import { numero, porcentaje } from '../../utils/formato'
 import { IconoCerrar, IconoInfo } from '../Iconos'
 
@@ -9,6 +10,7 @@ interface Props {
   obra: Obra
   /** Trabajo en marcha de esta obra, si lo hay. */
   trabajo: Trabajo | undefined
+  cupos: EstadoCupo[]
   onGenerar: (subtituloId: number, forzarTraduccion: boolean) => Promise<void>
   onCerrar: () => void
 }
@@ -26,7 +28,7 @@ const IDIOMAS: Record<string, string> = { ES: 'español', EN: 'inglés', KO: 'co
  * Columna derecha: todo lo que hay que saber de una obra antes de generar su
  * bilingüe, y el botón para hacerlo.
  */
-export function PanelDetalle({ obra, trabajo, onGenerar, onCerrar }: Props) {
+export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Props) {
   const { nodo } = obra
   const [candidatos, setCandidatos] = useState<Candidatos | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -76,6 +78,8 @@ export function PanelDetalle({ obra, trabajo, onGenerar, onCerrar }: Props) {
     }
   }
 
+  // Previsión: el backend decide al crear el trabajo (ver `utils/cupos.ts`).
+  const [proveedorPrevisto] = repartir(cupos, [nodo.num_caracteres])
   const porId = (id: number | null) => candidatos?.candidatos.find((c) => c.subtitulo_id === id)
   const origen = porId(candidatos?.origen_id ?? null)
   const coreano = porId(candidatos?.coreano_id ?? null)
@@ -147,9 +151,13 @@ export function PanelDetalle({ obra, trabajo, onGenerar, onCerrar }: Props) {
               <Pista
                 tipo="falta"
                 etiqueta="Coreano · no hay"
-                valor={`Se traducirá con DeepL${
-                  origenElegido === null ? ` · ${numero(nodo.num_caracteres)} caracteres` : ''
-                }`}
+                valor={
+                  proveedorPrevisto === null
+                    ? 'Sin cupo suficiente en ningún proveedor'
+                    : `Se traducirá con ${nombreProveedor(proveedorPrevisto)}${
+                        origenElegido === null ? ` · ${numero(nodo.num_caracteres)} caracteres` : ''
+                      }`
+                }
               />
             ))}
 
@@ -170,8 +178,8 @@ export function PanelDetalle({ obra, trabajo, onGenerar, onCerrar }: Props) {
               </div>
               {!candidatos.fusion_aceptable && (
                 <p className="texto-2">
-                  El coreano parece de otra versión de la película. Puedes traducir con DeepL
-                  en su lugar.
+                  El coreano parece de otra versión de la película. Puedes traducirla en su
+                  lugar; la app elegirá el proveedor según su cupo.
                 </p>
               )}
             </div>
@@ -198,7 +206,7 @@ export function PanelDetalle({ obra, trabajo, onGenerar, onCerrar }: Props) {
         {trabajo ? (
           <div className="progreso">
             <div className="calidad-fila">
-              <b>{trabajo.estado === 'QUEUED' ? 'En cola' : trabajo.modo === 'FUSION' ? 'Fusionando' : 'Traduciendo'}</b>
+              <b>{trabajo.estado === 'QUEUED' ? 'En cola' : trabajo.modo === 'FUSION' ? 'Fusionando' : `Traduciendo con ${nombreProveedor(trabajo.proveedor)}`}</b>
               <span className="texto-2">{porcentaje(trabajo)} %</span>
             </div>
             <div className="barra">
@@ -215,7 +223,7 @@ export function PanelDetalle({ obra, trabajo, onGenerar, onCerrar }: Props) {
         ) : origen ? (
           candidatos?.fusion_aceptable === false ? (
             <button className="boton-primario boton-ancho" disabled={enviando} onClick={() => generar(true)}>
-              Traducir con DeepL
+              Traducir
             </button>
           ) : (
             <button className="boton-primario boton-ancho" disabled={enviando} onClick={() => generar(false)}>

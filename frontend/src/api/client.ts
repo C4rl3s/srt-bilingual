@@ -8,8 +8,8 @@
 import type {
   Candidatos,
   Carpeta,
-  Cupo,
   EntradaDirectorio,
+  EstadoCupo,
   Estado,
   ListadoDirectorio,
   NodoArbol,
@@ -92,8 +92,8 @@ export const api = {
 
   trabajos: () => peticion<Trabajo[]>('/translate/jobs'),
 
-  /** `null` si el proveedor no informa de su cupo o no responde. */
-  cupo: () => peticion<Cupo | null>('/translate/cupo'),
+  /** El cupo de cada proveedor configurado, en su orden de preferencia. */
+  cupos: () => peticion<EstadoCupo[]>('/translate/cupos'),
 
   /** `origenId`: el origen elegido a mano en vez del que propone la app. */
   candidatos: (subtituloId: number, origenId?: number) =>

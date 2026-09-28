@@ -34,6 +34,7 @@ class TrabajoOut(BaseModel):
     idioma_origen: Idioma
     proveedor: str | None
     num_caracteres: int
+    caracteres_previstos: int
     calidad_alineacion: float | None
     bloques_totales: int
     bloques_procesados: int
@@ -75,14 +76,6 @@ class MuestraOut(BaseModel):
     tiempo: str  # HH:MM:SS,mmm
     origen: str
     coreano: str | None  # vacío si el coreano saldrá de traducir
-
-
-class CupoOut(BaseModel):
-    """Consumo del proveedor activo en el periodo actual."""
-
-    proveedor: str
-    usados: int
-    limite: int | None
 
 
 class EstadoCupoOut(BaseModel):

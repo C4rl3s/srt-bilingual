@@ -135,7 +135,7 @@ runtime):
 | Endpoint | Cambio |
 |---|---|
 | `GET /translate/cupos` | **Nuevo**: el estado de cada proveedor configurado, en orden de preferencia |
-| `GET /translate/cupo` | Se mantiene (cabecera): suma de todos los proveedores |
+| `GET /translate/cupo` | ~~Se mantiene (cabecera)~~ **Retirado en el hito 4**: la cabecera suma los de `/translate/cupos`, y así no hay dos fuentes de la misma cifra |
 | `POST /translate` | Asigna el proveedor según cupo; nuevos motivos de rechazo |
 
 ### 7. Frontend

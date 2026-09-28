@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { usePersistente } from '../../hooks/usePersistente'
-import type { Cupo, NodoArbol, Trabajo } from '../../types'
+import type { EstadoCupo, NodoArbol, Trabajo } from '../../types'
 import { type Filtro, buscar, caminoHasta, nombreCarpeta, obrasDe } from '../../utils/biblioteca'
 import { porcentaje } from '../../utils/formato'
 import { ArbolCarpetas } from './ArbolCarpetas'
@@ -12,7 +12,7 @@ interface Props {
   arbol: NodoArbol[]
   cargando: boolean
   trabajos: Trabajo[]
-  cupo: Cupo | null
+  cupos: EstadoCupo[]
   escaneando: boolean
   onEscanear: () => void
   onGestionar: () => void
@@ -153,7 +153,7 @@ export function Biblioteca(props: Props) {
       {seleccionando ? (
         <PanelSeleccion
           obras={seleccionadas}
-          cupo={props.cupo}
+          cupos={props.cupos}
           onGenerar={generarSeleccion}
           onQuitar={alternarSeleccion}
           onQuitarTodas={() => setSeleccion([])}
@@ -163,6 +163,7 @@ export function Biblioteca(props: Props) {
           <PanelDetalle
             obra={obraElegida}
             trabajo={trabajoDe(obraElegida.nodo.subtitulo_origen_id)}
+            cupos={props.cupos}
             onGenerar={(id, forzar) => props.onGenerar([id], forzar)}
             onCerrar={() => setRutaObra(null)}
           />

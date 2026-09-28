@@ -6,7 +6,7 @@ import { Carpetas } from './components/Carpetas'
 import { Renombrado } from './components/Renombrado'
 import { Trabajos } from './components/Trabajos'
 import { useTrabajos } from './hooks/useTrabajos'
-import type { Carpeta, Cupo, NodoArbol, ResumenEscaneo } from './types'
+import type { Carpeta, EstadoCupo, NodoArbol, ResumenEscaneo } from './types'
 import './App.css'
 
 /**
@@ -21,7 +21,7 @@ function App() {
   const [arbol, setArbol] = useState<NodoArbol[]>([])
   const [cargandoArbol, setCargandoArbol] = useState(true)
   const [carpetas, setCarpetas] = useState<Carpeta[]>([])
-  const [cupo, setCupo] = useState<Cupo | null>(null)
+  const [cupos, setCupos] = useState<EstadoCupo[]>([])
   const [escaneando, setEscaneando] = useState(false)
   const [resumen, setResumen] = useState<ResumenEscaneo | null>(null)
   const [numPropuestas, setNumPropuestas] = useState(0)
@@ -49,11 +49,11 @@ function App() {
     }
   }, [])
 
-  const cargarCupo = useCallback(async () => {
+  const cargarCupos = useCallback(async () => {
     try {
-      setCupo(await api.cupo())
+      setCupos(await api.cupos())
     } catch {
-      setCupo(null) // sin cupo la app funciona igual; solo no lo enseña
+      setCupos([]) // sin cupos la app funciona igual; solo no los enseña
     }
   }, [])
 
@@ -69,17 +69,17 @@ function App() {
   // gastado: se recargan las dos cosas.
   const alTerminarTrabajos = useCallback(() => {
     cargarArbol()
-    cargarCupo()
-  }, [cargarArbol, cargarCupo])
+    cargarCupos()
+  }, [cargarArbol, cargarCupos])
 
   const { trabajos, recargar: recargarTrabajos } = useTrabajos(alTerminarTrabajos)
 
   useEffect(() => {
     cargarArbol()
     cargarCarpetas()
-    cargarCupo()
+    cargarCupos()
     cargarPropuestas()
-  }, [cargarArbol, cargarCarpetas, cargarCupo, cargarPropuestas])
+  }, [cargarArbol, cargarCarpetas, cargarCupos, cargarPropuestas])
 
   async function escanear(carpetaIds?: number[]) {
     setEscaneando(true)
@@ -99,8 +99,9 @@ function App() {
     if (respuesta.rechazados.length) {
       setError(respuesta.rechazados.map((r) => r.motivo).join(' · '))
     }
-    // Empieza el sondeo: la cabecera y el panel ven el progreso.
-    await recargarTrabajos()
+    // Empieza el sondeo (la cabecera y el panel ven el progreso) y se refrescan los
+    // cupos: los trabajos nuevos ya reservan el suyo.
+    await Promise.all([recargarTrabajos(), cargarCupos()])
   }
 
   // Obras que se pueden fusionar gratis, para el aviso de la pantalla de trabajos.
@@ -112,7 +113,7 @@ function App() {
         seccion={seccion}
         onCambiar={setSeccion}
         trabajos={trabajos}
-        cupo={cupo}
+        cupos={cupos}
         numPropuestas={numPropuestas}
         onAbrirArbol={() => {
           setSeccion('biblioteca')
@@ -131,7 +132,7 @@ function App() {
           arbol={arbol}
           cargando={cargandoArbol}
           trabajos={trabajos}
-          cupo={cupo}
+          cupos={cupos}
           escaneando={escaneando}
           onEscanear={() => escanear()}
           onGestionar={() => setSeccion('carpetas')}
@@ -143,7 +144,7 @@ function App() {
       {seccion === 'trabajos' && (
         <Trabajos
           trabajos={trabajos}
-          cupo={cupo}
+          cupos={cupos}
           onGenerar={generar}
           numFusionables={numFusionables}
           onVerFusionables={() => setSeccion('biblioteca')}

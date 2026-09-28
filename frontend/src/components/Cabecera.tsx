@@ -1,4 +1,5 @@
-import type { Cupo, Trabajo } from '../types'
+import type { EstadoCupo, Trabajo } from '../types'
+import { libreTotal, nombreProveedor } from '../utils/cupos'
 import { numero, porcentaje, tituloDeRuta } from '../utils/formato'
 import { IconoMenu } from './Iconos'
 
@@ -8,15 +9,16 @@ interface Props {
   seccion: Seccion
   onCambiar: (seccion: Seccion) => void
   trabajos: Trabajo[]
-  cupo: Cupo | null
+  cupos: EstadoCupo[]
   numPropuestas: number
   /** Solo en pantallas estrechas: abre el árbol de carpetas como cajón. */
   onAbrirArbol: () => void
 }
 
-/** Barra superior: marca, pestañas, trabajo en curso y cupo del proveedor. */
-export function Cabecera({ seccion, onCambiar, trabajos, cupo, numPropuestas, onAbrirArbol }: Props) {
+/** Barra superior: marca, pestañas, trabajo en curso y cupo libre total. */
+export function Cabecera({ seccion, onCambiar, trabajos, cupos, numPropuestas, onAbrirArbol }: Props) {
   const activos = trabajos.filter((trabajo) => trabajo.activo)
+  const libre = libreTotal(cupos)
   // El que más avanzado va es el que se enseña en la píldora.
   const enCurso = activos.find((trabajo) => trabajo.estado === 'RUNNING') ?? activos[0]
 
@@ -69,11 +71,19 @@ export function Cabecera({ seccion, onCambiar, trabajos, cupo, numPropuestas, on
         </button>
       )}
 
-      {cupo && cupo.limite !== null && (
-        <div className="pildora pildora--cupo" title={`${numero(cupo.usados)} usados de ${numero(cupo.limite)}`}>
-          <span>{cupo.proveedor === 'deepl' ? 'DeepL' : cupo.proveedor}</span>
-          <b>{numero(cupo.limite - cupo.usados)} libres</b>
-        </div>
+      {libre !== null && (
+        <button
+          className="pildora"
+          onClick={() => onCambiar('trabajos')}
+          // El desglose por proveedor, al pasar el ratón; el detalle, en Trabajos.
+          title={cupos
+            .filter((c) => c.disponible)
+            .map((c) => `${nombreProveedor(c.proveedor)}: ${c.libre === null ? '¿?' : numero(c.libre)} libres`)
+            .join('\n')}
+        >
+          <span>Cupo</span>
+          <b>{numero(libre)} libres</b>
+        </button>
       )}
     </header>
   )

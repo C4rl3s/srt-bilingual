@@ -1,30 +1,47 @@
 import { useState } from 'react'
-import type { Cupo } from '../../types'
+import type { EstadoCupo } from '../../types'
 import type { Obra } from '../../utils/biblioteca'
+import { libreTotal, nombreProveedor, repartir } from '../../utils/cupos'
 import { numero } from '../../utils/formato'
 import { IconoCerrar } from '../Iconos'
 
 interface Props {
   obras: Obra[]
-  cupo: Cupo | null
+  cupos: EstadoCupo[]
   onGenerar: (subtituloIds: number[]) => Promise<void>
   onQuitar: (ruta: string) => void
   onQuitarTodas: () => void
 }
 
 /**
- * Columna derecha en modo selección: qué se va a generar, cómo y cuánto cupo
- * gastará, antes de pulsar nada.
+ * Columna derecha en modo selección: qué se va a generar, cómo, con qué proveedor
+ * y cuánto cupo gastará, antes de pulsar nada.
  */
-export function PanelSeleccion({ obras, cupo, onGenerar, onQuitar, onQuitarTodas }: Props) {
+export function PanelSeleccion({ obras, cupos, onGenerar, onQuitar, onQuitarTodas }: Props) {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Las fusiones no gastan cupo: solo cuentan las que se traducen.
   const aTraducir = obras.filter((obra) => obra.nodo.subtitulo_coreano_id === null)
   const caracteres = aTraducir.reduce((suma, obra) => suma + obra.nodo.num_caracteres, 0)
-  const libres = cupo?.limite != null ? cupo.limite - cupo.usados : null
-  const pasaDelCupo = libres !== null && caracteres > libres
+
+  // Previsión del reparto entre proveedores, en el mismo orden en que el backend
+  // creará los trabajos (ver `utils/cupos.ts`).
+  const previstos = repartir(
+    cupos,
+    aTraducir.map((obra) => obra.nodo.num_caracteres),
+  )
+  const proveedorDe = new Map(aTraducir.map((obra, i) => [obra.nodo.ruta, previstos[i]]))
+  const sinCupo = aTraducir.filter((obra) => proveedorDe.get(obra.nodo.ruta) === null)
+
+  const libre = libreTotal(cupos)
+  const limiteTotal = cupos
+    .filter((c) => c.disponible && c.limite !== null)
+    .reduce((suma, c) => suma + (c.limite ?? 0), 0)
+  const gastadoTotal = cupos
+    .filter((c) => c.disponible && c.limite !== null)
+    .reduce((suma, c) => suma + c.usados + c.reservados, 0)
+  const ancho = (n: number) => `${limiteTotal ? Math.min(100, (100 * n) / limiteTotal) : 0}%`
 
   async function generar() {
     setEnviando(true)
@@ -59,6 +76,8 @@ export function PanelSeleccion({ obras, cupo, onGenerar, onQuitar, onQuitarTodas
       <ul className="seleccion-lista">
         {obras.map((obra) => {
           const fusion = obra.nodo.subtitulo_coreano_id !== null
+          const proveedor = proveedorDe.get(obra.nodo.ruta)
+          const idioma = obra.nodo.idioma_origen === 'EN' ? 'inglés' : 'español'
           return (
             <li key={obra.nodo.ruta} className="fila-pista">
               <span
@@ -67,8 +86,12 @@ export function PanelSeleccion({ obras, cupo, onGenerar, onQuitar, onQuitarTodas
               />
               <div className="fila-pista-texto">
                 <b className="recortar">{obra.titulo}</b>
-                <div className="texto-2">
-                  {fusion ? 'Fusión con el coreano' : `Traducción · ${obra.nodo.idioma_origen === 'EN' ? 'inglés' : 'español'}`}
+                <div className={proveedor === null ? 'texto-aviso' : 'texto-2'}>
+                  {fusion
+                    ? 'Fusión con el coreano'
+                    : proveedor === null
+                      ? 'Sin cupo en ningún proveedor'
+                      : `Traducción · ${idioma} · ${nombreProveedor(proveedor ?? null)}`}
                 </div>
               </div>
               <span className="cifra">{fusion ? '0' : numero(obra.nodo.num_caracteres)}</span>
@@ -87,26 +110,27 @@ export function PanelSeleccion({ obras, cupo, onGenerar, onQuitar, onQuitarTodas
       {obras.length > 0 && (
         <div className="resumen-cupo">
           <div className="calidad-fila">
-            <span className="texto-2">Se enviarán a DeepL</span>
+            <span className="texto-2">Se enviarán a traducir</span>
             <b>{numero(caracteres)} caracteres</b>
           </div>
-          {libres !== null && cupo?.limite && (
+          {libre !== null && (
             <>
               <div className="calidad-fila">
-                <span className="texto-2">Cupo después</span>
-                <b className={pasaDelCupo ? 'texto-aviso' : undefined}>
-                  {pasaDelCupo ? 'no alcanza' : `${numero(libres - caracteres)} libres`}
-                </b>
+                <span className="texto-2">Cupo libre después, entre todos</span>
+                <b>{numero(Math.max(0, libre - caracteres))}</b>
               </div>
-              <div className="barra barra--doble">
-                <div className="barra-usado" style={{ width: `${(100 * cupo.usados) / cupo.limite}%` }} />
-                <div
-                  className="barra-relleno"
-                  style={{ width: `${Math.min(100, (100 * caracteres) / cupo.limite)}%` }}
-                />
+              <div className="barra barra--doble" aria-hidden="true">
+                <div className="barra-usado" style={{ width: ancho(gastadoTotal) }} />
+                <div className="barra-relleno" style={{ width: ancho(caracteres) }} />
               </div>
-              <div className="texto-3">Gris: ya usado · naranja: esta selección</div>
+              <div className="texto-3">Gris: ya usado o reservado · naranja: esta selección</div>
             </>
+          )}
+          {sinCupo.length > 0 && (
+            <p className="texto-aviso">
+              {sinCupo.length === 1 ? 'Una obra no cabe' : `${sinCupo.length} obras no caben`} en
+              ningún proveedor: no se generará.
+            </p>
           )}
         </div>
       )}

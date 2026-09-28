@@ -140,3 +140,43 @@ ningún otro afectado. **Lección**: para reescribir ficheros desde PowerShell, 
   Los 61 caracteres de la prueba no figuran en el registro de Azure porque los envió
   un script y no un trabajo de la app: es exactamente la limitación que la interfaz
   debe advertir.
+
+## Hito 4 — Interfaz de cupos (2026-09-28)
+
+### Qué se hizo
+
+- **Backend**: `GET /translate/cupo` (Fase 3, un solo proveedor) **se retira**; todo
+  usa `GET /translate/cupos`, para no tener dos fuentes de la misma cifra. Sus dos
+  tests se quitan porque `test_consumo.py` ya cubre el endpoint nuevo. Los trabajos
+  exponen `caracteres_previstos`.
+- **`utils/cupos.ts`**: `nombreProveedor`, `libreTotal` y `repartir`, que
+  **reproduce la regla de `eleccion.Asignador`** para que la interfaz diga de
+  antemano qué proveedor traducirá cada obra. Es una previsión (decide el backend) y
+  lo dice su comentario, que avisa de que hay que cambiarla si cambia la regla.
+- **Cabecera**: el cupo libre total, con el desglose por proveedor al pasar el
+  ratón; lleva a Trabajos.
+- **Trabajos**: una tarjeta por proveedor, en orden de preferencia: libre, usados,
+  reservados, límite, barra y **de dónde sale la cifra** («según DeepL» o «registro
+  de la app, este mes; no ve lo gastado fuera de la app»). Proveedor en los trabajos
+  en curso (con caracteres enviados de previstos) y en el historial.
+- **Panel de detalle**: «Se traducirá con Azure · 44.388 caracteres», o «Sin cupo
+  suficiente en ningún proveedor».
+- **Panel de selección**: el proveedor previsto de cada obra, el cupo libre entre
+  todos tras la selección y el aviso de las obras que no caben.
+- Los textos que daban por hecho DeepL («Traducir con DeepL») pasan a genéricos.
+
+### Verificación en el navegador
+
+App real contra la copia de la BD y los proveedores reales del usuario (`azure,deepl`),
+sin lanzar ninguna traducción:
+
+| Pantalla | Resultado |
+|---|---|
+| `GET /translate/cupos` | Azure 0 de 2 M (registro) · DeepL 61 de 1 M (API) |
+| Cabecera | «Cupo 2.999.939 libres» |
+| Detalle de *Psycho* | «Se traducirá con Azure · 44.388 caracteres» |
+| Selección (*Se7en*, *Pulp Fiction*, *Psycho*) | Psycho y Pulp Fiction → Azure; Se7en → fusión; 109.139 caracteres; 2.890.800 libres después |
+| Trabajos | tarjetas de Azure (1.º) y DeepL (2.º) con la fuente de cada cifra |
+
+Sin errores en consola. Backend: 227 tests en verde; frontend compila y el linter no
+marca nada.
