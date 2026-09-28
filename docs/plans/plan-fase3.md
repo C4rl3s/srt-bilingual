@@ -321,7 +321,8 @@ Pasos:
    el español.
 4. **Medir la calidad**: porcentaje de bloques coreanos que encontraron un bloque de
    origen con buen solape. Por debajo de un umbral (constante con nombre, calibrada
-   con las ~10 obras reales) la obra **no se fusiona automáticamente**: probablemente
+   con las ~10 obras reales; **0,7** tras el hito 4, ver la bitácora) la obra **no se
+   fusiona automáticamente**: probablemente
    el coreano es de otra versión o montaje. Se muestra en la interfaz, y el usuario
    decide si traducir con DeepL.
 

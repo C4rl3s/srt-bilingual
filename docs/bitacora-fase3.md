@@ -196,4 +196,65 @@ ofrecido como el subtítulo inglés completo. Ahora, si la selección lo descart
 
 Los dos conflictos (*Jaws*, *The End Of Oak Street*) son un inglés sin sufijo que
 duplica otro que ya se llama `.eng.srt`; se quedan como están. **No se ha renombrado
-nada en la biblioteca**: aplicar la propuesta queda a decisión del usuario.
+nada en la biblioteca**: el usuario prefiere aplicarlo él desde la pantalla (hito 9).
+
+## Hito 4 — Alineación del coreano existente (modo fusión) (2026-09-28)
+
+### Qué se hizo
+
+**`services/subtitles/alineacion.py`** (nuevo): `alinear(origen, coreano)` devuelve un
+texto coreano por bloque de origen, más el desplazamiento y el factor de velocidad
+aplicados, el método, la calidad y cuántos bloques coreanos no encontraron sitio.
+
+1. **Desfase global**: búsqueda gruesa (±60 s en pasos de 0,5 s) y fina (pasos de
+   50 ms) del desplazamiento, para cada factor de velocidad (1, 25/23,976 y su
+   inverso), maximizando el tiempo en pantalla compartido. El solape total se
+   calcula recorriendo las dos listas a la vez, en tiempo lineal: se evalúa unas 700
+   veces por película.
+2. **Vía rápida 1:1** (la idea del usuario): mismo número de bloques y cada par
+   solapado tras corregir el desfase. Contar no basta por sí solo, y por eso se
+   comprueba el solape par a par.
+3. **Vía general**: cada bloque coreano va con el de origen con el que más comparte;
+   varios en el mismo bloque se unen en orden; uno sin solape se acepta en el
+   vecino si está a menos de 0,5 s.
+4. **Calidad**: fracción de bloques coreanos que comparten con su bloque de origen al
+   menos la mitad de su duración. Umbral **0,7**.
+
+### Calibración contra la biblioteca real
+
+Las 11 obras con origen ES/EN y coreano, en menos de 1 s cada una:
+
+| Obra | Origen / KO | Desfase | Calidad |
+|---|---|---|---|
+| Backrooms | 857 / 1055 | −0,05 s | 0,82 |
+| Good Luck Have Fun Don't Die | 1711 / 2218 | 0 | 0,94 |
+| Jaws | 1253 / 1273 | +0,45 s | 0,90 |
+| Obsession | 1958 / 1720 | **+9,50 s** | 1,00 |
+| Predator: Killer of Killers | 424 / 436 | 0 | 0,99 |
+| Project Hail Mary | 1675 / 1694 | 0 | 0,99 |
+| Ricky Gervais: Mortality | 1160 / 1164 | 0 | 1,00 |
+| Se7en | 1513 / 1573 | −1,20 s | 0,75 |
+| The End Of Oak Street | 1133 / 1343 | 0 | 0,87 |
+| The Gorge | 753 / 767 | 0 | 0,99 |
+| Wolfs | 1092 / 1121 | 0 | 0,98 |
+
+**Control negativo** (el coreano de cada película contra el origen de otra): entre
+0,12 y **0,58**. En películas con mucho diálogo el azar ya solapa bastante, así que el
+umbral provisional de 0,6 quedaba pegado a los falsos positivos. Se subió a **0,7**.
+
+Ninguna pareja real tiene el mismo número de bloques, así que en la práctica todas
+van por la vía general. La vía 1:1 queda cubierta por los tests.
+
+*Se7en* (0,75) se revisó por si había deriva, es decir, un corte de montaje distinto
+que cambiara el desfase a mitad de película. No la hay: el desfase es −1,2 s de
+principio a fin. La calidad más baja se debe a que el coreano corta las frases más
+finas y muchos bloques caen a caballo de dos. Muestra de *Jaws*: `Más despacio.`
+recibe `천천히 가` ("ve despacio") y `Espera.` se queda vacío, porque el coreano no
+traduce esa frase.
+
+### Verificación
+
+- 154 tests en verde (7 nuevos en `test_alineacion.py`: 1:1, desfase, velocidad,
+  segmentación distinta, invariante de un texto por bloque, bloque descolocado y
+  coreano de otra versión). `ruff` limpio.
+- Ningún proveedor de traducción involucrado: cero caracteres de cuota.
