@@ -51,8 +51,12 @@ class TrabajoTraduccion(Base):
     idioma_origen: Mapped[Idioma] = mapped_column(SAEnum(Idioma))
     proveedor: Mapped[str | None] = mapped_column(String)  # vacío en FUSION
 
-    # Caracteres enviados al proveedor; 0 en FUSION. Alimenta la Fase 4.
+    # Caracteres enviados al proveedor; 0 en FUSION. Es el registro de consumo de
+    # la Fase 4: el de un proveedor en un mes es la suma de los de sus trabajos.
     num_caracteres: Mapped[int] = mapped_column(Integer, default=0)
+    # Lo que se espera enviar, fijado al crear el trabajo. Mientras está en cola o en
+    # curso, `caracteres_previstos − num_caracteres` queda reservado del cupo.
+    caracteres_previstos: Mapped[int] = mapped_column(Integer, default=0)
     calidad_alineacion: Mapped[float | None] = mapped_column(Float)  # solo en FUSION
 
     # Progreso para la barra del frontend.

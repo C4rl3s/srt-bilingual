@@ -92,6 +92,8 @@ def crear(
             ruta_bilingue=str(destino),
             idioma_origen=sub.idioma_origen,
             proveedor=None if fusion else proveedor,
+            # Una fusión no gasta cupo; una traducción, el texto de su origen.
+            caracteres_previstos=0 if fusion else sub.num_caracteres,
             bloques_totales=sub.num_bloques,
         )
         db.add(trabajo)

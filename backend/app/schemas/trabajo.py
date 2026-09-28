@@ -85,6 +85,22 @@ class CupoOut(BaseModel):
     limite: int | None
 
 
+class EstadoCupoOut(BaseModel):
+    """El cupo de un proveedor configurado (`GET /translate/cupos`)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    proveedor: str
+    disponible: bool
+    motivo: str | None
+    # API: lo dice el proveedor · REGISTRO: suma de lo enviado por la app este mes.
+    fuente: str
+    usados: int
+    reservados: int
+    limite: int | None
+    libre: int | None
+
+
 class CandidatosOut(BaseModel):
     """La obra de un subtítulo: qué origen y qué coreano se proponen, y todo lo demás
     con su motivo, para que la interfaz deje elegir otro."""

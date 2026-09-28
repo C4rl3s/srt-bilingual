@@ -2,8 +2,8 @@
 
 Esquema de la base de datos SQLite de srt-bilingual. Refleja las migraciones
 `4684c713e94f` (Fase 1), `bd028a52d162` (columna `activa`), `deb86f77e1a9`
-(tabla `media_file`), `6f170d42eb87` (flags y `version_analisis`) y `b9edc39727eb`
-(tabla `translation_job`). Si cambias un modelo en `backend/app/models/`, genera la
+(tabla `media_file`), `6f170d42eb87` (flags y `version_analisis`), `b9edc39727eb`
+(tabla `translation_job`) y `4447e8a4d4c5` (`caracteres_previstos`). Si cambias un modelo en `backend/app/models/`, genera la
 migración **y actualiza este documento en el mismo commit**.
 
 > **Este fichero es la fuente de verdad.** Al lado hay una versión visual del mismo
@@ -45,6 +45,7 @@ erDiagram
         string   idioma_origen           "ES EN"
         string   proveedor               "NULL en FUSION"
         int      num_caracteres          "enviados al proveedor"
+        int      caracteres_previstos    "reserva de cupo en cola"
         float    calidad_alineacion      "solo FUSION"
         int      bloques_totales
         int      bloques_procesados
@@ -210,7 +211,8 @@ rutas y sus caracteres se conservan.
 | `ruta_bilingue` | `VARCHAR` | sí | Fichero generado; `NULL` hasta que termina |
 | `idioma_origen` | `VARCHAR(7)` | no | `ES` o `EN`. El destino es siempre coreano |
 | `proveedor` | `VARCHAR` | sí | Quién tradujo (DeepL…); `NULL` en `FUSION` |
-| `num_caracteres` | `INTEGER` | no | Caracteres enviados al proveedor; `0` en `FUSION`. Lo que agregará la Fase 4 |
+| `num_caracteres` | `INTEGER` | no | Caracteres enviados al proveedor; `0` en `FUSION`. Es el registro de consumo de la Fase 4: el de un proveedor en un mes es la suma de los de sus trabajos (cuentan también los fallidos: el proveedor ya los cobró) |
+| `caracteres_previstos` | `INTEGER` | no | Lo que se espera enviar, fijado al crear el trabajo. Mientras está en cola o en curso, `caracteres_previstos − num_caracteres` queda **reservado** del cupo de su proveedor |
 | `calidad_alineacion` | `FLOAT` | sí | Solo en `FUSION`: fracción de bloques coreanos bien colocados (0 a 1) |
 | `bloques_totales` | `INTEGER` | no | Para la barra de progreso |
 | `bloques_procesados` | `INTEGER` | no | Para la barra de progreso |
@@ -299,19 +301,14 @@ nada más. Leer las pistas internas exige ffmpeg y es trabajo de la Fase 5. Grac
 esto, un escaneo de 215 MKV sobre un recurso de red tarda ~2 s: solo se listan
 nombres, no se lee un solo byte del contenido.
 
-## Pendiente: `provider_usage` (Fase 4)
+## Descartada: `provider_usage`
 
-Tabla aún no creada. Registrará el consumo por proveedor y mes para elegir a quién
-mandar cada traducción según la cuota libre:
-
-| Columna | Idea |
-|---|---|
-| `proveedor` | `DEEPL`, … |
-| `periodo` | año-mes (`2026-07`) |
-| `caracteres_consumidos` | acumulado del mes |
-| `cuota_mensual` | límite del plan |
-
-Clave única prevista: (`proveedor`, `periodo`).
+El plan original preveía una tabla `provider_usage` (proveedor, año-mes, caracteres
+consumidos, cuota) para la Fase 4. **Se descartó al planificar esa fase**: el consumo
+de un proveedor en un mes ya es la suma de `num_caracteres` de sus trabajos en
+`translation_job`, y una segunda tabla con la misma cifra podría descuadrarse. Los
+límites de los proveedores que no los informan por API (Azure) van en el `.env`. Ver
+`docs/plans/plan-fase4.md`.
 
 ## Trabajar con las migraciones
 

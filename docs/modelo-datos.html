@@ -491,8 +491,8 @@
     <div class="meta">
       <span>SQLite</span>
       <span>SQLAlchemy 2.0</span>
-      <span class="is-live">migración b9edc39727eb</span>
-      <span>4 tablas · 53 columnas</span>
+      <span class="is-live">migración 4447e8a4d4c5</span>
+      <span>4 tablas · 54 columnas</span>
       <span>+1 tabla prevista en Fase 4</span>
     </div>
   </header>
@@ -582,7 +582,7 @@
           <li><span class="key">FK</span> subtitulo_coreano_id</li>
           <li><span class="key is-plain">·</span> modo · estado</li>
           <li><span class="key is-plain">·</span> num_caracteres</li>
-          <li><span class="key is-plain">·</span> <span class="more">+ 13 columnas</span></li>
+          <li><span class="key is-plain">·</span> <span class="more">+ 14 columnas</span></li>
         </ul>
       </div>
     </div>
@@ -824,7 +824,8 @@
           <tr><td>ruta_bilingue</td><td class="type">VARCHAR</td><td class="nul yes">sí</td><td>Fichero generado; nulo hasta terminar</td></tr>
           <tr><td>idioma_origen</td><td class="type">VARCHAR(7)</td><td class="nul no">no</td><td><code>ES</code> o <code>EN</code>; el destino es siempre coreano</td></tr>
           <tr><td>proveedor</td><td class="type">VARCHAR</td><td class="nul yes">sí</td><td>Quién tradujo; nulo en fusión</td></tr>
-          <tr><td>num_caracteres</td><td class="type">INTEGER</td><td class="nul no">no</td><td>Enviados al proveedor; <code>0</code> en fusión · lo que agregará la Fase 4</td></tr>
+          <tr><td>num_caracteres</td><td class="type">INTEGER</td><td class="nul no">no</td><td>Enviados al proveedor; <code>0</code> en fusión · el registro de consumo: por proveedor y mes, la suma de sus trabajos</td></tr>
+          <tr><td>caracteres_previstos</td><td class="type">INTEGER</td><td class="nul no">no</td><td>Lo que se espera enviar · mientras está en cola o en curso, lo que falta queda reservado del cupo</td></tr>
           <tr><td>calidad_alineacion</td><td class="type">FLOAT</td><td class="nul yes">sí</td><td>Solo en fusión: fracción de bloques coreanos bien colocados</td></tr>
           <tr><td>bloques_totales</td><td class="type">INTEGER</td><td class="nul no">no</td><td>Barra de progreso</td></tr>
           <tr><td>bloques_procesados</td><td class="type">INTEGER</td><td class="nul no">no</td><td>Barra de progreso</td></tr>
@@ -1024,11 +1025,12 @@
 
   <section class="section">
     <div class="section-head">
-      <div class="eyebrow">Aún no existe</div>
+      <div class="eyebrow">Descartada</div>
       <h2>provider_usage · Fase 4</h2>
       <p class="lede">
-        Tabla todavía no creada. Registrará el consumo por proveedor y mes para elegir a
-        quién mandar cada traducción según la cuota libre restante.
+        Prevista en el plan original y descartada al planificar la Fase 4: el consumo de
+        un proveedor en un mes ya es la suma de <code>num_caracteres</code> de sus trabajos
+        en <code>translation_job</code>. Se deja aquí la idea original como referencia.
       </p>
     </div>
 

@@ -1,8 +1,8 @@
 """Registro de proveedores: de un nombre a un `Translator` listo para usar.
 
 Añadir un proveedor (Azure, Google…) es escribir su módulo en este paquete y una
-línea en `_FABRICAS`. La Fase 4 hará que la elección dependa de la cuota libre de
-cada uno; hoy manda `TRANSLATION_PROVIDER` del `.env`.
+línea en `_FABRICAS`. Qué proveedores se usan, y en qué orden de preferencia, lo dice
+`TRANSLATION_PROVIDERS` en el `.env` (ver `Settings.proveedores`).
 """
 
 from collections.abc import Callable
@@ -24,6 +24,12 @@ _FABRICAS: dict[str, Callable[[], Translator]] = {
     "deepl": _crear_deepl,
 }
 
+# Límite de los proveedores que no lo informan por su API: se compara con el
+# registro de la app. Los que lo informan (DeepL) no necesitan entrada aquí.
+_LIMITES: dict[str, Callable[[], int]] = {
+    "azure": lambda: settings.azure_translator_limite_mensual,
+}
+
 
 def proveedores() -> list[str]:
     """Nombres de los proveedores que la app sabe usar."""
@@ -31,12 +37,18 @@ def proveedores() -> list[str]:
 
 
 def obtener_traductor(nombre: str | None = None) -> Translator:
-    """El proveedor pedido, o el configurado en `TRANSLATION_PROVIDER` si no se pide
+    """El proveedor pedido, o el primero de la lista configurada si no se pide
     ninguno."""
-    clave = (nombre or settings.translation_provider).strip().lower()
+    clave = (nombre or settings.proveedores[0]).strip().lower()
     fabrica = _FABRICAS.get(clave)
     if fabrica is None:
         raise ProveedorNoDisponible(
             f"Proveedor de traducción desconocido: {clave!r}. Disponibles: {proveedores()}"
         )
     return fabrica()
+
+
+def limite_configurado(nombre: str) -> int | None:
+    """Límite del periodo configurado para un proveedor, o `None` si no tiene."""
+    limite = _LIMITES.get(nombre)
+    return limite() if limite else None

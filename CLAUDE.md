@@ -105,9 +105,11 @@ Resumen:
   timestamps. *(Fase 1)*
 - `translation_job` — cada generación de bilingüe (traducción o fusión), su progreso
   y los caracteres enviados al proveedor. FKs a `subtitle_file` con `SET NULL` y
-  rutas copiadas: es historial y sobrevive a sus subtítulos. *(Fase 3)*
-- `provider_usage` — proveedor, `año-mes`, caracteres consumidos, cuota mensual
-  (sostiene el tracking de cuotas). *(pendiente, Fase 4)*
+  rutas copiadas: es historial y sobrevive a sus subtítulos. Es también el
+  **registro de consumo** de la Fase 4 (con `caracteres_previstos` para reservar
+  cupo). *(Fase 3)*
+- ~~`provider_usage`~~ — descartada en la Fase 4: duplicaría lo que ya suma
+  `translation_job` (ver `docs/plans/plan-fase4.md`).
 
 **Principio rector:** el sistema de ficheros es la fuente de verdad; la base de datos
 es un índice reconstruible. Un escaneo siempre puede rehacerse desde cero. **Única

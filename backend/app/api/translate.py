@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import SessionLocal, get_db
 from app.models.enums import EstadoTrabajo
 from app.models.subtitle_file import ArchivoSubtitulo
@@ -15,6 +16,7 @@ from app.schemas.trabajo import (
     CandidatoOut,
     CandidatosOut,
     CupoOut,
+    EstadoCupoOut,
     MuestraOut,
     PeticionTraduccion,
     RechazoOut,
@@ -27,6 +29,7 @@ from app.services.subtitles.alineacion import alinear
 from app.services.subtitles.modelo import Bloque
 from app.services.subtitles.seleccion import seleccionar
 from app.services.subtitles.srt_parser import parsear
+from app.services.translation import consumo, registry
 from app.services.translation.base import ConCupo, ErrorTraduccion
 from app.services.translation.registry import obtener_traductor
 
@@ -91,6 +94,21 @@ def obtener_trabajo(trabajo_id: int, db: Session = Depends(get_db)) -> TrabajoTr
     if trabajo is None:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
     return trabajo
+
+
+@router.get("/translate/cupos", response_model=list[EstadoCupoOut])
+def cupos(
+    db: Session = Depends(get_db),
+    fabrica_traductor: trabajos.FabricaTraductor = Depends(get_fabrica_traductor),
+) -> list[EstadoCupoOut]:
+    """El cupo de cada proveedor configurado, en su orden de preferencia: usados,
+    reservados por trabajos en marcha, límite, libre y de dónde sale la cifra."""
+    return [
+        EstadoCupoOut.model_validate(e)
+        for e in consumo.estados(
+            db, settings.proveedores, fabrica_traductor, registry.limite_configurado
+        )
+    ]
 
 
 @router.get("/translate/cupo", response_model=CupoOut | None)
