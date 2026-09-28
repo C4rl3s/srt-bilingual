@@ -10,7 +10,7 @@ from collections.abc import Iterator
 import deepl
 
 from app.models.enums import Idioma
-from app.services.translation.base import CuotaAgotada, ErrorTraduccion
+from app.services.translation.base import Consumo, CuotaAgotada, ErrorTraduccion
 
 # Textos por petición. La API de DeepL limita el tamaño de la petición (128 KiB), no
 # el número de textos; 50 bloques de subtítulo son unos 4 KB, muy lejos del límite.
@@ -43,6 +43,14 @@ class TraductorDeepL:
             for i, resultado in zip(lote, resultados, strict=True):
                 traducidos[i] = resultado.text
         return traducidos
+
+    def consumo(self) -> Consumo:
+        """Caracteres usados y límite del periodo, según DeepL."""
+        try:
+            caracteres = self._cliente.get_usage().character
+        except deepl.DeepLException as exc:
+            raise ErrorTraduccion(f"No se pudo consultar el cupo de DeepL: {exc}") from exc
+        return Consumo(usados=caracteres.count, limite=caracteres.limit)
 
     def _pedir(self, textos: list[str], origen: Idioma, destino: Idioma) -> list:
         try:

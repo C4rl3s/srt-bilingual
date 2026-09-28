@@ -1,5 +1,6 @@
 """Router de generación de bilingües: encolar, consultar trabajos y ver candidatos."""
 
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
@@ -13,6 +14,8 @@ from app.models.translation_job import TrabajoTraduccion
 from app.schemas.trabajo import (
     CandidatoOut,
     CandidatosOut,
+    CupoOut,
+    MuestraOut,
     PeticionTraduccion,
     RechazoOut,
     RespuestaTraduccion,
@@ -21,8 +24,10 @@ from app.schemas.trabajo import (
 from app.services import trabajos
 from app.services.obras import obra_de
 from app.services.subtitles.alineacion import alinear
+from app.services.subtitles.modelo import Bloque
 from app.services.subtitles.seleccion import seleccionar
 from app.services.subtitles.srt_parser import parsear
+from app.services.translation.base import ConCupo, ErrorTraduccion
 from app.services.translation.registry import obtener_traductor
 
 router = APIRouter(tags=["translate"])
@@ -88,8 +93,61 @@ def obtener_trabajo(trabajo_id: int, db: Session = Depends(get_db)) -> TrabajoTr
     return trabajo
 
 
+@router.get("/translate/cupo", response_model=CupoOut | None)
+def cupo(
+    fabrica_traductor: trabajos.FabricaTraductor = Depends(get_fabrica_traductor),
+) -> CupoOut | None:
+    """Cupo gastado del proveedor activo, o `null` si no lo informa o no responde.
+
+    Nunca falla: la cabecera del frontend lo pide en cada carga, y un proveedor sin
+    configurar o sin red no debe romper la página.
+    """
+    try:
+        traductor = fabrica_traductor(None)
+        if not isinstance(traductor, ConCupo):
+            return None
+        consumo = traductor.consumo()
+    except ErrorTraduccion:
+        return None
+    return CupoOut(proveedor=traductor.nombre, usados=consumo.usados, limite=consumo.limite)
+
+
+# Bloques de la muestra: dos bastan para ver cómo quedará. Se saltan los primeros,
+# donde suelen ir los créditos del subtitulador o la publicidad de YTS.
+TAMANO_MUESTRA = 2
+BLOQUES_INICIALES_SALTADOS = 2
+
+
+def _muestra(bloques: list[Bloque], textos_coreano: list[str] | None) -> list[MuestraOut]:
+    """Unos bloques reales del origen y, si hay fusión, su coreano ya alineado.
+
+    En modo traducción el coreano va vacío: traducir la muestra gastaría cupo.
+    """
+    muestra: list[MuestraOut] = []
+    for i, bloque in enumerate(bloques[BLOQUES_INICIALES_SALTADOS:], BLOQUES_INICIALES_SALTADOS):
+        coreano = textos_coreano[i] if textos_coreano else None
+        if len(bloque.contenido) < 15 or (textos_coreano and not coreano):
+            continue
+        muestra.append(
+            MuestraOut(tiempo=_marca(bloque.inicio), origen=bloque.contenido, coreano=coreano)
+        )
+        if len(muestra) == TAMANO_MUESTRA:
+            break
+    return muestra
+
+
+def _marca(instante: timedelta) -> str:
+    """`timedelta` → `HH:MM:SS,mmm`, como en el `.srt`."""
+    ms = round(instante.total_seconds() * 1000)
+    return f"{ms // 3_600_000:02d}:{ms // 60_000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
+
+
 @router.get("/subtitles/{subtitulo_id}/candidatos", response_model=CandidatosOut)
-def candidatos(subtitulo_id: int, db: Session = Depends(get_db)) -> CandidatosOut:
+def candidatos(
+    subtitulo_id: int,
+    db: Session = Depends(get_db),
+    origen_id: int | None = Query(default=None, description="Origen elegido a mano"),
+) -> CandidatosOut:
     """Los subtítulos de la obra de `subtitulo_id`, con la propuesta de origen y
     coreano y el motivo de cada descarte.
 
@@ -101,16 +159,21 @@ def candidatos(subtitulo_id: int, db: Session = Depends(get_db)) -> CandidatosOu
     if sub is None:
         raise HTTPException(status_code=404, detail="Subtítulo no encontrado")
     obra = obra_de(sub)
-    seleccion = seleccionar(obra.subtitulos)
+    seleccion = seleccionar(obra.subtitulos, origen_preferido_id=origen_id)
 
     calidad = aceptable = None
-    if seleccion.origen and seleccion.coreano:
-        resultado = alinear(
-            parsear(Path(seleccion.origen.ruta)), parsear(Path(seleccion.coreano.ruta))
-        )
-        calidad, aceptable = round(resultado.calidad, 3), resultado.aceptable
+    muestra: list[MuestraOut] = []
+    if seleccion.origen:
+        bloques_origen = parsear(Path(seleccion.origen.ruta))
+        textos_coreano = None
+        if seleccion.coreano:
+            resultado = alinear(bloques_origen, parsear(Path(seleccion.coreano.ruta)))
+            calidad, aceptable = round(resultado.calidad, 3), resultado.aceptable
+            textos_coreano = resultado.textos
+        muestra = _muestra(bloques_origen, textos_coreano)
 
     return CandidatosOut(
+        muestra=muestra,
         obra=obra.nombre,
         origen_id=seleccion.origen.id if seleccion.origen else None,
         coreano_id=seleccion.coreano.id if seleccion.coreano else None,

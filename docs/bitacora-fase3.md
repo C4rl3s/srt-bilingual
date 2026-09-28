@@ -473,6 +473,111 @@ va junto al vídeo, así que el escáner no lo vería y la obra no pasaría a `D
 crear los trabajos en el hito 8 hay que llevar esa detección al nivel de obra, con
 `ruta_bilingue_de_obra`.
 
+## Hito 9 — Frontend con el diseño aprobado (2026-09-28)
+
+### Qué se hizo
+
+Se rehízo el frontend entero siguiendo el diseño aprobado (sesión de abajo), sin
+librerías nuevas: React, CSS propio y `fetch`.
+
+- **Estructura** (`frontend/src/`):
+  - `App.tsx` es el esqueleto: la cabecera, la sección activa y los datos
+    compartidos (árbol, carpetas, trabajos y cupo). Sin router: cuatro secciones
+    caben en un `useState`.
+  - `components/Cabecera.tsx`.
+  - `components/biblioteca/`: `Biblioteca`, `ArbolCarpetas`, `ContenidoCarpeta`,
+    `PanelDetalle` y `PanelSeleccion`.
+  - `components/Trabajos.tsx`, `Renombrado.tsx` y `Carpetas.tsx`; el explorador de
+    disco pasa de modal a panel lateral.
+  - `components/Iconos.tsx`: SVG en línea.
+  - `hooks/useTrabajos.ts`: sondeo cada 2 s mientras haya trabajos activos, y
+    recarga del árbol y del cupo al terminar.
+  - `hooks/usePersistente.ts`: `useState` guardado en `localStorage`.
+  - `utils/formato.ts` (números, fechas, títulos legibles) y `utils/biblioteca.ts`
+    (qué carpetas salen en el árbol, qué obras se ven en cada una, filtros).
+  - Se borran `ArbolSubtitulos`, `PanelCarpetas` y `SelectorCarpeta`.
+- **Árbol**: solo salen las carpetas que **agrupan**, es decir, con subcarpetas o
+  con varias obras (una temporada). La carpeta de cada película no sale: sus obras
+  se ven al elegir `Pelis`. Plegable a una tira; la selección se mantiene.
+- **Mosaico o lista** por carpeta, recordado. Por defecto, lista si la mayoría de
+  sus obras están sueltas en ella (episodios) y mosaico si viven cada una en su
+  carpeta (películas).
+- **Títulos legibles**: `Mercy (2026) [1080p] [WEBRip]…` se muestra como *Mercy ·
+  2026*, y `[Erai-raws] Moonrise - 01 ~ 18 […]` como *Moonrise - 01 ~ 18*.
+- **Móvil**: el árbol pasa a ser un cajón que se abre desde ☰, y el panel de la
+  obra una hoja inferior.
+- **Backend, tres añadidos que pedía el diseño**:
+  - `idioma_origen` en las hojas del árbol, para las etiquetas «ES → KO».
+  - `muestra` en `GET /subtitles/{id}/candidatos`: dos bloques reales, con el
+    coreano alineado si hay fusión. Admite `origen_id` para el origen elegido a
+    mano.
+  - `GET /translate/cupo`: el consumo real del proveedor, a través de un
+    `Protocol` `ConCupo` aparte de `Translator`, porque no todos los proveedores lo
+    informan. Nunca falla: devuelve `null`.
+
+### Verificación en el navegador
+
+Backend y frontend arrancados de verdad, contra una **copia** de la BD de desarrollo
+(para no tocar la del usuario) con `Pelis`, `Series` y `Anime` escaneadas (79 s, 624
+vídeos, 686 subtítulos). Se recorrió la app con el Chrome del sistema en headless
+(`playwright-core` en una carpeta temporal, fuera del proyecto) y capturas de cada
+pantalla:
+
+| Paso | Resultado |
+|---|---|
+| Biblioteca › Pelis | mosaico de pósteres con títulos legibles y etiquetas ES/EN → KO |
+| Detalle de *Se7en* | origen, coreano, fusión 0,75 y muestra real con su coreano |
+| Árbol plegado | tira con la ruta; 5 pósteres por fila en vez de 4 |
+| Anime › Shingeki › S1 | árbol desplegado hasta la temporada, 25 episodios en lista, detalle «Fase 5» |
+| Selección | Se7en + Pulp Fiction + Psycho: 109.139 caracteres y cupo tras la selección |
+| *Jaws* → «Volver a generar» | trabajo real de fusión desde la interfaz: progreso y vuelta a «Bilingüe listo» |
+| Trabajos | historial (Jaws, fusión, 0 caracteres, calidad 0,90) y cupo real de DeepL: **61 usados**, los de la prueba de humo del hito 6 |
+| Renombrar para Plex | 106 propuestas, 104 marcadas, 2 conflictos |
+| Carpetas | las tres carpetas, con interruptor, escanear y quitar |
+| Móvil | cajón del árbol y hoja de detalle |
+
+La primera pasada encontró seis fallos, corregidos antes de cerrar:
+
+1. El botón ☰ del móvil se veía en escritorio (una regla posterior pisaba el
+   `display: none`).
+2. Las carpetas raíz usaban la ruta completa como nombre accesible ("Desplegar
+   \\192.168.1.130\…").
+3. `Pelis` salía en lista por tener unas pocas películas sueltas en la raíz.
+4. En Renombrar, las películas sueltas en la raíz aparecían con el título "Pelis".
+5. Los filtros de Renombrar se apilaban en vertical.
+6. El explorador de carpetas decía «No hay subcarpetas aquí» mientras aún estaba
+   cargando.
+
+Una nota de entorno: el backend lanzado desde la terminal del asistente no ve la
+unidad `Z:`, porque las unidades de red mapeadas van por sesión de Windows. Escanear
+por ruta UNC funciona igual; el explorador solo lista `C:`.
+
+## Sesión de diseño del frontend (2026-09-28)
+
+Antes del hito 9, y a petición del usuario (la interfaz de la Fase 2 no le convencía
+ni por aspecto ni por organización), se diseñó la interfaz en un lienzo de diseño de
+claude.ai: https://claude.ai/artifact/7P5AmF9e2dkVyxrmxb2o64 (privado del usuario).
+
+Cómo se llegó al diseño:
+
+1. Cuatro preguntas de partida. Qué falla: el aspecto y la organización. Estilo:
+   oscuro tipo Plex. Biblioteca: pósteres. Dónde se usará: ordenador y también móvil.
+2. Tres direcciones de la biblioteca: **A · Cinemateca** (barra lateral + rejilla),
+   **B · Dos pistas** (pestañas, trabajos visibles, panel de detalle, un color por
+   idioma) y **C · Estanterías** (agrupada por lo que toca hacer).
+3. El usuario eligió **B con el árbol de navegación de A**, desplegable hasta una
+   temporada. Después pidió dos cosas más: **plegar el árbol** conservando la
+   selección, y un selector **mosaico / lista** por carpeta.
+4. Pantallas restantes en ese estilo: selección múltiple, Trabajos, Renombrar para
+   Plex y Carpetas y escaneo.
+
+Las maquetas usan datos reales de la biblioteca: títulos, carpetas de Anime con sus
+temporadas, cifras de caracteres, líneas reales de la fusión de *Se7en* y filas de la
+propuesta de renombrado. Las estimaciones iniciales de caracteres por película
+estaban mal y se sustituyeron por las reales. Donde la biblioteca no tiene un caso
+(una fusión que no casa), la maqueta usa `[Película de ejemplo]`. **Diseño
+aprobado**; el resumen para implementarlo está en el plan, punto 10 del diseño.
+
 ## Hito 8 — Trabajos y API (2026-09-28)
 
 ### Qué se hizo

@@ -76,10 +76,14 @@ srt-bilingual/
 │   └── pyproject.toml         # deps + config de pytest y ruff
 └── frontend/          # SPA React + Vite
     ├── src/
-    │   ├── App.tsx            # compone panel de carpetas + árbol
+    │   ├── App.tsx            # esqueleto: cabecera + sección activa + datos comunes
     │   ├── types.ts           # espejo TS de los DTOs del backend
     │   ├── api/client.ts      # envoltorio de fetch sobre /api/...
-    │   └── components/        # PanelCarpetas, SelectorCarpeta, ArbolSubtitulos
+    │   ├── hooks/             # useTrabajos (sondeo), usePersistente (localStorage)
+    │   ├── utils/             # formato (números, títulos), biblioteca (árbol, filtros)
+    │   └── components/        # Cabecera, Trabajos, Renombrado, Carpetas, Iconos y
+    │                          #   biblioteca/ (árbol, contenido, paneles de detalle
+    │                          #   y selección). Diseño: docs/plans/plan-fase3.md §10
     └── vite.config.ts         # proxy /api -> http://localhost:8000
 ```
 
@@ -249,6 +253,24 @@ Plan de desarrollo aprobado en 6 fases.
   bilingüe** junto al vídeo. Cubre, por ejemplo, los 27 MKV de Anime que ya traen
   pista coreana. Por eso `alineacion.py` y `bilingual.py` trabajan con
   `list[Bloque]` y no con rutas de `.srt`: el origen puede ser una pista extraída.
+- [ ] **Al terminar — despliegue con Docker en un servidor local** (requisito del
+  usuario, 2026-09-28). La app acabará en un equipo propio que hará de **NAS**,
+  con el sistema operativo aún por decidir, que despliega apps con **Docker** y
+  donde correrá también **Plex**. Consecuencias para el diseño de lo que quede:
+  - **No habrá SMB**: las carpetas de la biblioteca serán locales al equipo,
+    montadas como volúmenes en el contenedor (p. ej. `/media/Pelis`). Nada debe
+    depender de Windows, de `Z:` ni de rutas UNC. Las rutas de `library_folder`
+    cambiarán; como la BD es un índice reconstruible, basta volver a añadir las
+    carpetas y escanear. `translation_job` guarda rutas antiguas, pero solo como
+    historial.
+  - Configuración por variables de entorno (ya es así con `.env`), la base
+    SQLite en un volumen persistente y el frontend compilado servido desde el
+    propio contenedor o un proxy.
+  - El explorador `/fs/browse` debe limitarse a los volúmenes montados, y el
+    servicio escuchar solo en la red local.
+  - Hay que documentar, **como mínimo en un README**, cómo levantar la app en
+    desarrollo y cómo desplegarla (imagen, `docker compose`, volúmenes,
+    variables).
 - [ ] **Al terminar — web de documentación.** Una sola web con secciones que
   reutilice todo lo escrito por el camino (bitácoras, decisiones, fases, modelo de
   datos). Esta sí va **en local y publicada en remoto**.

@@ -69,11 +69,28 @@ class CandidatoOut(BaseModel):
     descarte: MotivoDescarte | None
 
 
+class MuestraOut(BaseModel):
+    """Un bloque de ejemplo de cómo quedará el bilingüe."""
+
+    tiempo: str  # HH:MM:SS,mmm
+    origen: str
+    coreano: str | None  # vacío si el coreano saldrá de traducir
+
+
+class CupoOut(BaseModel):
+    """Consumo del proveedor activo en el periodo actual."""
+
+    proveedor: str
+    usados: int
+    limite: int | None
+
+
 class CandidatosOut(BaseModel):
     """La obra de un subtítulo: qué origen y qué coreano se proponen, y todo lo demás
     con su motivo, para que la interfaz deje elegir otro."""
 
     obra: str
+    muestra: list[MuestraOut]
     origen_id: int | None
     coreano_id: int | None
     # Solo si hay origen y coreano: cómo de bien casan, calculado al vuelo sin gastar

@@ -56,5 +56,6 @@ class NodoArbol(BaseModel):
     subtitulo_ids: list[int] = []
     # Propuesta de la selección automática (ver `services/subtitles/seleccion.py`).
     subtitulo_origen_id: int | None = None
+    idioma_origen: Idioma | None = None
     # Coreano ya existente: si lo hay, el bilingüe sale de fusionar, sin traducir.
     subtitulo_coreano_id: int | None = None

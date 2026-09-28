@@ -6,12 +6,18 @@
 // producción, donde front y back se sirven del mismo origen.
 
 import type {
+  Candidatos,
   Carpeta,
+  Cupo,
   EntradaDirectorio,
   Estado,
   ListadoDirectorio,
   NodoArbol,
+  PropuestaRenombrado,
+  RespuestaTraduccion,
+  ResultadoRenombrado,
   ResumenEscaneo,
+  Trabajo,
 } from '../types'
 
 /** Error con el código HTTP y el mensaje que manda FastAPI en `detail`. */
@@ -65,9 +71,43 @@ export const api = {
   navegar: (ruta: string) =>
     peticion<ListadoDirectorio>(`/fs/browse?ruta=${encodeURIComponent(ruta)}`),
 
-  /** Sin cuerpo el backend escanea todas las carpetas marcadas como activas. */
-  escanear: () => peticion<ResumenEscaneo>('/scan', { method: 'POST' }),
+  /** Sin `carpetaIds` el backend escanea todas las carpetas marcadas como activas. */
+  escanear: (carpetaIds?: number[]) =>
+    peticion<ResumenEscaneo>('/scan', {
+      method: 'POST',
+      body: carpetaIds ? JSON.stringify({ carpeta_ids: carpetaIds }) : undefined,
+    }),
 
   arbol: (estado?: Estado) =>
     peticion<NodoArbol[]>(`/library/tree${estado ? `?estado=${estado}` : ''}`),
+
+  // --- Generación de bilingües ---
+
+  /** Encola un bilingüe por cada origen; responde enseguida (202), sin esperar. */
+  traducir: (subtituloIds: number[], forzarTraduccion = false) =>
+    peticion<RespuestaTraduccion>('/translate', {
+      method: 'POST',
+      body: JSON.stringify({ subtitulo_ids: subtituloIds, forzar_traduccion: forzarTraduccion }),
+    }),
+
+  trabajos: () => peticion<Trabajo[]>('/translate/jobs'),
+
+  /** `null` si el proveedor no informa de su cupo o no responde. */
+  cupo: () => peticion<Cupo | null>('/translate/cupo'),
+
+  /** `origenId`: el origen elegido a mano en vez del que propone la app. */
+  candidatos: (subtituloId: number, origenId?: number) =>
+    peticion<Candidatos>(
+      `/subtitles/${subtituloId}/candidatos${origenId ? `?origen_id=${origenId}` : ''}`,
+    ),
+
+  // --- Renombrado para Plex ---
+
+  propuestasRenombrado: () => peticion<PropuestaRenombrado[]>('/renombrado/propuestas'),
+
+  renombrar: (subtituloIds: number[]) =>
+    peticion<ResultadoRenombrado>('/renombrado', {
+      method: 'POST',
+      body: JSON.stringify({ subtitulo_ids: subtituloIds }),
+    }),
 }

@@ -6,6 +6,7 @@ que cambiar de proveedor cuando caduque una cuenta es añadir un módulo y una e
 en `registry.py`, sin tocar nada más.
 """
 
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from app.models.enums import Idioma
@@ -28,6 +29,25 @@ class Translator(Protocol):
     nombre: str
 
     def traducir(self, textos: list[str], origen: Idioma, destino: Idioma) -> list[str]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class Consumo:
+    """Caracteres gastados del cupo del proveedor en el periodo actual."""
+
+    usados: int
+    limite: int | None  # None: el proveedor no tiene límite (o no lo informa)
+
+
+@runtime_checkable
+class ConCupo(Protocol):
+    """Proveedor que sabe decir cuánto cupo lleva gastado.
+
+    Aparte de `Translator` a propósito: no todos los proveedores lo exponen, y la
+    Fase 4 (elegir proveedor según su cupo libre) solo contará con los que sí.
+    """
+
+    def consumo(self) -> Consumo: ...
 
 
 class ErrorTraduccion(Exception):

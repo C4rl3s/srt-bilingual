@@ -466,6 +466,40 @@ Rechaza las obras `SIN_ORIGEN`.
 - Nuevo `PanelRenombrado.tsx`: lista `actual → nuevo` con casillas y botón de aplicar.
 - `types.ts` y `api/client.ts`: espejo de los DTOs nuevos.
 
+**Sustituido por el rediseño (2026-09-28).** Al usuario no le convencía la interfaz
+de la Fase 2 (ni el aspecto ni la organización), así que antes del hito 9 se hizo una
+sesión de diseño con maquetas en un lienzo de diseño de claude.ai (privado del
+usuario): https://claude.ai/artifact/7P5AmF9e2dkVyxrmxb2o64. Diseño **aprobado**; el
+hito 9 lo implementa en React:
+
+- **Estilo**: oscuro, tipo Plex. Tipografías Bricolage Grotesque (títulos), Figtree
+  (texto) y Noto Sans KR (coreano). Dos colores con significado: naranja `#FF9A5A`
+  para el idioma de origen y azul `#8CC4FF` para el coreano.
+- **Cabecera**: pestañas Biblioteca · Trabajos · Renombrar para Plex, indicador del
+  trabajo en curso y del cupo libre.
+- **Biblioteca en tres columnas**:
+  - izquierda, un **árbol de carpetas** (Pelis, Series, Anime) desplegable hasta la
+    temporada, **plegable** a una tira estrecha sin perder la selección;
+  - centro, el contenido de la carpeta, con filtros por estado y un selector
+    **mosaico / lista** que cada carpeta recuerda (películas en mosaico, episodios en
+    lista);
+  - derecha, el **panel de detalle** de la obra: origen y coreano propuestos (con
+    "Cambiar"), calidad de la fusión, vista previa del bilingüe y "Generar".
+- **Selección múltiple**: con el modo selección activo, el panel derecho resume lo
+  elegido: modo de cada obra, caracteres a enviar y cupo que quedará.
+- **Trabajos**: "necesitan tu decisión" (p. ej. una fusión que no casa → descartar o
+  traducir), en curso con progreso, historial y cupo.
+- **Renombrar para Plex**: tabla `actual → nuevo` con el sufijo resaltado, motivo,
+  conflictos desmarcados y barra de aplicar.
+- **Carpetas y escaneo** (desde "Gestionar carpetas" en el pie del árbol):
+  interruptor de incluir al escanear, escanear o quitar cada carpeta, resultado del
+  último escaneo y explorador para añadir.
+- **Móvil**: navegación por niveles en vez del árbol y detalle en hoja inferior.
+- Los pósteres son marcadores de color con el título; traer los pósteres reales (de
+  Plex, por ejemplo) queda como mejora aparte.
+- Los MKV (Anime, Series) se ven en el árbol con sus pistas, pero sus acciones quedan
+  desactivadas con "Fase 5".
+
 ---
 
 ## Modelo de datos — cambios

@@ -149,6 +149,7 @@ def _nodo_obra(rama: _Rama, obra: Obra) -> NodoArbol:
         num_caracteres=seleccion.origen.num_caracteres if seleccion.origen else 0,
         subtitulo_ids=[sub.id for sub in subs],
         subtitulo_origen_id=seleccion.origen.id if seleccion.origen else None,
+        idioma_origen=seleccion.origen.idioma_origen if seleccion.origen else None,
         subtitulo_coreano_id=seleccion.coreano.id if seleccion.coreano else None,
     )
 

@@ -4,6 +4,8 @@
 
 export type Estado = 'PENDING' | 'TRANSLATED' | 'ERROR'
 
+export type Idioma = 'ES' | 'EN' | 'KO' | 'FR' | 'DE' | 'IT' | 'PT' | 'JA' | 'ZH' | 'UNKNOWN'
+
 /**
  * Estado de una obra (capítulo o película) de cara a la interfaz. No es lo mismo
  * que `Estado`, que describe un fichero `.srt` suelto: aquí cabe además el caso de
@@ -45,7 +47,7 @@ export interface NodoArbol {
   /** Solo en las hojas; `null` en las carpetas. */
   estado_obra: EstadoObra | null
   tiene_video: boolean
-  idiomas: string[]
+  idiomas: Idioma[]
   dual: boolean
   ruta_bilingue: string | null
   /** Caracteres del subtítulo de origen: lo que costaría traducir la obra. */
@@ -53,6 +55,7 @@ export interface NodoArbol {
   subtitulo_ids: number[]
   /** Origen ES/EN propuesto por la selección automática. */
   subtitulo_origen_id: number | null
+  idioma_origen: Idioma | null
   /** Coreano ya existente: si lo hay, el bilingüe sale de fusionar, sin traducir. */
   subtitulo_coreano_id: number | null
 }
@@ -82,4 +85,84 @@ export interface ListadoDirectorio {
   /** `null` en la raíz de una unidad: ya no se puede subir más. */
   padre: string | null
   directorios: EntradaDirectorio[]
+}
+
+// --- Generación de bilingües (Fase 3) ------------------------------------------------
+
+export type ModoTrabajo = 'TRADUCCION' | 'FUSION'
+export type EstadoTrabajo = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED'
+
+export interface Trabajo {
+  id: number
+  modo: ModoTrabajo
+  estado: EstadoTrabajo
+  /** Aún no ha terminado: mientras haya alguno, el frontend sigue preguntando. */
+  activo: boolean
+  subtitulo_id: number | null
+  subtitulo_coreano_id: number | null
+  ruta_origen: string
+  ruta_bilingue: string | null
+  idioma_origen: Idioma
+  proveedor: string | null
+  num_caracteres: number
+  calidad_alineacion: number | null
+  bloques_totales: number
+  bloques_procesados: number
+  mensaje_error: string | null
+  creado_en: string
+  iniciado_en: string | null
+  finalizado_en: string | null
+}
+
+export interface RespuestaTraduccion {
+  trabajos: Trabajo[]
+  rechazados: { subtitulo_id: number; motivo: string }[]
+}
+
+export type MotivoDescarte = 'ERROR' | 'IDIOMA' | 'FORZADO' | 'POCOS_BLOQUES'
+
+export interface Candidato {
+  subtitulo_id: number
+  nombre: string
+  ruta: string
+  idioma: Idioma
+  num_bloques: number
+  es_forzado: boolean
+  es_sdh: boolean
+  descarte: MotivoDescarte | null
+}
+
+export interface Muestra {
+  tiempo: string
+  origen: string
+  /** `null` si el coreano saldrá de traducir: traducir la muestra gastaría cupo. */
+  coreano: string | null
+}
+
+export interface Candidatos {
+  obra: string
+  muestra: Muestra[]
+  origen_id: number | null
+  coreano_id: number | null
+  calidad_alineacion: number | null
+  fusion_aceptable: boolean | null
+  candidatos: Candidato[]
+}
+
+export interface Cupo {
+  proveedor: string
+  usados: number
+  limite: number | null
+}
+
+export interface PropuestaRenombrado {
+  subtitulo_id: number
+  ruta_actual: string
+  ruta_nueva: string
+  conflicto: 'EXISTE' | 'DUPLICADO' | 'ERROR_DISCO' | null
+}
+
+export interface ResultadoRenombrado {
+  renombrados: PropuestaRenombrado[]
+  rechazados: PropuestaRenombrado[]
 }

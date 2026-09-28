@@ -1,36 +1,45 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api/client'
-import { ArbolSubtitulos } from './components/ArbolSubtitulos'
-import { PanelCarpetas } from './components/PanelCarpetas'
-import { SelectorCarpeta } from './components/SelectorCarpeta'
-import type { Carpeta, Estado, NodoArbol, ResumenEscaneo } from './types'
+import { Biblioteca } from './components/biblioteca/Biblioteca'
+import { Cabecera, type Seccion } from './components/Cabecera'
+import { Carpetas } from './components/Carpetas'
+import { Renombrado } from './components/Renombrado'
+import { Trabajos } from './components/Trabajos'
+import { useTrabajos } from './hooks/useTrabajos'
+import type { Carpeta, Cupo, NodoArbol, ResumenEscaneo } from './types'
 import './App.css'
 
-type Filtro = Estado | 'TODOS'
-
+/**
+ * Esqueleto de la aplicación: la cabecera con sus pestañas y la sección activa.
+ *
+ * Aquí viven los datos que comparten varias secciones (el árbol, las carpetas,
+ * los trabajos y el cupo); cada sección recibe lo suyo por props. Sin router: con
+ * cuatro secciones, un `useState` basta y se entiende de un vistazo.
+ */
 function App() {
-  const [carpetas, setCarpetas] = useState<Carpeta[]>([])
+  const [seccion, setSeccion] = useState<Seccion>('biblioteca')
   const [arbol, setArbol] = useState<NodoArbol[]>([])
-  const [filtro, setFiltro] = useState<Filtro>('TODOS')
   const [cargandoArbol, setCargandoArbol] = useState(true)
+  const [carpetas, setCarpetas] = useState<Carpeta[]>([])
+  const [cupo, setCupo] = useState<Cupo | null>(null)
   const [escaneando, setEscaneando] = useState(false)
-  const [selectorAbierto, setSelectorAbierto] = useState(false)
   const [resumen, setResumen] = useState<ResumenEscaneo | null>(null)
+  const [numPropuestas, setNumPropuestas] = useState(0)
+  const [arbolAbiertoMovil, setArbolAbiertoMovil] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // `useCallback` mantiene la misma función entre renders mientras no cambie
-  // `filtro`. Importa porque se usa como dependencia del `useEffect` de abajo:
-  // sin esto se recrearía en cada render y el efecto se dispararía en bucle.
+  // `useCallback` mantiene la misma función entre renders. Importa porque se usan
+  // como dependencia de efectos: si se recrearan en cada render, esos efectos se
+  // dispararían en bucle.
   const cargarArbol = useCallback(async () => {
-    setCargandoArbol(true)
     try {
-      setArbol(await api.arbol(filtro === 'TODOS' ? undefined : filtro))
+      setArbol(await api.arbol())
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setCargandoArbol(false)
     }
-  }, [filtro])
+  }, [])
 
   const cargarCarpetas = useCallback(async () => {
     try {
@@ -40,59 +49,44 @@ function App() {
     }
   }, [])
 
-  useEffect(() => {
-    cargarCarpetas()
-  }, [cargarCarpetas])
+  const cargarCupo = useCallback(async () => {
+    try {
+      setCupo(await api.cupo())
+    } catch {
+      setCupo(null) // sin cupo la app funciona igual; solo no lo enseña
+    }
+  }, [])
+
+  const cargarPropuestas = useCallback(async () => {
+    try {
+      setNumPropuestas((await api.propuestasRenombrado()).filter((p) => !p.conflicto).length)
+    } catch {
+      // El contador de la pestaña es un extra: si falla, se queda como estaba.
+    }
+  }, [])
+
+  // Cuando termina el último trabajo en marcha hay obras nuevas en DUAL y cupo
+  // gastado: se recargan las dos cosas.
+  const alTerminarTrabajos = useCallback(() => {
+    cargarArbol()
+    cargarCupo()
+  }, [cargarArbol, cargarCupo])
+
+  const { trabajos, recargar: recargarTrabajos } = useTrabajos(alTerminarTrabajos)
 
   useEffect(() => {
     cargarArbol()
-  }, [cargarArbol])
+    cargarCarpetas()
+    cargarCupo()
+    cargarPropuestas()
+  }, [cargarArbol, cargarCarpetas, cargarCupo, cargarPropuestas])
 
-  async function anadirCarpeta(ruta: string) {
-    setError(null)
-    try {
-      await api.anadirCarpeta(ruta)
-      setSelectorAbierto(false)
-      await cargarCarpetas()
-    } catch (e) {
-      // El modal sigue abierto para que se pueda elegir otra carpeta.
-      setError((e as Error).message)
-    }
-  }
-
-  async function marcarCarpeta(carpeta: Carpeta, activa: boolean) {
-    // Actualización optimista: la casilla responde al instante y luego se
-    // confirma contra el servidor.
-    setCarpetas((previas) =>
-      previas.map((c) => (c.id === carpeta.id ? { ...c, activa } : c)),
-    )
-    try {
-      await api.marcarCarpeta(carpeta.id, activa)
-    } catch (e) {
-      setError((e as Error).message)
-      await cargarCarpetas() // deshacer: recargamos la verdad del servidor
-    }
-  }
-
-  async function borrarCarpeta(carpeta: Carpeta) {
-    if (!confirm(`¿Dejar de vigilar ${carpeta.ruta}?\n\nSe borrarán sus subtítulos del inventario (los ficheros del disco no se tocan).`)) {
-      return
-    }
-    try {
-      await api.borrarCarpeta(carpeta.id)
-      await Promise.all([cargarCarpetas(), cargarArbol()])
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
-
-  async function escanear() {
+  async function escanear(carpetaIds?: number[]) {
     setEscaneando(true)
     setError(null)
-    setResumen(null)
     try {
-      setResumen(await api.escanear())
-      await Promise.all([cargarCarpetas(), cargarArbol()])
+      setResumen(await api.escanear(carpetaIds))
+      await Promise.all([cargarArbol(), cargarCarpetas(), cargarPropuestas()])
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -100,73 +94,86 @@ function App() {
     }
   }
 
-  // Un árbol vacío puede significar tres cosas muy distintas, y decir siempre
-  // «añade una carpeta» era engañoso justo después de escanear.
-  const mensajeVacio = (() => {
-    if (carpetas.length === 0) return 'Todavía no vigilas ninguna carpeta.'
-    if (carpetas.every((carpeta) => carpeta.ultimo_escaneo === null)) {
-      return 'Carpetas añadidas pero sin escanear. Pulsa «Escanear» para inventariarlas.'
+  async function generar(subtituloIds: number[], forzarTraduccion = false) {
+    const respuesta = await api.traducir(subtituloIds, forzarTraduccion)
+    if (respuesta.rechazados.length) {
+      setError(respuesta.rechazados.map((r) => r.motivo).join(' · '))
     }
-    if (filtro !== 'TODOS') return 'Ningún resultado con este filtro.'
-    return (
-      'Escaneado, pero no se encontró nada. Si tus vídeos llevan los subtítulos ' +
-      'dentro del propio fichero (MKV), todavía no se leen: eso llega con el soporte MKV.'
-    )
-  })()
+    // Empieza el sondeo: la cabecera y el panel ven el progreso.
+    await recargarTrabajos()
+  }
+
+  // Obras que se pueden fusionar gratis, para el aviso de la pantalla de trabajos.
+  const numFusionables = contarFusionables(arbol)
 
   return (
-    <main className="app">
-      <h1>srt-bilingual</h1>
+    <div className="app">
+      <Cabecera
+        seccion={seccion}
+        onCambiar={setSeccion}
+        trabajos={trabajos}
+        cupo={cupo}
+        numPropuestas={numPropuestas}
+        onAbrirArbol={() => {
+          setSeccion('biblioteca')
+          setArbolAbiertoMovil(true)
+        }}
+      />
 
       {error && (
-        <p className="aviso aviso--error" onClick={() => setError(null)}>
+        <p className="aviso aviso--error aviso--flotante" role="alert" onClick={() => setError(null)}>
           {error}
         </p>
       )}
 
-      {resumen && (
-        <p className="aviso aviso--ok" onClick={() => setResumen(null)}>
-          {resumen.carpetas} carpeta(s): {resumen.videos} vídeos y {resumen.total} subtítulos
-          ({resumen.nuevos} nuevos, {resumen.actualizados} actualizados,{' '}
-          {resumen.sin_cambios} sin cambios, {resumen.traducidos} con dual,{' '}
-          {resumen.errores} con error).
-        </p>
-      )}
-
-      <PanelCarpetas
-        carpetas={carpetas}
-        escaneando={escaneando}
-        onMarcar={marcarCarpeta}
-        onBorrar={borrarCarpeta}
-        onAnadir={() => setSelectorAbierto(true)}
-        onEscanear={escanear}
-      />
-
-      <section className="panel">
-        <header className="panel-cabecera">
-          <h2>Biblioteca</h2>
-          <select
-            className="filtro"
-            value={filtro}
-            onChange={(evento) => setFiltro(evento.target.value as Filtro)}
-          >
-            <option value="TODOS">Todo</option>
-            <option value="TRANSLATED">Solo con dual</option>
-            <option value="PENDING">Solo pendientes</option>
-            <option value="ERROR">Solo con error</option>
-          </select>
-        </header>
-
-        <ArbolSubtitulos arbol={arbol} cargando={cargandoArbol} mensajeVacio={mensajeVacio} />
-      </section>
-
-      {selectorAbierto && (
-        <SelectorCarpeta
-          onCerrar={() => setSelectorAbierto(false)}
-          onSeleccionar={anadirCarpeta}
+      {seccion === 'biblioteca' && (
+        <Biblioteca
+          arbol={arbol}
+          cargando={cargandoArbol}
+          trabajos={trabajos}
+          cupo={cupo}
+          escaneando={escaneando}
+          onEscanear={() => escanear()}
+          onGestionar={() => setSeccion('carpetas')}
+          onGenerar={generar}
+          arbolAbiertoMovil={arbolAbiertoMovil}
+          onCerrarArbolMovil={() => setArbolAbiertoMovil(false)}
         />
       )}
-    </main>
+      {seccion === 'trabajos' && (
+        <Trabajos
+          trabajos={trabajos}
+          cupo={cupo}
+          onGenerar={generar}
+          numFusionables={numFusionables}
+          onVerFusionables={() => setSeccion('biblioteca')}
+        />
+      )}
+      {seccion === 'renombrado' && <Renombrado onCambio={setNumPropuestas} />}
+      {seccion === 'carpetas' && (
+        <Carpetas
+          carpetas={carpetas}
+          onRecargar={async () => {
+            await Promise.all([cargarCarpetas(), cargarArbol()])
+          }}
+          escaneando={escaneando}
+          resumen={resumen}
+          onEscanear={escanear}
+          onVolver={() => setSeccion('biblioteca')}
+        />
+      )}
+    </div>
+  )
+}
+
+function contarFusionables(nodos: NodoArbol[]): number {
+  return nodos.reduce(
+    (total, nodo) =>
+      total +
+      (nodo.hoja
+        ? Number(nodo.estado_obra === 'PENDIENTE' && nodo.subtitulo_coreano_id !== null)
+        : contarFusionables(nodo.hijos)),
+    0,
   )
 }
 
