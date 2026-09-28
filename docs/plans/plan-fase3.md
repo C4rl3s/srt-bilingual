@@ -342,9 +342,25 @@ plan B.
 - `deepl_provider.py` — implementación con el SDK oficial (`uv add deepl`). Envío por
   lotes: DeepL acepta varios textos por petición, lo que reduce mucho las llamadas
   para los ~1500 bloques de una película. Reintentos con espera ante error de red o
-  429.
+  429: **ya los hace el SDK** (5 reintentos), comprobado en el hito 6.
 - `registry.py` — devuelve el proveedor configurado por nombre. En esta fase solo
   DeepL; la Fase 4 le añadirá la selección por cuota.
+
+**Cambio del 2026-09-28: DeepL es un proveedor de paso.** Desde julio de 2026 DeepL
+ya no da de alta cuentas en su API gratuita permanente (500 000 caracteres/mes); el
+usuario ha abierto una cuenta con cupo limitado "para ir tirando". Traducir la
+biblioteca entera son unos **6 M de caracteres** (162 películas, mediana de 34 000
+cada una), así que el diseño debe permitir cambiar de proveedor sin tocar nada más:
+
+- El proveedor activo se elige por configuración (`TRANSLATION_PROVIDER=deepl` en el
+  `.env`), y cada proveedor lee su propia clave (`DEEPL_API_KEY`, y en el futuro
+  `AZURE_TRANSLATOR_KEY` + región, `GOOGLE_…`).
+- Nada fuera de `services/translation/` conoce a DeepL: el servicio de trabajos solo
+  ve el `Protocol` `Translator`, y el nombre del proveedor queda en
+  `translation_job.proveedor`.
+- Candidato natural para el relevo: **Azure Translator**, cuyo plan gratuito (F0) da
+  2 M de caracteres al mes. Añadirlo es un fichero nuevo en `translation/` más una
+  entrada en el registro.
 
 **Invariante que deben respetar las dos fuentes de coreano** (proveedor y alineador):
 devuelven exactamente un texto por bloque de origen y en el mismo orden. Es lo que
@@ -503,9 +519,10 @@ Los 88 actuales deben seguir en verde. Se añaden:
 
 ## Riesgos y cosas a vigilar
 
-1. **Cuota de DeepL.** Una película ronda los 1500 bloques y unos 60 000 caracteres. La
-   capa gratuita son 500 000 caracteres al mes: **unas 8 películas**. El hito 6 debe
-   probarse con un fichero corto, no con una película entera. La fusión, que no gasta
+1. **Cuota de DeepL.** Medido sobre la biblioteca real: mediana de 34 000 caracteres
+   por película, máximo de 98 000. La cuenta de DeepL del usuario tiene cupo limitado
+   y caduca (ver el cambio en el punto 4 del diseño). El hito 6 debe probarse con un
+   fichero corto, no con una película entera. La fusión, que no gasta
    cuota, se prioriza siempre que haya coreano.
 2. **No hay `.env` todavía** (solo `.env.example`) ni clave de DeepL configurada. Hace
    falta crearlo antes del hito 6.

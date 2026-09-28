@@ -19,8 +19,10 @@ class Settings(BaseSettings):
     # --- Base de datos ---
     database_url: str = "sqlite:///./srt_bilingual.db"
 
-    # --- Traducción (se usa en Fase 3) ---
+    # --- Traducción (Fase 3) ---
     default_target_lang: str = "KO"
+    # Proveedor activo, por nombre (ver `services/translation/registry.py`).
+    translation_provider: str = "deepl"
     deepl_api_key: str | None = None
 
 

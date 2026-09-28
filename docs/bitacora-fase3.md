@@ -287,3 +287,54 @@ trabajo no tendrá por qué ser una fila de `subtitle_file`. El principio rector
   trabajo sobrevive, con su ruta y sus caracteres, a que un escaneo borre su `.srt`).
 - Migración aplicada, deshecha y reaplicada sobre la BD de desarrollo;
   `alembic check` sin diferencias.
+
+## Hito 6 — `Translator` multi-proveedor + DeepL (2026-09-28)
+
+### Contexto: DeepL ya no tiene API gratuita permanente
+
+Al ir a crear la cuenta, el usuario encontró que DeepL solo ofrece una prueba. Se
+comprobó: desde julio de 2026 DeepL ya no da de alta cuentas nuevas en su API Free
+(500 000 caracteres al mes) y la ha sustituido por planes con cupo total o de pago.
+Con los datos reales, traducir la biblioteca entera son **~6 M de caracteres**: 162
+películas, con una mediana de 34 000 caracteres cada una y un máximo de 98 000; las
+otras 11 van por fusión. El usuario abrió una cuenta con **1 M de caracteres** "para
+ir tirando" y pidió dejar la capa preparada para cambiar de proveedor cuando caduque.
+Candidato natural para el relevo: Azure Translator, con 2 M de caracteres al mes
+gratis en su plan F0.
+
+### Qué se hizo
+
+- `services/translation/base.py`: `Translator` como `Protocol` con `runtime_checkable`
+  (nombre + `traducir(textos, origen, destino)`) y las excepciones comunes
+  (`ErrorTraduccion`, `CuotaAgotada`, `ProveedorNoDisponible`). Nada fuera de este
+  paquete importa el SDK de DeepL.
+- `services/translation/deepl_provider.py`: `TraductorDeepL` sobre el SDK oficial
+  (`deepl` 1.32). Lotes de 50 textos, textos vacíos sin enviar y recolocados en su
+  sitio, `preserve_formatting` y comprobación de la invariante (tantos textos de
+  vuelta como enviados). Traduce las excepciones del SDK a las comunes.
+- `services/translation/registry.py`: del nombre al proveedor. Se elige con
+  `TRANSLATION_PROVIDER` en el `.env`, y cada proveedor exige su propia clave solo
+  si se usa.
+- `config.py`: `translation_provider`. `backend/.env` creado a partir de la
+  plantilla (lo ignora git) y la clave puesta por el usuario.
+- `TraductorFalso` en `conftest.py`: ningún test llama a DeepL.
+
+### Lo que se comprobó del SDK, en vez de suponerlo
+
+Se inspeccionó el SDK instalado antes de escribir el proveedor. Ya **reintenta 5
+veces** con espera creciente ante cortes de red y respuestas 429, así que no hay
+reintentos propios, contra lo que decía el plan. Cada resultado trae
+`billed_characters`. La documentación actual de la API **no limita el número de
+textos** por petición, solo su tamaño (128 KiB): los lotes de 50 son una elección
+prudente (~4 KB), no un límite de DeepL.
+
+### Verificación
+
+- 168 tests en verde (10 nuevos en `test_translation.py`: orden e idiomas, lotes,
+  vacíos, invariante, cuota agotada, clave rechazada y registro). `ruff` limpio.
+- **Prueba de humo real** con tres textos de *Jaws* (~60 caracteres):
+  `- ¿Cómo era tu nombre?\n- Chrissie.` → `- 이름이 뭐였지?\n- 크리시.`, y
+  `No estoy borracho. ¡Espera!` → `난 취하지 않았어. 잠깐만!`. Respeta los saltos de
+  línea y los guiones de diálogo; el texto vacío vuelve vacío sin enviarse. El
+  contador de uso de la cuenta (límite 1 000 000) aún marcaba 0 justo después:
+  DeepL lo actualiza con retraso.

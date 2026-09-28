@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 import app.models  # noqa: F401 — registra las tablas en Base.metadata
 from app.db import Base, get_db
 from app.main import app as fastapi_app
+from app.models.enums import Idioma
 from app.models.library_folder import CarpetaBiblioteca
 
 # Contenido SRT válido reutilizado por varios tests: 2 bloques y 18 caracteres de
@@ -78,6 +79,23 @@ def registrar_carpetas(db: Session) -> Callable[..., list[CarpetaBiblioteca]]:
         return carpetas
 
     return _registrar
+
+
+class TraductorFalso:
+    """Proveedor de pega que cumple el `Protocol` `Translator` sin heredar de él.
+
+    Ningún test llama a DeepL: esto devuelve cada texto marcado y apunta las
+    llamadas, para que los tests comprueben qué se envió.
+    """
+
+    nombre = "falso"
+
+    def __init__(self) -> None:
+        self.llamadas: list[tuple[list[str], Idioma, Idioma]] = []
+
+    def traducir(self, textos: list[str], origen: Idioma, destino: Idioma) -> list[str]:
+        self.llamadas.append((list(textos), origen, destino))
+        return [f"[{destino.value}] {texto}" for texto in textos]
 
 
 def srt_completo(num_bloques: int = 120, texto: str = "Hola, mundo.") -> str:
