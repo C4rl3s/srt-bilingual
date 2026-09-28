@@ -465,10 +465,69 @@ el último fin. Donde los cortes coinciden (grupos 1+1) queda igual que hoy.
 - Medirlo con el mismo script que contó los 355 casos, antes y después, y verlo en
   Plex con *Jaws* y *Se7en*, las dos películas con más casos.
 
-### Pendiente para el hito 8
+### Pendiente para el hito 8 (resuelto en el hito 8)
 
 El escáner detecta un bilingüe existente buscándolo **junto al subtítulo de origen**
 (`derivar_nombre_bilingue`). Con la regla nueva, el bilingüe de un origen en `Subs\`
 va junto al vídeo, así que el escáner no lo vería y la obra no pasaría a `DUAL`. Al
 crear los trabajos en el hito 8 hay que llevar esa detección al nivel de obra, con
 `ruta_bilingue_de_obra`.
+
+## Hito 8 — Trabajos y API (2026-09-28)
+
+### Qué se hizo
+
+- **`services/trabajos.py`** (nuevo):
+  - `crear(db, ids, forzar_traduccion, proveedor)` valida cada origen, reutiliza un
+    trabajo activo en vez de duplicarlo y **decide el modo**: fusión si la obra
+    tiene coreano válido, traducción si no o si se pide `forzar_traduccion`. Una
+    petición con varios orígenes no falla entera: lo que no sirve va a `rechazados`.
+  - `ejecutar(id, fabrica_sesion, fabrica_traductor)` corre en `BackgroundTasks`
+    con **su propia sesión**. Traduce en pasos de 50 bloques, actualizando el
+    progreso y `num_caracteres` en cada uno. Nunca deja escapar una excepción: todo
+    fallo queda en el trabajo (`FAILED` + `mensaje_error`). Al terminar marca el
+    origen como `TRANSLATED` sin esperar al próximo escaneo.
+  - **Una fusión de mala calidad falla y no traduce por su cuenta**: gastar cuota lo
+    decide el usuario, pidiendo de nuevo con `forzar_traduccion`.
+  - Lo enviado al proveedor **cuenta aunque el trabajo falle después**, porque el
+    proveedor ya lo cobró. Es lo que agregará la Fase 4.
+- **`obras.ruta_bilingue`**: única fuente de "dónde va el bilingüe" (junto al vídeo,
+  o bajo `OUTPUT_DIR` si se configura). La usan el escáner y los trabajos.
+- **Escáner**: la detección de lo ya traducido pasa a hacerse **por obra**, tras el
+  inventario. Resuelve el pendiente del hito 7.
+- **API**:
+
+| Endpoint | Qué hace |
+|---|---|
+| `POST /translate` | Encola; `202` con `trabajos` y `rechazados` |
+| `GET /translate/jobs` | Lista (filtros `estado` y `activos`), del más reciente al más antiguo |
+| `GET /translate/jobs/{id}` | Estado y progreso |
+| `GET /subtitles/{id}/candidatos` | Origen y coreano propuestos, descartes con motivo y calidad de la fusión calculada al vuelo |
+| `GET /renombrado/propuestas` | Propuestas de renombrado Plex |
+| `POST /renombrado` | Aplica las confirmadas |
+
+- Las dependencias `get_fabrica_sesion` y `get_fabrica_traductor` existen para que
+  los tests pongan la BD de pruebas y el traductor falso en la tarea de fondo.
+
+### Decisión tomada por el camino
+
+**El renombrado va en `/renombrado`, no en `/subtitles/renombrado`** como decía el
+plan. Esa ruta la capturaría antes `/subtitles/{subtitulo_id}`, que respondería 422
+al no poder leer `renombrado` como número.
+
+### Verificación
+
+- 190 tests en verde (10 nuevos en `test_translate_api.py`, con la tarea de fondo
+  ejecutándose de verdad): traducción completa, fusión sin gastar cuota, fusión mala
+  que falla sin traducir y luego se fuerza, cuota agotada a mitad (falla, cuenta lo
+  enviado y no deja fichero), rechazos parciales, sin duplicados, origen en `Subs\`
+  escrito junto al vídeo y detectado por el reescaneo, candidatos y renombrado.
+- **Punta a punta real** sobre la carpeta de *Jaws* (BD temporal, API completa):
+
+| Paso | Resultado |
+|---|---|
+| Escaneo | 4 subtítulos, y la obra ya sale `DUAL`: reconoce el bilingüe que dejamos junto al vídeo |
+| Candidatos | origen español, coreano propuesto, calidad 0,899, fusión aceptable |
+| `POST /translate` | `202`; la tarea de fondo elige **fusión** |
+| Trabajo | `DONE`, 1253 de 1253 bloques, **0 caracteres**, escrito junto al vídeo |
+| Reescaneo | 4 sin cambios, 1 traducido, obra `DUAL` |

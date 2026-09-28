@@ -24,12 +24,9 @@ from app.models.library_folder import CarpetaBiblioteca
 from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.schemas.scan import ResumenEscaneo
+from app.services.obras import Obra, agrupar_en_obras, ruta_bilingue
 from app.services.subtitles import srt_parser
-from app.services.subtitles.naming import (
-    base_sin_idioma,
-    derivar_nombre_bilingue,
-    es_fichero_bilingue,
-)
+from app.services.subtitles.naming import base_sin_idioma, es_fichero_bilingue
 
 
 # Versión de las reglas de análisis de subtítulos (idioma, flags…). Se sube cada vez
@@ -94,6 +91,18 @@ def _escanear_carpeta(db: Session, carpeta: CarpetaBiblioteca, resumen: ResumenE
                 videos_vistos.add(str(ruta))
                 _inventariar_video(db, carpeta, ruta, videos_en_db, resumen)
 
+    # Bilingües ya generados, por obra: van junto al vídeo y con su nombre, aunque el
+    # origen viva en `Subs\` (ver `naming.ruta_bilingue_de_obra`), así que no se
+    # pueden buscar junto a cada subtítulo. Solo cuentan los ficheros vistos en esta
+    # pasada: los huérfanos aún siguen en las relaciones hasta el borrado de abajo.
+    subs = [sub for sub in carpeta.subtitulos if sub.ruta in subs_vistos]
+    videos = [video for video in carpeta.videos if video.ruta in videos_vistos]
+    for obra in agrupar_en_obras(videos, subs):
+        for sub in obra.subtitulos:
+            if sub.estado is not EstadoSubtitulo.ERROR:
+                _detectar_traducido(sub, obra)
+                resumen.traducidos += sub.estado is EstadoSubtitulo.TRANSLATED
+
     # Huérfanos: filas cuyo fichero ya no está en disco.
     for clave, sub in subs_en_db.items():
         if clave not in subs_vistos:
@@ -131,16 +140,12 @@ def _inventariar_subtitulo(
     else:
         resumen.sin_cambios += 1
 
-    # Detección de bilingüe siempre (coherencia con el disco aunque el original no
-    # haya cambiado: el .bilingue.srt puede aparecer/desaparecer).
-    if sub.estado != EstadoSubtitulo.ERROR:
-        _detectar_traducido(sub, ruta)
-
+    # El bilingüe se detecta después, por obra, en `_escanear_carpeta`: se comprueba
+    # siempre (aunque el original no haya cambiado), porque puede aparecer o
+    # desaparecer por su cuenta.
     resumen.total += 1
     if sub.estado == EstadoSubtitulo.ERROR:
         resumen.errores += 1
-    elif sub.estado == EstadoSubtitulo.TRANSLATED:
-        resumen.traducidos += 1
 
 
 def _inventariar_video(
@@ -196,8 +201,8 @@ def _procesar(sub: ArchivoSubtitulo, ruta_srt: Path, stat) -> None:
     sub.mensaje_error = None
 
 
-def _detectar_traducido(sub: ArchivoSubtitulo, ruta_srt: Path) -> None:
-    """Si existe en disco el bilingüe correspondiente, marca TRANSLATED."""
+def _detectar_traducido(sub: ArchivoSubtitulo, obra: Obra) -> None:
+    """Si existe en disco el bilingüe de la obra con este origen, marca TRANSLATED."""
     destino = _idioma_destino()
     if sub.idioma_origen is Idioma.UNKNOWN or destino is Idioma.UNKNOWN:
         sub.estado = EstadoSubtitulo.PENDING
@@ -205,7 +210,7 @@ def _detectar_traducido(sub: ArchivoSubtitulo, ruta_srt: Path) -> None:
         sub.idioma_destino = None
         return
 
-    bilingue = derivar_nombre_bilingue(ruta_srt, sub.idioma_origen, destino)
+    bilingue = ruta_bilingue(obra, Path(sub.carpeta.ruta), sub.idioma_origen, destino)
     if bilingue.exists():
         sub.estado = EstadoSubtitulo.TRANSLATED
         sub.ruta_bilingue = str(bilingue)

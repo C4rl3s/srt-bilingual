@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Proveedor activo, por nombre (ver `services/translation/registry.py`).
     translation_provider: str = "deepl"
     deepl_api_key: str | None = None
+    # Carpeta alternativa para los bilingües. Vacía (lo normal): van junto al vídeo.
+    # Red de seguridad por si un recurso de la biblioteca es de solo lectura.
+    output_dir: str | None = None
 
 
 settings = Settings()

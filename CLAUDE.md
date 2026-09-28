@@ -56,17 +56,19 @@ srt-bilingual/
 │   │   ├── schemas/           # Pydantic (DTOs request/response): scan, subtitle,
 │   │   │                      #   folder, tree
 │   │   ├── api/               # routers: subtitles, scan, folders, filesystem,
-│   │   │                      #   library (+ translate/usage en Fase 3-4)
+│   │   │                      #   library, translate, renombrado (+ usage en Fase 4)
 │   │   └── services/
 │   │       ├── scanner.py     # escaneo y reconciliación disco ↔ BD
 │   │       ├── library_tree.py # árbol derivado de las rutas de subtitle_file
-│   │       ├── obras.py       # agrupación de vídeos y subtítulos en obras
-│   │       ├── subtitles/     # modelo (Bloque), naming, srt_parser, seleccion
-│   │       ├── bilingual.py   # (Fase 3) genera el .srt bilingüe
+│   │       ├── obras.py       # agrupación en obras + dónde va su bilingüe
+│   │       ├── subtitles/     # modelo (Bloque), naming, srt_parser, seleccion,
+│   │       │                  #   renombrado (Plex), alineacion (modo fusión)
+│   │       ├── bilingual.py   # genera el .srt bilingüe (escritura atómica)
+│   │       ├── trabajos.py    # crear/ejecutar trabajos (BackgroundTasks)
 │   │       └── translation/
-│   │           ├── base.py    # (Fase 3) interfaz Translator (protocol)
+│   │           ├── base.py    # interfaz Translator (Protocol) + excepciones
 │   │           ├── deepl_provider.py
-│   │           └── registry.py # (Fase 3+) selección de proveedor / quotas
+│   │           └── registry.py # proveedor por TRANSLATION_PROVIDER (Fase 4: cuotas)
 │   ├── alembic/               # migraciones (env.py toma la URL de settings)
 │   ├── alembic.ini
 │   ├── tests/

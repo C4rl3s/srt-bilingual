@@ -444,8 +444,12 @@ sesión inyectada por `get_db` se cierra cuando la petición HTTP responde.
 | `POST /translate` | Encola una o varias obras. Cuerpo: `subtitulo_ids` (origen) y `forzar_traduccion` opcional. El modo se decide solo: fusión si hay coreano con buena alineación, traducción en otro caso |
 | `GET /translate/jobs` | Lista de trabajos, filtrable por estado |
 | `GET /translate/jobs/{id}` | Estado y progreso de un trabajo |
-| `GET /subtitles/renombrado` | Propuestas de renombrado a nomenclatura Plex |
-| `POST /subtitles/renombrado` | Aplica las propuestas confirmadas (lista de ids) |
+| `GET /renombrado/propuestas` | Propuestas de renombrado a nomenclatura Plex |
+| `POST /renombrado` | Aplica las propuestas confirmadas (lista de ids) |
+
+(Cambio del hito 8: `/renombrado` en vez de `/subtitles/renombrado`, que chocaba con
+`/subtitles/{subtitulo_id}`. Además, una fusión de mala calidad no cae en traducción
+automáticamente: el trabajo falla y el usuario decide con `forzar_traduccion`.)
 
 `POST /translate` devuelve `202` con los trabajos creados; no espera a que terminen.
 Rechaza las obras `SIN_ORIGEN`.

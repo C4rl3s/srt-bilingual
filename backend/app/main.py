@@ -2,14 +2,15 @@
 
 Expone la salud (`/health`), la gestión de carpetas (`/folders`), el explorador de
 disco del selector (`/fs`), el escaneo (`/scan`), el árbol de la biblioteca
-(`/library`) y la consulta de subtítulos (`/subtitles`). CORS habilitado para el
-frontend de desarrollo (Vite).
+(`/library`), la consulta de subtítulos (`/subtitles`), la generación de bilingües
+(`/translate`) y el renombrado a la nomenclatura de Plex (`/renombrado`). CORS
+habilitado para el frontend de desarrollo (Vite).
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import filesystem, folders, library, scan, subtitles
+from app.api import filesystem, folders, library, renombrado, scan, subtitles, translate
 
 app = FastAPI(
     title="srt-bilingual API",
@@ -44,3 +45,5 @@ app.include_router(filesystem.router)
 app.include_router(scan.router)
 app.include_router(library.router)
 app.include_router(subtitles.router)
+app.include_router(translate.router)
+app.include_router(renombrado.router)
