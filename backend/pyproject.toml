@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.18.5",
     "deepl>=1.32.0",
     "fastapi>=0.138.1",
+    "httpx>=0.28.1",
     "pydantic-settings>=2.14.2",
     "sqlalchemy>=2.0.51",
     "srt>=3.5.3",

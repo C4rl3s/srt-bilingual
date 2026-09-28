@@ -8,6 +8,7 @@ línea en `_FABRICAS`. Qué proveedores se usan, y en qué orden de preferencia,
 from collections.abc import Callable
 
 from app.config import settings
+from app.services.translation.azure_provider import TraductorAzure
 from app.services.translation.base import ProveedorNoDisponible, Translator
 from app.services.translation.deepl_provider import TraductorDeepL
 
@@ -18,10 +19,17 @@ def _crear_deepl() -> Translator:
     return TraductorDeepL(settings.deepl_api_key)
 
 
+def _crear_azure() -> Translator:
+    if not settings.azure_translator_key:
+        raise ProveedorNoDisponible("Falta AZURE_TRANSLATOR_KEY en backend/.env")
+    return TraductorAzure(settings.azure_translator_key, settings.azure_translator_region)
+
+
 # Fábricas y no instancias: un proveedor solo se construye (y solo se le exige su
 # clave) si de verdad se va a usar.
 _FABRICAS: dict[str, Callable[[], Translator]] = {
     "deepl": _crear_deepl,
+    "azure": _crear_azure,
 }
 
 # Límite de los proveedores que no lo informan por su API: se compara con el

@@ -94,3 +94,49 @@ ningún otro afectado. **Lección**: para reescribir ficheros desde PowerShell, 
 - **Con los proveedores reales** (`azure,deepl`, sin crear trabajos): una película
   media (34.304 caracteres) → DeepL; la biblioteca entera (6 M) → rechazada con
   «azure: proveedor desconocido; deepl: 965.635 libres».
+
+## Hito 3 — Proveedor Azure Translator (2026-09-28)
+
+### Qué se hizo
+
+- **`services/translation/azure_provider.py`**: `TraductorAzure` sobre la API REST v3,
+  con `httpx` (pasa a dependencia de ejecución).
+  - Lotes que respetan a la vez los tres límites: 50 textos (el ritmo de la barra de
+    progreso de la app), y los de Azure por petición, 1000 textos y 50.000
+    caracteres.
+  - Idiomas en minúscula (`es`, `en`, `ko`). La cabecera de región solo va si el
+    recurso no es global.
+  - **Reintentos propios** (aquí no hay SDK que los haga): hasta 5, ante `429` o
+    `5xx` o un corte de red, con espera creciente (1, 2, 4, 8, 16 s) o la que pida
+    Azure en `Retry-After`.
+  - Errores: `401` → revisa la clave y la región; `403` → `CuotaAgotada`; un `429`
+    que no cede → error de **ritmo**, no de cupo (el mes no está agotado).
+  - **No implementa `consumo()`**: Azure no tiene API para consultarlo, así que su
+    cupo sale del registro de la app.
+- **Registro**: `azure` se crea solo con `AZURE_TRANSLATOR_KEY`; su límite es
+  `AZURE_TRANSLATOR_LIMITE_MENSUAL`.
+
+### Verificación
+
+- 228 tests en verde (13 nuevos en `test_azure.py`, con `httpx.MockTransport` como
+  servidor; ninguno llama a Azure): orden, idiomas y cabeceras, recurso global,
+  lotes por número y por caracteres, vacíos, reintentos con `Retry-After` y con
+  espera creciente, `429` persistente, `403`, `401`, respuesta incompleta y
+  registro.
+- **Prueba de humo real** con el recurso del usuario (plan F0, región `global`; la
+  clave se configuró en `backend/.env` sin pasar por el chat), con las mismas tres
+  frases de *Jaws* que en la Fase 3 (61 caracteres):
+
+| Original | Azure | DeepL (Fase 3) |
+|---|---|---|
+| `- ¿Cómo era tu nombre?` / `- Chrissie.` | `- 이름이 뭐였어?` / `- 크리시.` | `- 이름이 뭐였지?` / `- 크리시.` |
+| `No estoy borracho. ¡Espera!` | `나 안 취했어. 잠깐!` | `난 취하지 않았어. 잠깐만!` |
+
+  La prueba reveló que **Azure deja un espacio antes de cada salto de línea** de los
+  diálogos. El proveedor ahora quita los espacios al final de cada línea (test
+  incluido; 229 en verde).
+- **Elección con los dos proveedores reales**: Azure 0 usados de 2 M (registro),
+  DeepL 61 de 1 M (API); una película media va a **Azure**, primero de la lista.
+  Los 61 caracteres de la prueba no figuran en el registro de Azure porque los envió
+  un script y no un trabajo de la app: es exactamente la limitación que la interfaz
+  debe advertir.
