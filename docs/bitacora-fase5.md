@@ -450,3 +450,58 @@ por API.
 - Tests: 6 nuevos (319). En el navegador, interceptando la petición para no gastar
   cupo: con DeepL elegido, «Se traducirá con DeepL» y `"proveedor": "deepl"` en la
   petición; en automático, `null`; en una obra con fusión, sin selector.
+
+Commit `10578cb`.
+
+## Cierre de la fase (2026-09-28)
+
+### Lo que deja la Fase 5
+
+- **Los subtítulos de dentro de los vídeos, utilizables**: en Anime, 207 obras
+  elegibles que antes salían «sin subtítulos», 27 de ellas fusionables sin gastar
+  cupo. En toda la biblioteca: 278 MKV con origen ES/EN en texto y 59 con coreano.
+- **Los tres casos que pidió el usuario**: fusión pista + pista, pista + `.srt`
+  coreano externo, y traducción de una pista. El bilingüe siempre como `.srt` junto
+  al vídeo; el vídeo no se toca.
+- **Una prueba de calidad** que ordena las fuentes del coreano (fusión ≫ DeepL >
+  Azure) y una mejora aplicada a todas las traducciones (las líneas de un bloque se
+  traducen unidas).
+- **En la interfaz**: pistas «dentro del vídeo», extracción bajo demanda, la fase
+  «Extrayendo», la lectura de pistas tras escanear, el proveedor por obra y los
+  paneles laterales redimensionables.
+- **319 tests** (227 al empezar la fase). Migraciones nuevas: `c3a9e5f17b20` (pistas
+  incrustadas) y `e81d4b0c9a37` (fase de los trabajos).
+
+### Para empezar a usarla con la base de datos de desarrollo
+
+Todas las pruebas se hicieron sobre **una copia** de la base de datos
+(`DATABASE_URL` apuntando a la carpeta de trabajo de la sesión). La de desarrollo,
+`backend/srt_bilingual.db`, sigue en la migración de la Fase 4. Para usar lo nuevo:
+
+```powershell
+cd backend
+uv run alembic upgrade head      # aplica las dos migraciones de la fase
+uv run uvicorn app.main:app --reload --port 8000
+```
+
+y en la interfaz, **Escanear**: la primera lectura de pistas de las tres carpetas son
+unos 8 min por la red, en segundo plano.
+
+Consecuencias de haber probado sobre la copia:
+
+- Los caracteres gastados en las pruebas con Azure (6.921 de *Shingeki* 01 y 2 ×
+  7.966 de *Moonrise* 01, antes y después de la mejora) **no están en el registro de
+  Azure** de la base de datos de desarrollo, que es de donde sale su cupo. Son 22.853
+  de 2.000.000, el 1,1 % del mes. DeepL, que informa por API, sí refleja sus 7.966.
+- Los bilingües escritos en el NAS (*Moonrise* 01–03, *Shingeki* 01) los reconocerá
+  el primer escaneo, como cualquier bilingüe que ya exista en disco.
+
+### Pendiente
+
+- **Mejoras de traducción** (de la prueba de calidad), por orden de coste: cortar el
+  coreano por la puntuación y no solo por el centro; glosario de nombres propios por
+  obra; enviar el bloque anterior como contexto.
+- **OCR** de las pistas de imagen (130 capítulos de Series), si algún día se quiere:
+  sería una fase aparte.
+- **Despliegue con Docker** (documentación, el NAS aún no existe) y **web de
+  documentación**. **Repaso docente**, aplazado.

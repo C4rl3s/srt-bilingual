@@ -380,6 +380,10 @@ dentro del plan de esa fase, no en un fichero nuevo.
   de uvicorn basta; con varios *workers* no se verían entre sí.
 - `ResumenEscaneo.total` cuenta solo los `.srt`: las pistas de los vídeos se leen
   después, en segundo plano, y no entran en el resumen del escaneo.
+- **Calidad de traducción**: cada bloque se traduce sin ver los demás, y de ahí el
+  registro errático y los nombres propios cambiantes (sobre todo en DeepL). Mejoras
+  apuntadas en `docs/bitacora-fase5.md` (hito 6), por coste: cortar el coreano por
+  la puntuación, glosario por obra, el bloque anterior como contexto.
 - **OCR de pistas de imagen** (PGS/VobSub) fuera de la Fase 5 por decisión del
   usuario: 130 capítulos de Series (*Better Call Saul*) solo tienen ES/EN así. Sería
   una fase aparte.
