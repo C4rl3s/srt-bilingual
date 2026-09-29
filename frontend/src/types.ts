@@ -176,8 +176,21 @@ export interface Muestra {
   coreano: string | null
 }
 
+/** La guía de traducción de la serie (`srt-bilingual.toml`), resumida. */
+export interface Guia {
+  ruta: string
+  /** Carpeta donde está: la de la serie o la de una temporada. */
+  carpeta: string
+  terminos: number
+  instrucciones: number
+  /** Si no se puede usar, el motivo: la obra no se podrá traducir hasta arreglarla. */
+  error: string | null
+}
+
 export interface Candidatos {
   obra: string
+  /** La guía que le toca según el último escaneo, o `null` si no tiene. */
+  guia: Guia | null
   muestra: Muestra[]
   origen_id: number | null
   coreano_id: number | null

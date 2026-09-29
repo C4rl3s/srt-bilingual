@@ -4,6 +4,7 @@ elección de proveedor y trabajos (hito 3 de `docs/plans/plan-glosario-por-obra.
 from collections.abc import Callable
 from pathlib import Path
 
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -297,6 +298,65 @@ def test_sin_guia_el_trabajo_no_anota_nada(
 
     assert trabajo.guia is None
     assert set(traductor.guias) == {None}
+
+
+def _guia_del_panel(client: TestClient, db: Session, carpeta: CarpetaBiblioteca) -> dict | None:
+    respuesta = client.get(f"/subtitles/{_origen(db, carpeta).id}/candidatos")
+    assert respuesta.status_code == 200
+    return respuesta.json()["guia"]
+
+
+def test_el_panel_resume_la_guia(
+    client: TestClient, db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    _serie(tmp_path)
+    (carpeta,) = registrar_carpetas(tmp_path)
+    escanear(db)
+
+    guia = _guia_del_panel(client, db, carpeta)
+
+    assert guia == {
+        "ruta": str(tmp_path / "Serie" / NOMBRE_FICHERO),
+        "carpeta": "Serie",
+        "terminos": 1,
+        "instrucciones": 1,
+        "error": None,
+    }
+
+
+def test_el_panel_sin_guia(
+    client: TestClient, db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    _serie(tmp_path, guia=None)
+    (carpeta,) = registrar_carpetas(tmp_path)
+    escanear(db)
+
+    assert _guia_del_panel(client, db, carpeta) is None
+
+
+def test_el_panel_explica_una_guia_rota(
+    client: TestClient, db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    _serie(tmp_path, guia="[glosario\n")
+    (carpeta,) = registrar_carpetas(tmp_path)
+    escanear(db)
+
+    guia = _guia_del_panel(client, db, carpeta)
+
+    assert "TOML" in guia["error"]
+
+
+def test_el_panel_avisa_si_la_guia_se_borro_tras_escanear(
+    client: TestClient, db: Session, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    _serie(tmp_path)
+    (carpeta,) = registrar_carpetas(tmp_path)
+    escanear(db)
+    (tmp_path / "Serie" / NOMBRE_FICHERO).unlink()
+
+    guia = _guia_del_panel(client, db, carpeta)
+
+    assert "vuelve a escanear" in guia["error"]
 
 
 def test_una_guia_rota_al_ejecutar_falla_el_trabajo_con_el_motivo(

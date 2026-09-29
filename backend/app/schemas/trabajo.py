@@ -106,11 +106,26 @@ class EstadoCupoOut(BaseModel):
     admite_guia: bool
 
 
+class GuiaOut(BaseModel):
+    """La guía de traducción que le toca a la obra, resumida para el panel."""
+
+    ruta: str
+    # Carpeta donde está (la de la serie o la temporada), para mostrarla corta.
+    carpeta: str
+    terminos: int
+    instrucciones: int
+    # Si no se puede usar: el motivo (TOML roto, borrada desde el escaneo…).
+    error: str | None = None
+
+
 class CandidatosOut(BaseModel):
     """La obra de un subtítulo: qué origen y qué coreano se proponen, y todo lo demás
     con su motivo, para que la interfaz deje elegir otro."""
 
     obra: str
+    # La guía de la serie según el índice del escaneo, leída del disco (ver
+    # `services/translation/guia.py`). La misma que decide la previsión de proveedor.
+    guia: GuiaOut | None = None
     muestra: list[MuestraOut]
     origen_id: int | None
     coreano_id: int | None

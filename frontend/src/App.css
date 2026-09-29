@@ -1063,6 +1063,13 @@ body.arrastrando .tirador::after {
   border: 1.5px dashed var(--coreano);
 }
 
+/* La guía no es un idioma: gris, para no confundirla con el naranja del origen ni
+   con el azul del coreano. */
+.fila-pista-barra--guia {
+  background: var(--superficie-3);
+  border: 1.5px solid var(--borde-2);
+}
+
 .fila-pista-texto {
   flex-grow: 1;
   min-width: 0;

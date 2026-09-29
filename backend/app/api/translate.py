@@ -1,6 +1,7 @@
 """Router de generación de bilingües: encolar, consultar trabajos y ver candidatos."""
 
 from datetime import timedelta
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -10,12 +11,14 @@ from app.config import settings
 from app.api.dependencias import get_extractor, get_fabrica_sesion, get_fabrica_traductor
 from app.db import get_db
 from app.models.enums import EstadoTrabajo
+from app.models.library_folder import CarpetaBiblioteca
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.models.translation_job import TrabajoTraduccion
 from app.schemas.trabajo import (
     CandidatoOut,
     CandidatosOut,
     EstadoCupoOut,
+    GuiaOut,
     MuestraOut,
     PeticionTraduccion,
     RechazoOut,
@@ -23,13 +26,16 @@ from app.schemas.trabajo import (
     TrabajoOut,
 )
 from app.services import trabajos
-from app.services.obras import obra_de
+from app.services.obras import Obra, obra_de
 from app.services.subtitles.alineacion import alinear
 from app.services.subtitles.modelo import Bloque
 from app.services.mkv import extraccion
 from app.services.subtitles.lectura import esta_extraida, leer_bloques
 from app.services.subtitles.seleccion import seleccionar
 from app.services.translation import consumo, registry
+from app.services.translation.guia import GuiaInvalida
+from app.services.translation.guia import buscar as buscar_guia
+from app.services.translation.guia import leer as leer_guia
 
 router = APIRouter(tags=["translate"])
 
@@ -143,6 +149,31 @@ def _marca(instante: timedelta) -> str:
     return f"{ms // 3_600_000:02d}:{ms // 60_000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
 
 
+def _guia(obra: Obra, carpeta: CarpetaBiblioteca) -> GuiaOut | None:
+    """La guía de la obra para el panel.
+
+    Se localiza con el **índice** del escaneo, como en el árbol, para que el panel
+    diga lo mismo que la previsión de proveedor; su contenido se lee del disco. Una
+    guía que ya no está, o que no se puede leer, sale con su motivo.
+    """
+    indice = {guia.ruta for guia in carpeta.guias}
+    ruta = buscar_guia(obra.directorio, Path(carpeta.ruta), existe=lambda p: str(p) in indice)
+    if ruta is None:
+        return None
+    resumen = GuiaOut(ruta=str(ruta), carpeta=ruta.parent.name, terminos=0, instrucciones=0)
+    if not ruta.is_file():
+        resumen.error = "Ya no está en disco: vuelve a escanear"
+        return resumen
+    try:
+        guia = leer_guia(ruta)
+    except GuiaInvalida as exc:
+        resumen.error = str(exc)
+        return resumen
+    resumen.terminos = len(guia.glosario)
+    resumen.instrucciones = len(guia.instrucciones)
+    return resumen
+
+
 @router.get("/subtitles/{subtitulo_id}/candidatos", response_model=CandidatosOut)
 def candidatos(
     subtitulo_id: int,
@@ -182,6 +213,7 @@ def candidatos(
     estado_extraccion = extraccion.estado(video_id) if video_id is not None else None
 
     return CandidatosOut(
+        guia=_guia(obra, sub.carpeta),
         extraccion_pendiente=bool(sin_extraer),
         video_id=video_id,
         extrayendo=bool(estado_extraccion and estado_extraccion.en_curso),

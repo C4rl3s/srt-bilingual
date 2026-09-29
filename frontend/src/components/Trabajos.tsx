@@ -144,7 +144,11 @@ export function Trabajos({ trabajos, cupos, onGenerar, numFusionables, onVerFusi
                         <b>{tituloDeRuta(trabajo.ruta_origen)}</b>
                       </td>
                       <td>{trabajo.modo === 'FUSION' ? 'Fusión' : 'Traducción'}</td>
-                      <td>{trabajo.modo === 'FUSION' ? '—' : nombreProveedor(trabajo.proveedor)}</td>
+                      <td title={trabajo.guia ?? undefined}>
+                        {trabajo.modo === 'FUSION' ? '—' : nombreProveedor(trabajo.proveedor)}
+                        {/* Traducida con la guía de la serie (glosario e instrucciones). */}
+                        {trabajo.guia && <span className="texto-3"> · con guía</span>}
+                      </td>
                       <td className="cifra">{numero(trabajo.num_caracteres)}</td>
                       <td>{trabajo.calidad_alineacion?.toFixed(2).replace('.', ',') ?? '—'}</td>
                       <td className={trabajo.estado === 'FAILED' ? 'texto-aviso' : undefined}>

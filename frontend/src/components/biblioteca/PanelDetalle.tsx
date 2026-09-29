@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { api } from '../../api/client'
-import type { Candidato, Candidatos, EstadoCupo, MotivoDescarte, Trabajo } from '../../types'
+import type { Candidato, Candidatos, EstadoCupo, Guia, MotivoDescarte, Trabajo } from '../../types'
 import type { Obra } from '../../utils/biblioteca'
 import { cabe, nombreProveedor, repartir } from '../../utils/cupos'
 import { caracteres, numero, porcentaje } from '../../utils/formato'
@@ -207,6 +207,14 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
               />
             ))}
 
+          {vaATraducir && candidatos.guia && (
+            <FilaGuia
+              guia={candidatos.guia}
+              proveedor={cupos.find((c) => c.proveedor === proveedor) ?? null}
+              origenIngles={origen?.idioma === 'EN'}
+            />
+          )}
+
           {candidatos.extraccion_pendiente && (
             <div className="calidad">
               <div className="calidad-fila">
@@ -406,6 +414,56 @@ function ListaCandidatos({
         )
       })}
     </ul>
+  )
+}
+
+/**
+ * La guía de traducción de la serie (glosario e instrucciones) y si se va a usar:
+ * solo DeepL la aprovecha, y su glosario es de español a coreano.
+ */
+function FilaGuia({
+  guia,
+  proveedor,
+  origenIngles,
+}: {
+  guia: Guia
+  /** El proveedor que traducirá (elegido o previsto), o `null` si ninguno cabe. */
+  proveedor: EstadoCupo | null
+  origenIngles: boolean
+}) {
+  if (guia.error) {
+    return (
+      <p className="aviso aviso--error" title={guia.ruta}>
+        La guía de traducción tiene un problema y no se podrá traducir hasta arreglarla:{' '}
+        {guia.error}
+      </p>
+    )
+  }
+  const partes = [
+    guia.terminos > 0 && `${numero(guia.terminos)} ${guia.terminos === 1 ? 'término' : 'términos'}`,
+    guia.instrucciones > 0 &&
+      `${guia.instrucciones} ${guia.instrucciones === 1 ? 'instrucción' : 'instrucciones'}`,
+  ].filter(Boolean)
+  // Qué pasará con ella al traducir: el proveedor puede ignorarla entera, o solo el
+  // glosario si el origen es inglés.
+  const aviso =
+    proveedor && !proveedor.admite_guia
+      ? `${nombreProveedor(proveedor.proveedor)} no admite glosario: se traducirá sin la guía`
+      : origenIngles && guia.terminos > 0
+        ? 'El glosario es de español a coreano: con origen inglés solo se aplican las instrucciones'
+        : null
+
+  return (
+    <div className="fila-pista">
+      <span className="fila-pista-barra fila-pista-barra--guia" aria-hidden="true" />
+      <div className="fila-pista-texto">
+        <div className="texto-2">Guía de traducción · {guia.carpeta}</div>
+        <div className="recortar" title={guia.ruta}>
+          {partes.join(' · ')}
+        </div>
+        {aviso && <div className="texto-3">{aviso}</div>}
+      </div>
+    </div>
   )
 }
 
