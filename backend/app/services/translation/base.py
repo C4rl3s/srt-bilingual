@@ -7,9 +7,13 @@ en `registry.py`, sin tocar nada más.
 """
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from app.models.enums import Idioma
+
+if TYPE_CHECKING:
+    # Solo para el tipo: `guia` importa este módulo (sus errores heredan de aquí).
+    from app.services.translation.guia import Guia
 
 
 @runtime_checkable
@@ -27,8 +31,13 @@ class Translator(Protocol):
 
     # Nombre con que se registra y se anota en `translation_job.proveedor`.
     nombre: str
+    # Si aprovecha la guía de la serie (glosario e instrucciones). El que no, la recibe
+    # y la ignora: la elección de proveedor y la interfaz usan esto para avisar.
+    admite_guia: bool
 
-    def traducir(self, textos: list[str], origen: Idioma, destino: Idioma) -> list[str]: ...
+    def traducir(
+        self, textos: list[str], origen: Idioma, destino: Idioma, guia: Guia | None = None
+    ) -> list[str]: ...
 
 
 @dataclass(frozen=True, slots=True)

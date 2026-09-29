@@ -122,6 +122,8 @@ que DeepL puede usar.
     `list_glossaries()` al primer uso; se borran los glosarios con ese prefijo que ya
     no correspondan a ninguna guía, para no acercarse al límite de 1000.
   - `custom_instructions` con la lista de la guía.
+  - El glosario es **español → coreano**: con un origen en inglés no se aplica
+    (no casaría con nada), y solo van las instrucciones. *(Añadido al implementar.)*
   - **Diálogos con guion**: si hay instrucciones, cada línea se traduce por separado
     y se vuelven a unir con salto de línea. Arregla la fusión de líneas comprobada en
     la prueba. Los caracteres enviados son los mismos.

@@ -28,9 +28,14 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.models.enums import Idioma
 from app.services.translation.base import ErrorTraduccion
 
 NOMBRE_FICHERO = "srt-bilingual.toml"
+
+# Idioma de las entradas del glosario. Con un origen en inglés el glosario no casaría
+# con nada: solo se aplican las instrucciones.
+IDIOMA_GLOSARIO = Idioma.ES
 
 # Límites de `custom_instructions` en la API de DeepL.
 MAX_INSTRUCCIONES = 10

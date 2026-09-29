@@ -19,6 +19,7 @@ import httpx
 
 from app.models.enums import Idioma
 from app.services.translation.base import CuotaAgotada, ErrorTraduccion
+from app.services.translation.guia import Guia
 
 URL = "https://api.cognitive.microsofttranslator.com/translate"
 
@@ -38,6 +39,9 @@ class TraductorAzure:
     """Implementa `Translator` sobre la API REST de Azure Translator."""
 
     nombre = "azure"
+    # Azure no tiene glosario para español → coreano: su diccionario dinámico exige
+    # que uno de los dos idiomas sea el inglés (ver `docs/plans/plan-glosario-por-obra.md`).
+    admite_guia = False
 
     def __init__(
         self,
@@ -55,8 +59,10 @@ class TraductorAzure:
         if region and region.lower() != "global":
             self._cabeceras["Ocp-Apim-Subscription-Region"] = region
 
-    def traducir(self, textos: list[str], origen: Idioma, destino: Idioma) -> list[str]:
-        # Como en DeepL: los vacíos no se envían y conservan su sitio.
+    def traducir(
+        self, textos: list[str], origen: Idioma, destino: Idioma, guia: Guia | None = None
+    ) -> list[str]:
+        # La guía se ignora (`admite_guia = False`). Como en DeepL: los vacíos no se envían y conservan su sitio.
         con_texto = [i for i, texto in enumerate(textos) if texto.strip()]
         traducidos = list(textos)
 

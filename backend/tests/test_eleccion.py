@@ -222,11 +222,11 @@ class SeAgotaAlTraducir(CupoApi):
     """Parece tener cupo, pero se agota en la segunda llamada; a partir de ahí su
     API ya informa de que está lleno."""
 
-    def traducir(self, textos, origen, destino):
+    def traducir(self, textos, origen, destino, guia=None):
         if self.llamadas:
             self._consumo = Consumo(usados=self._consumo.limite, limite=self._consumo.limite)
             raise CuotaAgotada("Cupo agotado a mitad")
-        return super().traducir(textos, origen, destino)
+        return super().traducir(textos, origen, destino, guia)
 
 
 def test_reintentar_tras_agotarse_elige_otro_proveedor(
