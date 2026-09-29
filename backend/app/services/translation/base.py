@@ -36,8 +36,16 @@ class Translator(Protocol):
     admite_guia: bool
 
     def traducir(
-        self, textos: list[str], origen: Idioma, destino: Idioma, guia: Guia | None = None
+        self,
+        textos: list[str],
+        origen: Idioma,
+        destino: Idioma,
+        guia: Guia | None = None,
+        contextos: list[str] | None = None,
     ) -> list[str]: ...
+
+    # `contextos`: uno por texto (lo que lo rodea en el capítulo), solo si la guía lo
+    # pide. Lo calcula quien llama porque el proveedor solo ve un lote de bloques.
 
 
 @dataclass(frozen=True, slots=True)

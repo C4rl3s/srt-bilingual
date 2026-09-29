@@ -137,10 +137,14 @@ class TraductorFalso:
     def __init__(self) -> None:
         self.llamadas: list[tuple[list[str], Idioma, Idioma]] = []
         self.guias: list = []  # la guía recibida en cada llamada (o None)
+        self.contextos: list = []  # los contextos de cada llamada (o None)
 
-    def traducir(self, textos: list[str], origen: Idioma, destino: Idioma, guia=None) -> list[str]:
+    def traducir(
+        self, textos: list[str], origen: Idioma, destino: Idioma, guia=None, contextos=None
+    ) -> list[str]:
         self.llamadas.append((list(textos), origen, destino))
         self.guias.append(guia)
+        self.contextos.append(contextos)
         return [f"[{destino.value}] {texto}" for texto in textos]
 
 

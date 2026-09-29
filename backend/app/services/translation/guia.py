@@ -10,6 +10,9 @@ un fichero `srt-bilingual.toml` en la carpeta de la serie, dentro de la bibliote
 
 [instrucciones]
 lista = ["Korean subtitles for Attack on Titan...", "..."]
+
+[opciones]
+contexto = true       # enviar los bloques vecinos como contexto (gratis, más lento)
 ```
 
 Vive en disco y no en la base de datos por el principio del proyecto: la BD es un
@@ -42,8 +45,9 @@ IDIOMA_GLOSARIO = Idioma.ES
 MAX_INSTRUCCIONES = 10
 MAX_LARGO_INSTRUCCION = 300
 
-_SECCIONES = {"glosario", "instrucciones"}
+_SECCIONES = {"glosario", "instrucciones", "opciones"}
 _CLAVES_INSTRUCCIONES = {"lista"}
+_CLAVES_OPCIONES = {"contexto"}
 
 
 class GuiaInvalida(ErrorTraduccion):
@@ -59,6 +63,10 @@ class Guia:
     ruta: Path
     glosario: dict[str, str]
     instrucciones: tuple[str, ...]
+    # Enviar los bloques vecinos como contexto. En la prueba del S4 Pt. 1-07 redujo
+    # a la mitad los bloques con errores (24 % → 12 %) sin coste de caracteres, a
+    # cambio de una petición por bloque. No entra en la huella: no cambia el glosario.
+    contexto: bool = False
 
     @property
     def huella(self) -> str:
@@ -117,7 +125,18 @@ def leer(ruta: Path) -> Guia:
     instrucciones = _instrucciones(ruta, datos.get("instrucciones", {}))
     if not glosario and not instrucciones:
         raise GuiaInvalida(f"{ruta}: la guía está vacía (ni glosario ni instrucciones)")
-    return Guia(ruta=ruta, glosario=glosario, instrucciones=instrucciones)
+    contexto = _opciones(ruta, datos.get("opciones", {}))
+    return Guia(ruta=ruta, glosario=glosario, instrucciones=instrucciones, contexto=contexto)
+
+
+def _opciones(ruta: Path, seccion: object) -> bool:
+    """La sección `[opciones]`; hoy solo `contexto`."""
+    if not isinstance(seccion, dict) or set(seccion) - _CLAVES_OPCIONES:
+        raise GuiaInvalida(f"{ruta}: [opciones] solo admite {sorted(_CLAVES_OPCIONES)}")
+    contexto = seccion.get("contexto", False)
+    if not isinstance(contexto, bool):
+        raise GuiaInvalida(f"{ruta}: [opciones] contexto debe ser true o false")
+    return contexto
 
 
 def _glosario(ruta: Path, seccion: object) -> dict[str, str]:

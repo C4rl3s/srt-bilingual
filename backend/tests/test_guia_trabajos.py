@@ -267,6 +267,46 @@ def test_la_guia_se_relee_al_ejecutar(
     assert traductor.guias[0].glosario["Paradis"] == "파라디"
 
 
+def test_con_contexto_cada_bloque_lleva_sus_vecinos_aunque_cambie_de_lote(
+    db: Session, engine: Engine, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    _serie(tmp_path, guia=GUIA + "\n[opciones]\ncontexto = true\n")
+    temporada = tmp_path / "Serie" / "S1"
+    # Bloques numerados para ver qué vecinos le tocan a cada uno.
+    srt = "\n".join(
+        f"{i + 1}\n00:{i // 30:02d}:{i % 30 * 2:02d},000 --> 00:{i // 30:02d}:{i % 30 * 2:02d},900"
+        f"\nfrase {i}\n"
+        for i in range(120)
+    )
+    escribir_srt(temporada / "Capitulo.es.srt", srt)
+    (carpeta,) = registrar_carpetas(tmp_path)
+    escanear(db)
+    (trabajo,), _ = trabajos.crear(db, [_origen(db, carpeta).id], estados_cupo=_dos_proveedores)
+    traductor = TraductorFalso()
+
+    _ejecutar(engine, trabajo, traductor)
+
+    primer_lote, segundo_lote, _ = traductor.contextos
+    assert primer_lote[0] == "frase 1 frase 2"  # el primero no tiene anteriores
+    # El último del primer lote (49) ve los dos primeros del segundo (50 y 51).
+    assert primer_lote[49] == "frase 47 frase 48 frase 50 frase 51"
+    assert segundo_lote[0] == "frase 48 frase 49 frase 51 frase 52"
+
+
+def test_sin_la_opcion_no_hay_contexto(
+    db: Session, engine: Engine, tmp_path: Path, registrar_carpetas: Registrar
+) -> None:
+    _serie(tmp_path)
+    (carpeta,) = registrar_carpetas(tmp_path)
+    escanear(db)
+    (trabajo,), _ = trabajos.crear(db, [_origen(db, carpeta).id], estados_cupo=_dos_proveedores)
+    traductor = TraductorFalso()
+
+    _ejecutar(engine, trabajo, traductor)
+
+    assert set(traductor.contextos) == {None}
+
+
 def test_un_proveedor_sin_guia_no_la_anota(
     db: Session, engine: Engine, tmp_path: Path, registrar_carpetas: Registrar
 ) -> None:

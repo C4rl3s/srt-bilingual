@@ -60,9 +60,14 @@ class TraductorAzure:
             self._cabeceras["Ocp-Apim-Subscription-Region"] = region
 
     def traducir(
-        self, textos: list[str], origen: Idioma, destino: Idioma, guia: Guia | None = None
+        self,
+        textos: list[str],
+        origen: Idioma,
+        destino: Idioma,
+        guia: Guia | None = None,
+        contextos: list[str] | None = None,
     ) -> list[str]:
-        # La guía se ignora (`admite_guia = False`). Como en DeepL: los vacíos no se envían y conservan su sitio.
+        # La guía y el contexto se ignoran (`admite_guia = False`). Como en DeepL: los vacíos no se envían y conservan su sitio.
         con_texto = [i for i, texto in enumerate(textos) if texto.strip()]
         traducidos = list(textos)
 

@@ -71,6 +71,12 @@ def test_un_dialogo_vuelve_como_lo_dio_el_proveedor() -> None:
     assert recolocar("- ¡Vamos!\n- ¿Qué? Espera…", "- 가자!\n- 뭐? 잠깐…") == "- 가자!\n- 뭐? 잠깐…"
 
 
+def test_quita_los_signos_de_apertura_del_espanol() -> None:
+    # Caso real (S4 Pt. 1-07): el proveedor dejó «¡피크!» en una frase muy corta.
+    assert recolocar("¡Pieck!", "¡피크!") == "피크!"
+    assert recolocar("-¿Zeke?\n-¡Pieck!", "-¿지크?\n-¡피크!") == "-지크?\n-피크!"
+
+
 def test_partir_en_dos_por_el_espacio_mas_centrado() -> None:
     assert partir_en_dos("우리는 함께 완성을 축하합니다") == "우리는 함께\n완성을 축하합니다"
 

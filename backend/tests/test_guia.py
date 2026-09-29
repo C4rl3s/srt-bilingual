@@ -139,6 +139,15 @@ def test_la_huella_cambia_con_el_contenido(tmp_path: Path) -> None:
     assert len({a.huella, b.huella, c.huella}) == 3
 
 
+def test_el_contexto_es_una_opcion_desactivada_por_defecto(tmp_path: Path) -> None:
+    sin = leer(_escribir(tmp_path / "a"))
+    con = leer(_escribir(tmp_path / "b", GUIA + "\n[opciones]\ncontexto = true\n"))
+
+    assert not sin.contexto
+    assert con.contexto
+    assert sin.huella == con.huella  # no cambia el glosario: no se recrea en DeepL
+
+
 # --- Qué se rechaza ---
 
 
@@ -154,6 +163,8 @@ def test_la_huella_cambia_con_el_contenido(tmp_path: Path) -> None:
         ('[instrucciones]\ntexto = ["x"]\n', "lista"),
         ('[instrucciones]\nlista = "x"\n', "lista de textos"),
         ('[instrucciones]\nlista = [""]\n', "vacía"),
+        ('[glosario]\n"A" = "가"\n[opciones]\ncontexto = "sí"\n', "true o false"),
+        ('[glosario]\n"A" = "가"\n[opciones]\ncontesto = true\n', "solo admite"),
         ("", "vacía"),
     ],
 )

@@ -141,7 +141,8 @@ def test_traduccion_de_una_pista_sin_estadisticas(
     assert trabajo.num_caracteres == exactos
     assert sum(len(textos) for textos, *_ in traductor.llamadas) == 150  # sin el cartel
     texto = (tmp_path / "Shingeki" / "Shingeki - 01.ES-KO.bilingue.srt").read_text(encoding="utf-8")
-    assert f"{ESPANOL}\n[KO] {ESPANOL}" in texto
+    # El falso repite el español; al coreano se le quitan «¿» y «¡» (`lineas.recolocar`).
+    assert f"{ESPANOL}\n[KO] {ESPANOL.replace('¿', '')}" in texto
 
 
 def test_las_lineas_de_un_bloque_se_traducen_como_una_frase(

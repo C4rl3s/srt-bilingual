@@ -41,8 +41,12 @@ def para_traducir(texto: str) -> str:
 
 def recolocar(original: str, traducido: str) -> str:
     """El coreano en líneas como el original: si este venía partido (y no es un
-    diálogo, que ya vuelve con sus líneas) y el coreano es largo, en dos líneas."""
-    traducido = traducido.strip()
+    diálogo, que ya vuelve con sus líneas) y el coreano es largo, en dos líneas.
+
+    Quita también los signos de apertura del español (`¡`, `¿`), que el coreano no
+    usa: el proveedor los deja a veces en frases muy cortas («¡Pieck!» → «¡피크!»).
+    """
+    traducido = traducido.replace("¡", "").replace("¿", "").strip()
     lineas_original = [linea for linea in original.splitlines() if linea.strip()]
     if len(lineas_original) < 2 or es_dialogo(original) or len(traducido) < LARGO_PARA_PARTIR:
         return traducido

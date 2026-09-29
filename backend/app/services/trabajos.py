@@ -50,6 +50,10 @@ from app.services.translation.registry import obtener_traductor
 # agrupa por su cuenta como le convenga; esto solo marca el ritmo de la barra.
 BLOQUES_POR_PASO = 50
 
+# Bloques de antes y de después que van como contexto si la guía lo pide. Dos por
+# lado es lo que se probó en el S4 Pt. 1-07 (errores del 24 % al 12 %).
+VECINOS_DE_CONTEXTO = 2
+
 # Caracteres que se reservan para una pista sin extraer y sin estadísticas en su
 # cabecera (el 5 % de las pistas de texto de la biblioteca). Por encima de la mediana
 # de una película (34.000); un episodio de anime ronda los 10.000.
@@ -262,7 +266,12 @@ def _generar(
         # Cada bloque se envía como una frase (sus líneas unidas) y el coreano vuelve a
         # sus líneas al escribirlo: ver `subtitles/lineas.py`.
         enviados = [lineas.para_traducir(b.contenido) for b in origen]
-        traducidos = _traducir_con_progreso(db, trabajo, traductor, enviados, guia)
+        # El contexto se calcula aquí, sobre el capítulo entero: el proveedor solo ve
+        # un lote de bloques y perdería los vecinos en los bordes de cada lote.
+        contextos = (
+            _contextos(enviados) if guia and guia.contexto and traductor.admite_guia else None
+        )
+        traducidos = _traducir_con_progreso(db, trabajo, traductor, enviados, guia, contextos)
         textos = [lineas.recolocar(b.contenido, t) for b, t in zip(origen, traducidos, strict=True)]
 
     bilingual.generar(origen, textos, Path(trabajo.ruta_bilingue))
@@ -368,17 +377,32 @@ def _guia_del_trabajo(sub_origen: ArchivoSubtitulo | None) -> Guia | None:
     return guia_de(obra_de(sub_origen).directorio, Path(sub_origen.carpeta.ruta))
 
 
+def _contextos(textos: list[str]) -> list[str]:
+    """El contexto de cada bloque: los `VECINOS_DE_CONTEXTO` de antes y de después,
+    en una línea. Así el proveedor ve la frase partida entre bloques y quién habla."""
+    contextos = []
+    for i in range(len(textos)):
+        vecinos = textos[max(0, i - VECINOS_DE_CONTEXTO) : i]
+        vecinos += textos[i + 1 : i + 1 + VECINOS_DE_CONTEXTO]
+        contextos.append(" ".join(v.replace("\n", " ") for v in vecinos if v.strip()))
+    return contextos
+
+
 def _traducir_con_progreso(
     db: Session,
     trabajo: TrabajoTraduccion,
     traductor: Translator,
     textos: list[str],
     guia: Guia | None = None,
+    contextos: list[str] | None = None,
 ) -> list[str]:
     traducidos: list[str] = []
     for inicio in range(0, len(textos), BLOQUES_POR_PASO):
         paso = textos[inicio : inicio + BLOQUES_POR_PASO]
-        resultado = traductor.traducir(paso, trabajo.idioma_origen, IDIOMA_DESTINO, guia)
+        contextos_paso = contextos[inicio : inicio + BLOQUES_POR_PASO] if contextos else None
+        resultado = traductor.traducir(
+            paso, trabajo.idioma_origen, IDIOMA_DESTINO, guia, contextos_paso
+        )
         # La invariante, comprobada también aquí: no se fía del proveedor.
         if len(resultado) != len(paso):
             raise ErrorTraduccion(f"{traductor.nombre} devolvió {len(resultado)} de {len(paso)}")

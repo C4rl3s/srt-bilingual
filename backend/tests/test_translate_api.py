@@ -36,10 +36,12 @@ Registrar = Callable[..., list[CarpetaBiblioteca]]
 class TraductorQueSeAgota(TraductorFalso):
     """Traduce el primer paso y en el segundo se queda sin cuota."""
 
-    def traducir(self, textos: list[str], origen: Idioma, destino: Idioma, guia=None) -> list[str]:
+    def traducir(
+        self, textos: list[str], origen: Idioma, destino: Idioma, guia=None, contextos=None
+    ) -> list[str]:
         if self.llamadas:
             raise CuotaAgotada("Cuota de pega agotada")
-        return super().traducir(textos, origen, destino, guia)
+        return super().traducir(textos, origen, destino, guia, contextos)
 
 
 @pytest.fixture

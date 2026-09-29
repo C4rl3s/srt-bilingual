@@ -13,9 +13,12 @@ excepción es un fallo de verdad.
 - Las **instrucciones** van en `custom_instructions`. Con ellas DeepL junta en una
   línea los diálogos con guion (comprobado en la prueba del 2026-09-29), así que
   entonces cada línea de un diálogo se traduce por separado.
+- El **contexto** (los bloques vecinos, si la guía lo pide) va en `context`, que no se
+  cobra pero vale para toda la petición: se envía un bloque por petición.
 """
 
 import hashlib
+import re
 from collections.abc import Iterator
 
 import deepl
@@ -32,6 +35,10 @@ TAMANO_LOTE = 50
 # Prefijo de los glosarios que crea la app: los demás de la cuenta no se tocan.
 PREFIJO_GLOSARIO = "srt-bilingual"
 
+# Guion de diálogo al principio de una línea (con o sin etiqueta delante), como en
+# `subtitles/lineas.py`.
+_GUION = re.compile(r"^\s*(?:<[^>]+>)*\s*[-–—]")
+
 
 class TraductorDeepL:
     """Implementa `Translator` sobre la API de DeepL."""
@@ -47,7 +54,12 @@ class TraductorDeepL:
         self._glosarios: dict[str, deepl.GlossaryInfo] | None = None
 
     def traducir(
-        self, textos: list[str], origen: Idioma, destino: Idioma, guia: Guia | None = None
+        self,
+        textos: list[str],
+        origen: Idioma,
+        destino: Idioma,
+        guia: Guia | None = None,
+        contextos: list[str] | None = None,
     ) -> list[str]:
         opciones = self._opciones(guia, origen, destino)
         # Con instrucciones, cada línea de un diálogo va sola (ver cabecera). A este
@@ -56,12 +68,22 @@ class TraductorDeepL:
         separar = "custom_instructions" in opciones.get("extra_body_parameters", {})
         piezas = [texto.split("\n") if separar else [texto] for texto in textos]
 
-        planos = self._traducir_planos(
-            [p for lista in piezas for p in lista], origen, destino, opciones
-        )
+        if contextos is None:
+            planos = self._traducir_planos(
+                [p for lista in piezas for p in lista], origen, destino, opciones
+            )
+        else:
+            # `context` vale para toda la petición: con contexto, una por bloque. No
+            # cuesta caracteres, solo tiempo (unas 300 peticiones por capítulo).
+            planos = []
+            for lista, contexto in zip(piezas, contextos, strict=True):
+                con_contexto = {**opciones, "context": contexto} if contexto.strip() else opciones
+                planos += self._traducir_planos(lista, origen, destino, con_contexto)
+
         traducidos, i = [], 0
         for lista in piezas:
-            traducidos.append("\n".join(planos[i : i + len(lista)]))
+            lineas = [_conservar_guion(o, t) for o, t in zip(lista, planos[i : i + len(lista)])]
+            traducidos.append("\n".join(lineas))
             i += len(lista)
         return traducidos
 
@@ -153,6 +175,14 @@ class TraductorDeepL:
             raise ErrorTraduccion(f"Error de DeepL: {exc}") from exc
         # Con una lista de textos el SDK devuelve una lista de resultados.
         return resultado if isinstance(resultado, list) else [resultado]
+
+
+def _conservar_guion(original: str, traducido: str) -> str:
+    """Devuelve el guion de diálogo que DeepL a veces quita al traducir la línea sola
+    (en la prueba del S4 Pt. 1-07: «-¡Zeke!» → «지크!»)."""
+    if _GUION.match(original) and not _GUION.match(traducido):
+        return f"-{traducido}"
+    return traducido
 
 
 def _id_ruta(guia: Guia) -> str:

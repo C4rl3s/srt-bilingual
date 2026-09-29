@@ -179,6 +179,33 @@ Se mide con una prueba A/B, **guía sin contexto frente a guía con contexto**, 
 capítulo nuevo. Se activa (opción por guía, `contexto = true`) solo si reduce los
 errores de forma clara.
 
+**Resultado (hito 5, S4 Pt. 1-07, 225 bloques, ~5.000 caracteres cada uno):**
+
+| | A: guía sin contexto | B: guía + contexto |
+|---|---|---|
+| Bloques con algo que corregir | ~55 (24 %) | **~26 (12 %)** |
+| Términos | ~9 | ~8 |
+| Sentido | ~12 | ~5 |
+| Registro | ~25 | ~6 |
+
+Como referencia, DeepL a secas daba el 40–55 % en el 01–06. El contexto reduce los
+errores a la mitad sin coste de caracteres, así que **se activa**: opción
+`[opciones] contexto = true` de la guía, con 2 bloques vecinos por lado, calculados
+por el trabajo sobre el capítulo entero (no por lote). Cuesta una petición por bloque:
+110 s para el 07.
+
+**Fallos de formato que salieron en la prueba, y sus arreglos:**
+
+- «¡» y «¿» en el coreano de frases muy cortas («¡피크!»): `lineas.recolocar` los quita.
+- Guion de diálogo perdido al traducir una línea sola: el proveedor lo devuelve.
+- Un bloque vacío («Para.» → «.») y entradas del glosario ignoradas («¡El titán
+  carguero!» → 거대한 화물선): no volvieron a salir con contexto.
+
+**Verificación e2e** (regenerado el 07 desde la app con la guía final): DeepL elegido
+por la guía aunque Azure va primero, guía anotada en el trabajo, sin «¡¿», sin
+bloques vacíos y con los guiones. Siguen fallos sueltos que el glosario no puede
+resolver: «¡Oficial!» → 경관님, «Sal, Levi» → 나가.
+
 ## Hitos
 
 1. **Guía**: formato, `guia.py`, localización y validación. Tests.

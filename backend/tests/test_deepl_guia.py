@@ -14,7 +14,7 @@ from app.services.translation.azure_provider import TraductorAzure
 from app.services.translation.base import ErrorTraduccion, Translator
 from app.services.translation.deepl_provider import PREFIJO_GLOSARIO, TraductorDeepL
 from app.services.translation.guia import Guia
-from tests.test_translation import ClienteDeepLFalso
+from tests.test_translation import ClienteDeepLFalso, _Resultado
 
 
 class _Glosario:
@@ -186,9 +186,10 @@ def test_con_instrucciones_cada_linea_de_un_dialogo_va_sola() -> None:
         "-El poder de los titanes.",
         "-En efecto.",
     ]
+    # Cada línea conserva su guion de diálogo (el falso lo envuelve y lo pierde).
     assert resultado == [
         "한국어(Hola.)",
-        "한국어(-El poder de los titanes.)\n한국어(-En efecto.)",
+        "-한국어(-El poder de los titanes.)\n-한국어(-En efecto.)",
         "",
     ]
 
@@ -200,6 +201,43 @@ def test_sin_instrucciones_el_dialogo_va_entero() -> None:
     _deepl(cliente).traducir([dialogo], Idioma.ES, Idioma.KO, _guia({"Marley": "마레"}))
 
     assert cliente.peticiones[0]["textos"] == [dialogo]
+
+
+def test_con_contextos_va_un_bloque_por_peticion_con_su_contexto() -> None:
+    cliente = ClienteConGlosarios()
+    textos = ["Uno.", "", "-¡Ahí!\n-¿Qué?"]
+
+    _deepl(cliente).traducir(textos, Idioma.ES, Idioma.KO, GUIA, ["antes", "", "después"])
+
+    # El vacío no se envía; el diálogo va línea a línea, pero en una sola petición.
+    assert [(p["textos"], p.get("context")) for p in cliente.peticiones] == [
+        (["Uno."], "antes"),
+        (["-¡Ahí!", "-¿Qué?"], "después"),
+    ]
+
+
+def test_un_contexto_vacio_no_se_envia() -> None:
+    cliente = ClienteConGlosarios()
+
+    _deepl(cliente).traducir(["Uno."], Idioma.ES, Idioma.KO, GUIA, [""])
+
+    assert "context" not in cliente.peticiones[0]
+
+
+class ClienteQuitaGuiones(ClienteConGlosarios):
+    """Imita a DeepL cuando quita el guion de una línea traducida sola."""
+
+    def translate_text(self, textos, **opciones):
+        super().translate_text(textos, **opciones)  # apunta la petición
+        return [_Resultado(texto.lstrip("-").replace("¡", "")) for texto in textos]
+
+
+def test_devuelve_el_guion_que_quita_deepl() -> None:
+    cliente = ClienteQuitaGuiones()
+
+    (resultado,) = _deepl(cliente).traducir(["-¡Zeke!\n-¡Atrás!"], Idioma.ES, Idioma.KO, GUIA)
+
+    assert resultado.split("\n") == ["-Zeke!", "-Atrás!"]
 
 
 def test_un_fallo_al_crear_el_glosario_es_un_error_de_traduccion() -> None:
