@@ -34,6 +34,8 @@ class TrabajoOut(BaseModel):
     ruta_bilingue: str | None
     idioma_origen: Idioma
     proveedor: str | None
+    # La guía de la serie con que se tradujo, si el proveedor la usó.
+    guia: str | None
     num_caracteres: int
     caracteres_previstos: int
     calidad_alineacion: float | None
@@ -100,6 +102,8 @@ class EstadoCupoOut(BaseModel):
     reservados: int
     limite: int | None
     libre: int | None
+    # Si aprovecha la guía de la serie; con guía se le prefiere (`eleccion.py`).
+    admite_guia: bool
 
 
 class CandidatosOut(BaseModel):

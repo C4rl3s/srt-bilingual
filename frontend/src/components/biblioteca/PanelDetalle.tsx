@@ -111,7 +111,9 @@ export function PanelDetalle({ obra, trabajo, cupos, onGenerar, onCerrar }: Prop
   }
 
   // Previsión: el backend decide al crear el trabajo (ver `utils/cupos.ts`).
-  const [proveedorPrevisto] = repartir(cupos, [nodo.num_caracteres])
+  const [proveedorPrevisto] = repartir(cupos, [
+    { caracteres: nodo.num_caracteres, conGuia: nodo.ruta_guia !== null },
+  ])
   const porId = (id: number | null) => candidatos?.candidatos.find((c) => c.subtitulo_id === id)
   const origen = porId(candidatos?.origen_id ?? null)
   const coreano = porId(candidatos?.coreano_id ?? null)

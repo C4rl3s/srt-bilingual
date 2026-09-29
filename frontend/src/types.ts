@@ -62,11 +62,16 @@ export interface NodoArbol {
   idioma_origen: Idioma | null
   /** Coreano ya existente: si lo hay, el bilingüe sale de fusionar, sin traducir. */
   subtitulo_coreano_id: number | null
+  /** Guía de traducción de la serie (`srt-bilingual.toml`) según el último escaneo.
+   *  Con ella se prefiere un proveedor que la admita (ver `utils/cupos.ts`). */
+  ruta_guia: string | null
 }
 
 export interface ResumenEscaneo {
   carpetas: number
   videos: number
+  /** Guías de traducción vistas. */
+  guias: number
   nuevos: number
   actualizados: number
   sin_cambios: number
@@ -124,6 +129,8 @@ export interface Trabajo {
   ruta_bilingue: string | null
   idioma_origen: Idioma
   proveedor: string | null
+  /** La guía de la serie con que se tradujo, si el proveedor la usó. */
+  guia: string | null
   num_caracteres: number
   caracteres_previstos: number
   calidad_alineacion: number | null
@@ -205,6 +212,8 @@ export interface EstadoCupo {
   reservados: number
   limite: number | null
   libre: number | null
+  /** Si aprovecha la guía de la serie (glosario e instrucciones). Hoy solo DeepL. */
+  admite_guia: boolean
 }
 
 export interface PropuestaRenombrado {

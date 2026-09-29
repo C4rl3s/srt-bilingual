@@ -25,6 +25,7 @@ Plan y motivos: `docs/plans/plan-glosario-por-obra.md`.
 import hashlib
 import json
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -70,17 +71,20 @@ class Guia:
         return hashlib.sha256(contenido.encode("utf-8")).hexdigest()[:16]
 
 
-def buscar(directorio: Path, raiz: Path) -> Path | None:
+def buscar(
+    directorio: Path, raiz: Path, existe: Callable[[Path], bool] = Path.is_file
+) -> Path | None:
     """El fichero de guía más cercano subiendo de `directorio` a `raiz` (incluida).
 
     Nunca sube por encima de la raíz: una guía de fuera de la carpeta de biblioteca
-    no es de esta obra.
+    no es de esta obra. `existe` decide si un candidato está: por defecto se mira el
+    disco; el árbol pasa el índice del último escaneo (`models/guide_file.py`).
     """
     if not directorio.is_relative_to(raiz):
         return None
     for carpeta in (directorio, *directorio.parents):
         candidato = carpeta / NOMBRE_FICHERO
-        if candidato.is_file():
+        if existe(candidato):
             return candidato
         if carpeta == raiz:
             break

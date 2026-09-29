@@ -24,6 +24,7 @@ from app.schemas.tree import EstadoObra, NodoArbol
 from app.services.obras import Obra, agrupar_en_obras
 from app.services.subtitles.seleccion import seleccionar
 from app.services.trabajos import caracteres_previstos
+from app.services.translation.guia import buscar as buscar_guia
 
 
 @dataclass
@@ -37,7 +38,8 @@ class _Rama:
     nombre: str
     ruta: str
     subramas: dict[str, "_Rama"] = field(default_factory=dict)
-    obras: list[Obra] = field(default_factory=list)
+    # Cada obra con la ruta de su guía de traducción (o `None`).
+    obras: list[tuple[Obra, str | None]] = field(default_factory=list)
 
 
 def construir_arbol(
@@ -56,6 +58,13 @@ def construir_arbol(
 def _arbol_de_carpeta(carpeta: CarpetaBiblioteca, estado: EstadoSubtitulo | None) -> NodoArbol:
     raiz = _Rama(nombre=carpeta.ruta, ruta=carpeta.ruta)
     base = Path(carpeta.ruta)
+    # Guías según el índice del último escaneo: buscarlas en disco para cada obra
+    # costaría segundos por la red (ver `models/guide_file.py`).
+    indice_guias = {guia.ruta for guia in carpeta.guias}
+
+    def guia_de_obra(obra: Obra) -> str | None:
+        ruta = buscar_guia(obra.directorio, base, existe=lambda p: str(p) in indice_guias)
+        return str(ruta) if ruta else None
 
     for obra in agrupar_en_obras(list(carpeta.videos), list(carpeta.subtitulos)):
         # El filtro por estado deja las obras con algún subtítulo en ese estado, pero
@@ -65,7 +74,7 @@ def _arbol_de_carpeta(carpeta: CarpetaBiblioteca, estado: EstadoSubtitulo | None
             continue
         rama = _localizar_rama(raiz, base, obra.directorio)
         if rama is not None:
-            rama.obras.append(obra)
+            rama.obras.append((obra, guia_de_obra(obra)))
 
     return _volcar(raiz)
 
@@ -92,7 +101,9 @@ def _localizar_rama(raiz: _Rama, base: Path, directorio: Path) -> _Rama | None:
 def _volcar(rama: _Rama) -> NodoArbol:
     """Convierte la rama mutable en `NodoArbol`, agregando de abajo hacia arriba."""
     hijos = [_volcar(sub) for sub in sorted(rama.subramas.values(), key=_orden)]
-    hijos += [_nodo_obra(rama, obra) for obra in sorted(rama.obras, key=lambda o: o.nombre)]
+    hijos += [
+        _nodo_obra(rama, obra, guia) for obra, guia in sorted(rama.obras, key=lambda o: o[0].nombre)
+    ]
 
     return NodoArbol(
         nombre=rama.nombre,
@@ -107,7 +118,7 @@ def _volcar(rama: _Rama) -> NodoArbol:
     )
 
 
-def _nodo_obra(rama: _Rama, obra: Obra) -> NodoArbol:
+def _nodo_obra(rama: _Rama, obra: Obra, ruta_guia: str | None) -> NodoArbol:
     """Hoja: un capítulo o película con su vídeo y sus subtítulos de origen."""
     subs = obra.subtitulos
     seleccion = seleccionar(subs)
@@ -155,6 +166,7 @@ def _nodo_obra(rama: _Rama, obra: Obra) -> NodoArbol:
         subtitulo_origen_id=seleccion.origen.id if seleccion.origen else None,
         idioma_origen=seleccion.origen.idioma_origen if seleccion.origen else None,
         subtitulo_coreano_id=seleccion.coreano.id if seleccion.coreano else None,
+        ruta_guia=ruta_guia,
     )
 
 

@@ -31,7 +31,10 @@ export function PanelSeleccion({ obras, cupos, onGenerar, onQuitar, onQuitarToda
   // creará los trabajos (ver `utils/cupos.ts`).
   const previstos = repartir(
     cupos,
-    aTraducir.map((obra) => obra.nodo.num_caracteres),
+    aTraducir.map((obra) => ({
+      caracteres: obra.nodo.num_caracteres,
+      conGuia: obra.nodo.ruta_guia !== null,
+    })),
   )
   const proveedorDe = new Map(aTraducir.map((obra, i) => [obra.nodo.ruta, previstos[i]]))
   const sinCupo = aTraducir.filter((obra) => proveedorDe.get(obra.nodo.ruta) === null)

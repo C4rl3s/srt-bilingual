@@ -3,6 +3,11 @@
 Regla (Fase 4): el primero, en el orden de preferencia de `TRANSLATION_PROVIDERS`,
 que tenga cupo libre para toda la película, con un margen. Si ninguno llega, no se
 traduce: mejor avisar antes que agotar un cupo a mitad de película.
+
+Si la obra tiene **guía de traducción** (glosario por serie), se prueban primero los
+proveedores que la admiten, en ese mismo orden, y luego los demás: traducir sin
+glosario es peor, pero mejor que no traducir. `frontend/src/utils/cupos.ts`
+reproduce esta regla: si cambia aquí, hay que cambiarla allí.
 """
 
 from collections import defaultdict
@@ -26,14 +31,21 @@ class Asignador:
         self._estados = estados
         self._asignado: dict[str, int] = defaultdict(int)
 
-    def asignar(self, caracteres: int, solo: str | None = None) -> str | None:
+    def asignar(
+        self, caracteres: int, solo: str | None = None, con_guia: bool = False
+    ) -> str | None:
         """El proveedor para una traducción de `caracteres`, o `None` si no cabe.
 
         Con `solo`, el usuario ha elegido proveedor para esa obra: se le aplica la misma
-        regla (disponible y con cupo), pero sin probar con los demás.
+        regla (disponible y con cupo), pero sin probar con los demás. Con `con_guia`, la
+        obra tiene guía de traducción y se prueban antes los que la admiten.
         """
         necesarios = caracteres * MARGEN
-        for estado in self._candidatos(solo):
+        candidatos = self._candidatos(solo)
+        if con_guia:
+            # `sorted` es estable: dentro de cada grupo se conserva el orden configurado.
+            candidatos = sorted(candidatos, key=lambda estado: not estado.admite_guia)
+        for estado in candidatos:
             if not estado.disponible:
                 continue
             libre = self._libre(estado)

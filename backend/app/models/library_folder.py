@@ -43,3 +43,9 @@ class CarpetaBiblioteca(Base):
         back_populates="carpeta",
         cascade="all, delete-orphan",
     )
+
+    # Guías de traducción (`srt-bilingual.toml`) vistas en el último escaneo.
+    guias: Mapped[list["ArchivoGuia"]] = relationship(  # noqa: F821
+        back_populates="carpeta",
+        cascade="all, delete-orphan",
+    )

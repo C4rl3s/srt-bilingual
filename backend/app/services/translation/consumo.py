@@ -46,6 +46,9 @@ class EstadoCupo:
     usados: int
     reservados: int
     limite: int | None  # None: sin límite conocido
+    # Si aprovecha la guía de la serie (`Translator.admite_guia`). Con guía, la
+    # elección prefiere a los que sí (`eleccion.Asignador`).
+    admite_guia: bool = False
 
     @property
     def libre(self) -> int | None:
@@ -80,18 +83,33 @@ def estado(
         # Sin clave o desconocido: se informa igual, para que la interfaz diga por qué.
         return EstadoCupo(nombre, False, str(exc), FuenteCupo.REGISTRO, 0, reservados, None)
 
+    admite_guia = bool(getattr(traductor, "admite_guia", False))
     if isinstance(traductor, ConCupo):
         try:
             consumo = traductor.consumo()
             return EstadoCupo(
-                nombre, True, None, FuenteCupo.API, consumo.usados, reservados, consumo.limite
+                nombre,
+                True,
+                None,
+                FuenteCupo.API,
+                consumo.usados,
+                reservados,
+                consumo.limite,
+                admite_guia,
             )
         except ErrorTraduccion:
             pass  # la API no responde: se cae al registro propio, sin límite conocido
 
     usados = _usados_este_mes(db, nombre, ahora or datetime.now(UTC))
     return EstadoCupo(
-        nombre, True, None, FuenteCupo.REGISTRO, usados, reservados, limite_configurado(nombre)
+        nombre,
+        True,
+        None,
+        FuenteCupo.REGISTRO,
+        usados,
+        reservados,
+        limite_configurado(nombre),
+        admite_guia,
     )
 
 

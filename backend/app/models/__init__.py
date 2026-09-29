@@ -11,12 +11,14 @@ from app.models.enums import (
     Idioma,
     ModoTrabajo,
 )
+from app.models.guide_file import ArchivoGuia
 from app.models.library_folder import CarpetaBiblioteca
 from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
 from app.models.translation_job import TrabajoTraduccion
 
 __all__ = [
+    "ArchivoGuia",
     "ArchivoMedia",
     "ArchivoSubtitulo",
     "CarpetaBiblioteca",

@@ -5,6 +5,9 @@ lo que hay en disco: da de alta los subtítulos y los vídeos nuevos, reparsea l
 subtítulos que cambiaron y borra los huérfanos. Lo ya traducido se redescubre por el
 `.bilingue.srt`.
 
+También se anota dónde hay una guía de traducción (`srt-bilingual.toml`), sin
+leerla: es un índice para el árbol (ver `models/guide_file.py`).
+
 Los vídeos se inventarían sin abrirlos, solo para que la biblioteca se pueda dibujar
 aunque no haya ningún `.srt` al lado. Sus pistas incrustadas las sondea después, en
 segundo plano, `services/mkv/sondeo.py` (Fase 5): aquí solo se respetan (no son
@@ -23,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.enums import EXTENSIONES_VIDEO, EstadoSubtitulo, Idioma
+from app.models.guide_file import ArchivoGuia
 from app.models.library_folder import CarpetaBiblioteca
 from app.models.media_file import ArchivoMedia
 from app.models.subtitle_file import ArchivoSubtitulo
@@ -31,6 +35,10 @@ from app.services.mkv.extraccion import borrar_cache
 from app.services.obras import Obra, agrupar_en_obras, directorio_de_obra, ruta_bilingue
 from app.services.subtitles import srt_parser
 from app.services.subtitles.naming import base_sin_idioma, es_fichero_bilingue
+
+# Nombre exacto, con sus minúsculas: en el NAS (Linux) leerlo las distingue, y una
+# guía indexada que luego no se pudiera leer engañaría al árbol.
+from app.services.translation.guia import NOMBRE_FICHERO
 
 
 # Versión de las reglas de análisis de subtítulos (idioma, flags…). Se sube cada vez
@@ -79,15 +87,22 @@ def _escanear_carpeta(db: Session, carpeta: CarpetaBiblioteca, resumen: ResumenE
     # Solo los `.srt`: las pistas viven y mueren con su vídeo (cascada).
     subs_en_db = {sub.ruta: sub for sub in carpeta.subtitulos if not sub.es_pista}
     videos_en_db = {video.ruta: video for video in carpeta.videos}
+    guias_en_db = {guia.ruta: guia for guia in carpeta.guias}
     subs_vistos: set[str] = set()
     videos_vistos: set[str] = set()
+    guias_vistas: set[str] = set()
 
     if base.exists():
-        # Un único recorrido para las dos cosas: la biblioteca puede estar en otro
-        # equipo y cada pasada por la red cuesta.
+        # Un único recorrido para todo: la biblioteca puede estar en otro equipo y
+        # cada pasada por la red cuesta.
         for ruta in base.rglob("*"):
             sufijo = ruta.suffix.lower()
-            if sufijo == ".srt":
+            if ruta.name == NOMBRE_FICHERO:
+                guias_vistas.add(str(ruta))
+                if str(ruta) not in guias_en_db:
+                    db.add(ArchivoGuia(carpeta=carpeta, ruta=str(ruta)))
+                resumen.guias += 1
+            elif sufijo == ".srt":
                 if es_fichero_bilingue(ruta.name):
                     continue
                 subs_vistos.add(str(ruta))
@@ -123,6 +138,12 @@ def _escanear_carpeta(db: Session, carpeta: CarpetaBiblioteca, resumen: ResumenE
             borrar_cache(video.id)  # sus pistas extraídas
             db.delete(video)
             resumen.huerfanos_borrados += 1
+
+    # Una guía borrada del disco deja de contar (no suma a los huérfanos, que hablan
+    # de subtítulos y vídeos).
+    for clave, guia in guias_en_db.items():
+        if clave not in guias_vistas:
+            db.delete(guia)
 
 
 def _inventariar_subtitulo(

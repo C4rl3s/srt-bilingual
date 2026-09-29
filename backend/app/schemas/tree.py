@@ -67,3 +67,6 @@ class NodoArbol(BaseModel):
     idioma_origen: Idioma | None = None
     # Coreano ya existente: si lo hay, el bilingüe sale de fusionar, sin traducir.
     subtitulo_coreano_id: int | None = None
+    # Guía de traducción de la serie que le toca, según el último escaneo (ver
+    # `services/translation/guia.py`). Con ella se prefiere un proveedor que la admita.
+    ruta_guia: str | None = None

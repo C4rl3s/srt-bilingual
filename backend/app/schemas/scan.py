@@ -15,11 +15,13 @@ class ResumenEscaneo(BaseModel):
     Todos los contadores salvo `carpetas` y `videos` hablan de **subtítulos**:
     `nuevos`, `actualizados` y `sin_cambios` particionan los `.srt` vistos
     (`total`), y `traducidos` y `errores` son subconjuntos según el estado final.
-    `videos` cuenta los contenedores inventariados, que no se parsean.
+    `videos` cuenta los contenedores inventariados, que no se parsean, y `guias` las
+    guías de traducción vistas.
     """
 
     carpetas: int = 0
     videos: int = 0
+    guias: int = 0
     nuevos: int = 0
     actualizados: int = 0
     sin_cambios: int = 0

@@ -139,6 +139,27 @@ que DeepL puede usar.
   vive en `services/translation/eleccion.py` y en `frontend/src/utils/cupos.ts`
   (deuda conocida): **hay que cambiar las dos**.
 
+### 4 bis. Índice de guías en el escaneo *(añadido en el hito 3)*
+
+El panel de selección múltiple prevé el proveedor de cada obra con la regla de
+`cupos.ts`, y para eso necesita saber qué obras tienen guía. Buscarla en disco para
+cada obra del árbol costó **2,3 s** en la biblioteca real (348 carpetas por la red):
+inviable en cada carga del árbol.
+
+Decisión del usuario: el escaneo, que ya recorre el disco, **anota dónde hay un
+`srt-bilingual.toml`** en una tabla nueva, `guide_file` (ruta y carpeta). Es un índice
+reconstruible, como `media_file`.
+
+- Cada hoja del árbol lleva `ruta_guia`, sacada del índice sin tocar el disco.
+- El **contenido** se sigue leyendo del disco al crear y al ejecutar el trabajo:
+  editar la guía no requiere escanear.
+- Una guía **nueva** aparece en el árbol tras «Escanear», como un `.srt` nuevo.
+- Se exige el nombre exacto: en el NAS (Linux) leer el fichero distingue mayúsculas.
+
+Alternativas descartadas: buscarla solo en el panel de una obra (la previsión de la
+selección múltiple podría no coincidir con lo que decide el backend) y una caché en
+memoria (se pierde al reiniciar).
+
 ### 5. Interfaz
 
 En el panel de detalle de la obra, junto al proveedor:

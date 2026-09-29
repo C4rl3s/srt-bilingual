@@ -51,6 +51,9 @@ class TrabajoTraduccion(Base):
     # El destino es siempre coreano (regla de negocio de la Fase 3).
     idioma_origen: Mapped[Idioma] = mapped_column(SAEnum(Idioma))
     proveedor: Mapped[str | None] = mapped_column(String)  # vacío en FUSION
+    # La guía de la serie con que se tradujo (`<ruta> (<huella>)`), si el proveedor la
+    # usó. Historial: la guía puede cambiar después (ver `translation/guia.py`).
+    guia: Mapped[str | None] = mapped_column(String)
 
     # Caracteres enviados al proveedor; 0 en FUSION. Es el registro de consumo de
     # la Fase 4: el de un proveedor en un mes es la suma de los de sus trabajos.

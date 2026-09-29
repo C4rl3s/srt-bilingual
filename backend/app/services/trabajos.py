@@ -43,6 +43,7 @@ from app.services.translation import consumo, registry
 from app.services.translation.base import ErrorTraduccion, Translator
 from app.services.translation.consumo import EstadoCupo
 from app.services.translation.eleccion import MARGEN, Asignador
+from app.services.translation.guia import Guia, GuiaInvalida, guia_de
 from app.services.translation.registry import obtener_traductor
 
 # Bloques que se traducen entre dos actualizaciones del progreso. El proveedor
@@ -119,11 +120,18 @@ def crear(
         elegido = None
         previstos = caracteres_previstos(sub)
         if not fusion:
+            # La guía de la serie (del disco, que manda): si está rota, mejor decirlo
+            # ahora que encolar un trabajo que fallaría al ejecutarse.
+            try:
+                con_guia = guia_de(obra.directorio, Path(sub.carpeta.ruta)) is not None
+            except GuiaInvalida as exc:
+                rechazos.append(Rechazo(subtitulo_id, str(exc)))
+                continue
             if asignador is None:
                 asignador = Asignador((estados_cupo or _estados_por_defecto(db))())
             # Un proveedor pedido pasa por la misma regla: si no tiene clave o no le
             # cabe, se rechaza aquí, antes de crear un trabajo que fallaría después.
-            elegido = asignador.asignar(previstos, solo=proveedor)
+            elegido = asignador.asignar(previstos, solo=proveedor, con_guia=con_guia)
             if elegido is None:
                 rechazos.append(Rechazo(subtitulo_id, asignador.motivo(previstos, solo=proveedor)))
                 continue
@@ -246,10 +254,15 @@ def _generar(
     else:
         traductor = fabrica_traductor(trabajo.proveedor)
         trabajo.proveedor = traductor.nombre
+        # La guía se vuelve a leer del disco: puede haberse editado mientras el trabajo
+        # esperaba en cola. Se anota solo si el proveedor la aprovecha.
+        guia = _guia_del_trabajo(sub_origen)
+        if guia is not None and traductor.admite_guia:
+            trabajo.guia = f"{guia.ruta} ({guia.huella})"
         # Cada bloque se envía como una frase (sus líneas unidas) y el coreano vuelve a
         # sus líneas al escribirlo: ver `subtitles/lineas.py`.
         enviados = [lineas.para_traducir(b.contenido) for b in origen]
-        traducidos = _traducir_con_progreso(db, trabajo, traductor, enviados)
+        traducidos = _traducir_con_progreso(db, trabajo, traductor, enviados, guia)
         textos = [lineas.recolocar(b.contenido, t) for b, t in zip(origen, traducidos, strict=True)]
 
     bilingual.generar(origen, textos, Path(trabajo.ruta_bilingue))
@@ -347,13 +360,25 @@ def _leer(ruta: str, sub: ArchivoSubtitulo | None) -> list[Bloque]:
     return parsear(Path(ruta))
 
 
+def _guia_del_trabajo(sub_origen: ArchivoSubtitulo | None) -> Guia | None:
+    """La guía de la serie del origen, leída del disco. Sin su fila (un escaneo la
+    borró) no se sabe su carpeta de biblioteca: se traduce sin guía."""
+    if sub_origen is None:
+        return None
+    return guia_de(obra_de(sub_origen).directorio, Path(sub_origen.carpeta.ruta))
+
+
 def _traducir_con_progreso(
-    db: Session, trabajo: TrabajoTraduccion, traductor: Translator, textos: list[str]
+    db: Session,
+    trabajo: TrabajoTraduccion,
+    traductor: Translator,
+    textos: list[str],
+    guia: Guia | None = None,
 ) -> list[str]:
     traducidos: list[str] = []
     for inicio in range(0, len(textos), BLOQUES_POR_PASO):
         paso = textos[inicio : inicio + BLOQUES_POR_PASO]
-        resultado = traductor.traducir(paso, trabajo.idioma_origen, IDIOMA_DESTINO)
+        resultado = traductor.traducir(paso, trabajo.idioma_origen, IDIOMA_DESTINO, guia)
         # La invariante, comprobada también aquí: no se fía del proveedor.
         if len(resultado) != len(paso):
             raise ErrorTraduccion(f"{traductor.nombre} devolvió {len(resultado)} de {len(paso)}")

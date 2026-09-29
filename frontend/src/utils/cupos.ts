@@ -21,20 +21,31 @@ export function libreTotal(cupos: EstadoCupo[]): number | null {
 // Holgura sobre lo previsto: la misma que pide el backend (`eleccion.MARGEN`).
 const MARGEN = 1.05
 
+/** Una obra a repartir: lo que cuesta y si su serie tiene guía de traducción. */
+export interface ObraARepartir {
+  caracteres: number
+  conGuia: boolean
+}
+
 /**
  * Qué proveedor traducirá cada obra, en orden, o `null` si no cabe en ninguno.
+ *
+ * Regla: el primero con cupo, en el orden configurado; pero si la obra tiene guía,
+ * se prueban antes los proveedores que la admiten (en ese mismo orden).
  *
  * **Es una previsión**: reproduce la regla del backend (`eleccion.Asignador`)
  * para que la interfaz lo diga antes de pulsar. Quien decide de verdad es el
  * backend al crear los trabajos; si mientras tanto cambia el cupo, puede elegir
  * otro. Si se cambia la regla allí, hay que cambiarla aquí.
  */
-export function repartir(cupos: EstadoCupo[], caracteres: number[]): (string | null)[] {
+export function repartir(cupos: EstadoCupo[], obras: ObraARepartir[]): (string | null)[] {
   const asignado = new Map<string, number>()
-  return caracteres.map((cantidad) => {
-    for (const cupo of cupos) {
-      if (cabe(cupo, cantidad, asignado.get(cupo.proveedor) ?? 0)) {
-        asignado.set(cupo.proveedor, (asignado.get(cupo.proveedor) ?? 0) + cantidad)
+  // `sort` es estable: dentro de cada grupo se conserva el orden configurado.
+  const conGuiaPrimero = [...cupos].sort((a, b) => Number(b.admite_guia) - Number(a.admite_guia))
+  return obras.map(({ caracteres, conGuia }) => {
+    for (const cupo of conGuia ? conGuiaPrimero : cupos) {
+      if (cabe(cupo, caracteres, asignado.get(cupo.proveedor) ?? 0)) {
+        asignado.set(cupo.proveedor, (asignado.get(cupo.proveedor) ?? 0) + caracteres)
         return cupo.proveedor
       }
     }
