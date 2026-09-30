@@ -52,7 +52,7 @@ srt-bilingual/
 │   │   ├── config.py          # settings vía .env (pydantic-settings)
 │   │   ├── db.py              # engine + sesión SQLAlchemy + get_db
 │   │   ├── models/            # tablas ORM: enums, library_folder, subtitle_file,
-│   │   │                      #   media_file
+│   │   │                      #   media_file, guide_file (índice de guías)
 │   │   ├── schemas/           # Pydantic (DTOs request/response): scan, subtitle,
 │   │   │                      #   folder, tree
 │   │   ├── api/               # routers: subtitles, scan, folders, filesystem,
@@ -75,7 +75,9 @@ srt-bilingual/
 │   │           ├── azure_provider.py  # no informa: cupo por registro de la app
 │   │           ├── registry.py        # nombre → proveedor; límites configurados
 │   │           ├── consumo.py         # cupo de cada proveedor (API o registro)
-│   │           └── eleccion.py        # proveedor según cupo libre
+│   │           ├── eleccion.py        # proveedor según cupo libre (y guía)
+│   │           └── guia.py            # guía por serie: srt-bilingual.toml
+│   │                                  #   (glosario, instrucciones, contexto)
 │   ├── alembic/               # migraciones (env.py toma la URL de settings)
 │   ├── alembic.ini
 │   ├── tests/
@@ -289,6 +291,22 @@ Plan de desarrollo aprobado en 6 fases.
   - 298 tests; verificado con Anime real (207 obras elegibles, 27 fusionables;
     *Moonrise* 01–03 fusionados y *Shingeki* 01 traducido, en el NAS). Plan:
     `docs/plans/plan-fase5.md`. Bitácora: `docs/bitacora-fase5.md`.
+- [x] **Glosario por obra (guía de traducción)** (2026-09-29). Nace del repaso a mano
+  de *Shingeki* S4 Pt. 1 01–06, traducidos con DeepL: 40–55 % de bloques corregidos,
+  la mitad por nombres y términos. Lo hecho:
+  - Una **guía** `srt-bilingual.toml` en la carpeta de la serie (vive en la
+    biblioteca, no en la BD) con glosario ES→KO, instrucciones (`custom_instructions`)
+    y la opción `contexto` (bloques vecinos, gratis).
+  - Solo DeepL la usa: Azure no tiene glosario ES→KO. Con guía, la elección
+    **prefiere DeepL** aunque Azure vaya primero (decisión del usuario).
+  - El escaneo **indexa** las guías en `guide_file` (buscarlas en el árbol costaba
+    2,3 s por la red). El contenido se lee del disco al traducir.
+  - El trabajo la anota en `translation_job.guia`; el panel de la obra la muestra.
+  - Prueba A/B en el S4 Pt. 1-07: guía sin contexto 24 % de bloques con errores, con
+    contexto **12 %**.
+  - 389 tests. Plan: `docs/plans/plan-glosario-por-obra.md`. Bitácora:
+    `docs/bitacora-glosario-por-obra.md`. Referencia humana del caso real:
+    `docs/glosarios/shingeki-no-kyojin.md`.
 - [ ] **Al terminar — despliegue con Docker en un servidor local** (requisito del
   usuario, 2026-09-28). **El equipo aún no existe**: lo que se entrega es
   **documentación e instrucciones** para cuando se monte, no un despliegue
@@ -362,8 +380,9 @@ dentro del plan de esa fase, no en un fichero nuevo.
   fuera de ella, y toma el mes natural aunque Azure pueda reiniciar el cupo en otra
   fecha. Se avisa en la interfaz.
 - `frontend/src/utils/cupos.ts` (`repartir`) **reproduce la regla** de
-  `services/translation/eleccion.py` para prever el proveedor antes de generar. Si
-  se cambia la regla, hay que cambiar las dos.
+  `services/translation/eleccion.py` para prever el proveedor antes de generar,
+  incluida la preferencia por los proveedores que admiten la guía. Si se cambia la
+  regla, hay que cambiar las dos.
 - **Nunca reescribir ficheros con `Get-Content | Set-Content`** en PowerShell 5.1:
   corrompe el UTF-8 (pasó en la Fase 3; detalle en `docs/bitacora-fase4.md`).
 - Los tests crean el esquema con `Base.metadata.create_all()`, no con Alembic (más
@@ -380,10 +399,19 @@ dentro del plan de esa fase, no en un fichero nuevo.
   de uvicorn basta; con varios *workers* no se verían entre sí.
 - `ResumenEscaneo.total` cuenta solo los `.srt`: las pistas de los vídeos se leen
   después, en segundo plano, y no entran en el resumen del escaneo.
-- **Calidad de traducción**: cada bloque se traduce sin ver los demás, y de ahí el
-  registro errático y los nombres propios cambiantes (sobre todo en DeepL). Mejoras
-  apuntadas en `docs/bitacora-fase5.md` (hito 6), por coste: cortar el coreano por
-  la puntuación, glosario por obra, el bloque anterior como contexto.
+- **Calidad de traducción**: el glosario por obra y el contexto de bloques vecinos ya
+  están hechos (guía de traducción). Aun así el repaso sigue haciendo falta: con guía
+  y contexto queda ~12 % de bloques con fallos, sobre todo de sentido y de registro
+  (las instrucciones se cumplen a medias). Pendiente de `docs/bitacora-fase5.md`
+  (hito 6): cortar el coreano por la puntuación.
+- **Regenerar un bilingüe repasado a mano lo pisa**: los de *Shingeki* S4 Pt. 1 01–06
+  están corregidos a mano en el NAS. No hay protección; sería una mejora aparte
+  (detectar que el fichero cambió desde que lo escribió la app y pedir confirmación).
+- **La guía de *Shingeki* no está versionada**: vive en la biblioteca
+  (`Anime\Shingeki\srt-bilingual.toml`), no en el repo.
+- **El glosario de DeepL no siempre se aplica** (lo decide su motor): en la prueba
+  del 07 sin contexto se saltó «¡El titán carguero!» y «Paradis». Con contexto no
+  pasó.
 - **OCR de pistas de imagen** (PGS/VobSub) fuera de la Fase 5 por decisión del
   usuario: 130 capítulos de Series (*Better Call Saul*) solo tienen ES/EN así. Sería
   una fase aparte.

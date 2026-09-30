@@ -4,7 +4,8 @@ Esquema de la base de datos SQLite de srt-bilingual. Refleja las migraciones
 `4684c713e94f` (Fase 1), `bd028a52d162` (columna `activa`), `deb86f77e1a9`
 (tabla `media_file`), `6f170d42eb87` (flags y `version_analisis`), `b9edc39727eb`
 (tabla `translation_job`), `4447e8a4d4c5` (`caracteres_previstos`), `c3a9e5f17b20`
-(pistas incrustadas) y `e81d4b0c9a37` (`fase` de los trabajos). Si cambias un modelo en `backend/app/models/`, genera la
+(pistas incrustadas), `e81d4b0c9a37` (`fase` de los trabajos) y `1dad6a0e64cd`
+(tabla `guide_file` y `guia` de los trabajos). Si cambias un modelo en `backend/app/models/`, genera la
 migración **y actualiza este documento en el mismo commit**.
 
 > **Este fichero es la fuente de verdad.** Al lado hay una versión visual del mismo
@@ -21,7 +22,8 @@ migración **y actualiza este documento en el mismo commit**.
 
 Todo lo que hay en las tablas se puede regenerar borrando el `.db`, aplicando las
 migraciones y lanzando un escaneo, **salvo `translation_job`**, que es historial de
-trabajos y de cuota consumida (ver su sección). Ninguna decisión del sistema depende de un dato
+trabajos y de cuota consumida (ver su sección). Las guías de traducción no están en
+la base de datos: son ficheros de la biblioteca, y `guide_file` solo las indexa. Ninguna decisión del sistema depende de un dato
 que solo exista en la base de datos: lo traducido se reconoce porque el
 `.bilingue.srt` está en disco, no porque una fila lo diga.
 
@@ -31,6 +33,7 @@ que solo exista en la base de datos: lo traducido se reconoce porque el
 erDiagram
     library_folder ||--o{ subtitle_file : "contiene"
     library_folder ||--o{ media_file : "contiene"
+    library_folder ||--o{ guide_file : "contiene"
     media_file |o--o{ subtitle_file : "pistas incrustadas"
     subtitle_file |o--o{ translation_job : "origen (SET NULL)"
     subtitle_file |o--o{ translation_job : "coreano (SET NULL)"
@@ -47,6 +50,7 @@ erDiagram
         string   ruta_bilingue           "NULL hasta terminar"
         string   idioma_origen           "ES EN"
         string   proveedor               "NULL en FUSION"
+        string   guia                    "ruta y huella, si se uso"
         int      num_caracteres          "enviados al proveedor"
         int      caracteres_previstos    "reserva de cupo en cola"
         float    calidad_alineacion      "solo FUSION"
@@ -69,6 +73,13 @@ erDiagram
         float    sondeado_mtime    "mtime al sondear sus pistas"
         datetime creado_en
         datetime actualizado_en
+    }
+
+    guide_file {
+        int      id             PK
+        int      carpeta_id     FK "ON DELETE CASCADE"
+        string   ruta           UK "srt-bilingual.toml visto al escanear"
+        datetime creado_en
     }
 
     library_folder {
@@ -209,6 +220,23 @@ pistas de subtítulo pasan a `subtitle_file` (Fase 5).
 **Índices:** `ix_media_file_ruta` (ÚNICO), `ix_media_file_carpeta_id`,
 `ix_media_file_base`.
 
+## `guide_file`
+
+Dónde hay una **guía de traducción** (`srt-bilingual.toml`: glosario e instrucciones
+de una serie), según el último escaneo. Es solo un índice: el contenido de la guía se
+lee siempre del disco al usarla, así que editarla no requiere escanear. Existe para
+que el árbol sepa qué obras tienen guía sin buscarla por la red, que en la biblioteca
+real costaba 2,3 s por carga (348 carpetas). Ver `docs/plans/plan-glosario-por-obra.md`.
+
+| Columna | Tipo SQLite | Nulo | Para qué sirve |
+|---|---|---|---|
+| `id` | `INTEGER` PK | no | Clave primaria |
+| `carpeta_id` | `INTEGER` FK | no | Carpeta de biblioteca en la que está. `ON DELETE CASCADE` |
+| `ruta` | `VARCHAR` | no | Ruta absoluta del fichero. **Única** |
+| `creado_en` | `DATETIME` | no | Alta de la fila |
+
+**Índices:** `ix_guide_file_ruta` (ÚNICO), `ix_guide_file_carpeta_id`.
+
 ## `translation_job`
 
 Cada generación de un bilingüe (Fase 3): **por traducción**, que gasta cuota del
@@ -234,6 +262,7 @@ rutas y sus caracteres se conservan.
 | `ruta_bilingue` | `VARCHAR` | sí | Fichero generado; `NULL` hasta que termina |
 | `idioma_origen` | `VARCHAR(7)` | no | `ES` o `EN`. El destino es siempre coreano |
 | `proveedor` | `VARCHAR` | sí | Quién tradujo (DeepL…); `NULL` en `FUSION` |
+| `guia` | `VARCHAR` | sí | La guía de traducción con que se tradujo, como `<ruta> (<huella>)`, si el proveedor la aprovechó. Historial: la guía puede cambiar después, y la huella dice qué versión se usó |
 | `num_caracteres` | `INTEGER` | no | Caracteres enviados al proveedor; `0` en `FUSION`. Es el registro de consumo de la Fase 4: el de un proveedor en un mes es la suma de los de sus trabajos (cuentan también los fallidos: el proveedor ya los cobró) |
 | `caracteres_previstos` | `INTEGER` | no | Lo que se espera enviar, fijado al crear el trabajo. Mientras está en cola o en curso, `caracteres_previstos − num_caracteres` queda **reservado** del cupo de su proveedor. Con una pista sin extraer es una cota (o 40.000 si no trae estadísticas) y se corrige a la cifra exacta al extraerla |
 | `calidad_alineacion` | `FLOAT` | sí | Solo en `FUSION`: fracción de bloques coreanos bien colocados (0 a 1) |
@@ -332,6 +361,13 @@ trabajos y sus claves foráneas, y el frontend. El coste: unas cuantas columnas 
 solo tienen sentido en pistas, y que `ruta` deja de ser siempre un fichero (en una
 pista es `<vídeo>#<índice>`); el código que lee un subtítulo del disco debe mirar
 `es_pista` antes.
+
+**9. La guía de traducción vive en disco; la base de datos solo sabe dónde está.**
+La escribe el usuario y no se puede reconstruir, así que por el principio rector no
+puede vivir en una tabla: es un fichero dentro de la biblioteca, que viaja con ella
+(y con el volumen de Docker). `guide_file` solo indexa su ubicación para el árbol. El
+coste: una guía nueva no aparece en el árbol hasta el siguiente escaneo, como un
+`.srt` nuevo; editar una existente, en cambio, vale al momento.
 
 ## Descartada: `provider_usage`
 

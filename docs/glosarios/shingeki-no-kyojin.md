@@ -8,6 +8,11 @@ términos de aquí podrían pasárseles antes de traducir.
 
 **Contiene spoilers de toda la serie.**
 
+**La guía que usa la app** (lo que DeepL puede aprovechar de este documento:
+glosario, instrucciones y contexto) está en la biblioteca, en
+`Anime\Shingeki\srt-bilingual.toml`. Formato en el README («Guía de traducción por
+serie»). Si cambias un nombre o un término aquí, cámbialo también allí.
+
 ## Grafías: de dónde salen
 
 Se comprobaron contra los subtítulos coreanos que ya hay en la biblioteca: el fansub

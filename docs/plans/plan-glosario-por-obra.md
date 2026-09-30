@@ -1,6 +1,7 @@
 # Plan — Glosario por obra (guía de traducción)
 
-**Estado:** aprobado el 2026-09-29, con las tres propuestas de «Decisiones». En curso.
+**Estado:** aprobado y **completado** el 2026-09-29 (hitos 1–6). Qué pasó en cada
+hito: `docs/bitacora-glosario-por-obra.md`.
 
 ## Por qué
 

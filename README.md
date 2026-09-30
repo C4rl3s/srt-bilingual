@@ -28,7 +28,9 @@ El coreano sale de uno de dos sitios:
   lotes. La app elige el primero de tu lista de preferencia que tenga **cupo libre**
   para toda la película, y enseña el cupo de cada uno; también puedes elegirlo tú
   para cada obra. DeepL traduce mejor el español coloquial, pero su cupo es mucho
-  menor (ver la prueba de calidad en `docs/bitacora-fase5.md`).
+  menor (ver la prueba de calidad en `docs/bitacora-fase5.md`). Con una **guía de
+  traducción** por serie (glosario, instrucciones y contexto; ver «Guía de traducción
+  por serie» más abajo), DeepL acierta los nombres y el trato entre personajes.
 
 El bilingüe se escribe junto al vídeo como `<vídeo>.ES-KO.bilingue.srt`, y Plex lo
 muestra como «Español (KO)». El vídeo nunca se modifica.
@@ -55,6 +57,11 @@ srt-bilingual/
 Hacen falta [uv](https://docs.astral.sh/uv/), Node.js 24 y, para los subtítulos
 dentro de los vídeos, [ffmpeg](https://ffmpeg.org/) en el `PATH` (en Windows:
 `winget install Gyan.FFmpeg`). Sin ffmpeg la app funciona igual con los `.srt`.
+
+**Atajo en Windows:** con el `.env` ya preparado (paso 1), doble clic en
+`arrancar.cmd`, o `.\arrancar.ps1` desde PowerShell. Aplica las migraciones, abre el
+backend y el frontend cada uno en su ventana y lanza el navegador. Si alguno ya está
+en marcha, no lo duplica. Para parar la app, cierra las dos ventanas.
 
 ### 1. Backend
 
@@ -114,6 +121,47 @@ Vite reenvía las peticiones a `/api/*` al backend del puerto 8000.
 Los paneles de la biblioteca (el árbol y el de la obra) se ensanchan o estrechan
 arrastrando su borde; doble clic lo devuelve a su ancho.
 
+### 4. Guía de traducción por serie (opcional)
+
+DeepL traduce cada bloque sin saber de qué va la serie: los nombres y términos salen
+cada vez de una forma («Marley» como 말리 o 말레이, «titán» como 타이탄) y el trato
+entre personajes cambia sin motivo. Una **guía** lo corrige. Es un fichero
+`srt-bilingual.toml` en la carpeta de la serie, que vale para todos sus capítulos y
+temporadas. Si una temporada tiene la suya, gana la más cercana.
+
+```toml
+[glosario]            # español = coreano
+"Marley" = "마레"
+"titán acorazado" = "갑옷 거인"
+"el acorazado" = "갑옷 거인"
+
+[instrucciones]       # hasta 10, de 300 caracteres como mucho
+lista = [
+  "In Latin American Spanish 'ustedes' is plural 'you', not formal: use 너희.",
+]
+
+[opciones]
+contexto = true       # enviar los bloques vecinos como contexto
+```
+
+- **Solo DeepL la usa.** Azure no admite glosario de español a coreano. Si la obra
+  tiene guía, la app prefiere DeepL aunque Azure vaya primero en
+  `TRANSLATION_PROVIDERS`.
+- **El glosario es de español a coreano:** con origen en inglés solo se aplican las
+  instrucciones.
+- **Glosario:** pon frases concretas, no palabras sueltas ambiguas («los nueve»
+  convirtió «hace nueve años» en «아홉 거인 전부터»). Distingue mayúsculas, así que
+  añade las variantes que aparezcan («isla Paradis», «Isla Paradis»).
+- **Contexto:** no cuesta caracteres, pero va una petición por bloque (unos 2 min por
+  capítulo). En una prueba redujo a la mitad los bloques con errores.
+- **Una guía nueva** aparece en la interfaz tras **Escanear**. **Editar** una existente
+  vale al momento, porque se lee al traducir. Si tiene errores, el panel de la obra
+  dice cuáles y no deja traducir hasta arreglarla.
+
+Ejemplo completo: la de *Shingeki no Kyojin*, con su justificación en
+`docs/glosarios/shingeki-no-kyojin.md` y las cifras en
+`docs/plans/plan-glosario-por-obra.md`.
+
 ## Despliegue
 
 **Aún no implementado.** El destino previsto es un servidor local que hará de NAS,
@@ -126,7 +174,7 @@ variables. Los requisitos están en `CLAUDE.md` (Estado del plan).
 ## Tests
 
 ```bash
-cd backend && uv run pytest               # 319 tests; ninguno llama a Azure, a DeepL ni a ffmpeg
+cd backend && uv run pytest               # 389 tests; ninguno llama a Azure, a DeepL ni a ffmpeg
 cd frontend && npm run build              # comprueba los tipos y compila
 ```
 
@@ -142,4 +190,6 @@ cd frontend && npm run build              # comprueba los tipos y compila
 - [x] **Fase 5** — Subtítulos dentro de los vídeos: lectura de sus pistas, extracción,
   y traducción o fusión desde ellas. Prueba de calidad (fusión frente a Azure y
   DeepL) en `docs/bitacora-fase5.md`.
+- [x] **Glosario por obra** — Guía de traducción por serie (glosario, instrucciones y
+  contexto) para DeepL. Plan y cifras en `docs/plans/plan-glosario-por-obra.md`.
 - [ ] **Despliegue** con Docker en el servidor local, y web de documentación.
