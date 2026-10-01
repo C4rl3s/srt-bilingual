@@ -1,10 +1,8 @@
 # Shingeki no Kyojin (진격의 거인) — contexto para revisar el coreano
 
-Material de trabajo para **repasar los bilingües ES-KO** que salen de Azure o DeepL
+Material de trabajo para **repasar los bilingües ES-KO** que salen de DeepL
 (temporada 4 en adelante): nombres, términos, cómo se hablan los personajes y qué
-pasa en cada parte. Es también la semilla del «glosario por obra» apuntado en la
-deuda técnica (`CLAUDE.md`): Azure y DeepL admiten glosarios, y los nombres y
-términos de aquí podrían pasárseles antes de traducir.
+pasa en cada episodio. De aquí salió la guía de traducción de la serie (ver abajo).
 
 **Contiene spoilers de toda la serie.**
 
@@ -15,17 +13,27 @@ serie»). Si cambias un nombre o un término aquí, cámbialo también allí.
 
 ## Grafías: de dónde salen
 
-Se comprobaron contra los subtítulos coreanos que ya hay en la biblioteca: el fansub
-de S1–S2 (`.smi` de 바보개, convertidos a `.ko.srt`) y los `.ko.srt` de S3. Ninguno de
-los dos es oficial y **no coinciden entre sí**:
+En coreano conviven **dos tradiciones**: la de la edición oficial del manga
+(학산문화사), que siguen la Wikipedia en coreano y parte de Namuwiki, y la de uso
+común entre los aficionados. No coinciden en varios nombres, y los subtítulos de la
+biblioteca mezclan las dos: el fansub de S1–S2 (`.smi` de 바보개) y los `.ko.srt` de S3
+(que usan 엘런 pero 엘빈 y 아르민). Criterio: **la de uso común, salvo que sea una mala
+transliteración**.
 
-| | S1–S2 | S3 | Se usa |
-|---|---|---|---|
-| Eren | 에렌 (551) | 엘런 (95) | **에렌** — la oficial (manga en coreano, 학산문화사) y la mayoritaria |
-| Eldia | — | 에르디아 (7) | **엘디아** — la oficial |
+| | Edición oficial del manga | Uso común | Se usa | Por qué |
+|---|---|---|---|---|
+| Eren | 엘런 | 에렌 | **에렌** | 엘런 es un **error de la traductora** de la edición oficial (leyó エレン como *Ellen*) que mantuvo hasta el capítulo 121; hoy casi todo el mundo dice 에렌 |
+| Eldia | 에르디아 | 에르디아 / 엘디아 | **에르디아** | Transliteración fiel (エルディア); es la de Namuwiki, la Wikipedia y S3. *(Hasta el 2026-10-01 se usó 엘디아 por error; corregido en S4 Pt. 1 01–07 y en la guía.)* |
+| Floch | 플록 | 프록 / 플록 | **플록** | Wikipedia en coreano. *(Antes 플로크, que no usa nadie; corregido.)* |
+| Armin Arlert | 아르민 아를레르트 | 아르민 알레르토 | 아르민 | El apellido casi no sale |
+| Erwin | 에르빈 | 엘빈 | **엘빈** | Uso común y S3 (77 veces) |
+| Connie Springer | 코니 슈프링어 | 코니 스프링거 | 코니 | |
+| Sasha | 사샤 블라우스 | 사샤 브라우스 | 사샤 | |
+| Pieck Finger | 피크 핑어 | 피크 핑거 | 피크 | |
+| Galliard | 갈리아르트 | 갈리아드 | **갈리아드** | Transliteración del japonés; 갈리아르트 es la lectura alemana del manga |
 
-Columna «Verificado»: **sí** = aparece así en esos subtítulos; **—** = no aparece en
-ellos (personajes y términos de S4) y la grafía es la oficial conocida, sin cotejar.
+Columna «Verificado» de las tablas: **sí** = cotejado con los subtítulos coreanos de
+S1–S3 o con las fuentes de abajo; **—** = sin cotejar.
 
 ## Personajes
 
@@ -54,19 +62,20 @@ ellos (personajes y términos de S4) y la grafía es la oficial conocida, sin co
 | Rod Reiss | 로드 레이스 | sí | |
 | Dot Pixis | 도트 픽시스 | sí (픽시스) | |
 | Nile Dok | 나일 도크 | — | |
-| Floch Forster | 플로크 포르스터 | — | Cabecilla de los jaegeristas |
-| Gabi Braun | 가비 브라운 | — | Prima de Reiner |
-| Falco Grice | 팔코 그라이스 | — | |
+| Floch Forster | 플록 포르스터 | sí (Wikipedia) | Cabecilla de los jaegeristas |
+| Gabi Braun | 가비 브라운 | sí (Wikipedia) | Prima de Reiner |
+| Falco Grice | 팔코 그라이스 | sí (Wikipedia) | |
 | Colt Grice | 콜트 그라이스 | — | Hermano mayor de Falco |
 | Udo / Zofia | 우도 / 조피아 | — | Candidatos a guerrero |
-| Porco Galliard | 포르코 갈리아드 | — | Titán Mandíbula. Su hermano: Marcel (마르셀) |
-| Pieck Finger | 피크 핑거 | — | Titán Carguero |
-| Theo Magath | 테오 마가트 | — | «Comandante Magath»: 마가트 대장 |
-| Willy Tybur | 빌리 타이버 | — | Familia Tybur: 타이버 가 |
+| Porco Galliard | 포르코 갈리아드 | sí (variante) | Titán Mandíbula. Su hermano: Marcel (마르셀) |
+| Pieck Finger | 피크 핑거 | sí (variante) | Titán Carguero (차력 거인, alias 짐수레 거인) |
+| Theo Magath | 테오 마가트 | sí (Wikipedia) | Jefe del cuerpo de guerreros. En la versión latina, «capitán Magath»: 마가트 대장 |
+| Willy Tybur | 빌리 타이버 | sí (Namuwiki) | Cabeza de la familia Tybur: 타이버 가의 당주 |
 | Lara Tybur | 라라 타이버 | — | Titán Martillo de Guerra |
-| Yelena | 옐레나 | — | |
-| Onyankopon | 오니앙코폰 | — | |
-| Kiyomi Azumabito | 키요미 아즈마비토 | — | De Hizuru (히이즈루) |
+| Yelena | 옐레나 | sí (Namuwiki) | |
+| Onyankopon | 오니앙코폰 | sí (Namuwiki) | De los «voluntarios antimarleyanos» (반마레파 의용병) |
+| Kiyomi Azumabito | 키요미 아즈마비토 | sí (Namuwiki) | De Hizuru (히이즈루; también 히즈루) |
+| Hange, en S4 | 한지 단장(님) | sí | En la versión latina, «Comandante» a secas es casi siempre Hange. Pixis también es «comandante», pero es 픽시스 사령관 |
 | Niccolo | 니콜로 | — | Cocinero marleyano |
 | Kaya | 카야 | — | |
 | Marcel Galliard | 마르셀 갈리아드 | — | **Hermano mayor** de Porco: Porco le llama 형 (DeepL pone 동생) |
@@ -92,32 +101,32 @@ ellos (personajes y términos de S4) y la grafía es la oficial conocida, sin co
 | Shiganshina / Trost / Stohess | 시간시나 / 트로스트 / 스토헤스 | sí | |
 | isla Paradis | 파라디 섬 | sí (파라디) | |
 | Marley, marleyano | 마레, 마레인 | sí | |
-| Eldia, eldiano | 엘디아, 엘디아인 | sí (como 에르디아) | Grafía oficial 엘디아 |
+| Eldia, eldiano | 에르디아, 에르디아인 | sí | Ver «Grafías» |
 | Titán Fundador | 시조의 거인 | sí | |
 | Titán de Ataque | 진격의 거인 | sí | |
 | Titán Colosal | 초대형 거인 | sí | |
 | Titán Acorazado | 갑옷 거인 | sí | |
 | Titán Hembra | 여성형 거인 | sí | |
 | Titán Bestia | 짐승 거인 | sí | |
-| Titán Mandíbula | 턱 거인 | — | |
-| Titán Carguero | 차력 거인 | — | |
-| Titán Martillo de Guerra | 전퇴의 거인 | — | |
-| titán puro / sin inteligencia | 무지성 거인 | — | |
-| los nueve titanes | 아홉 거인 | — | |
+| Titán Mandíbula | 턱 거인 | sí (Namuwiki) | |
+| Titán Carguero | 차력 거인 | sí (Wikipedia) | Alias 짐수레 거인 |
+| Titán Martillo de Guerra | 전퇴의 거인 | sí (Namuwiki) | |
+| titán puro / sin inteligencia | 무지성 거인 | sí (Namuwiki) | También 무구의 거인 |
+| los nueve titanes | 아홉 거인 | sí (Namuwiki) | |
 | la coordenada | 좌표 | sí | |
 | los caminos | 길 | — | |
-| el Retumbar | 땅울림 | — | |
+| el Retumbar | 땅울림 | sí (Namuwiki) | |
 | la maldición de Ymir (13 años) | 유미르의 저주 | — | |
-| guerreros / candidatos a guerrero | 전사 / 전사 후보생 | — | Unidad de guerreros: 전사대 |
-| zona de internamiento de Liberio | 레벨리오 수용구 | — | |
-| brazalete | 완장 | — | |
-| marleyanos honorarios | 명예 마레인 | — | |
-| jaegeristas | 예거파 | — | |
-| voluntarios antimarleyanos | 반마레파 의용병 | — | |
+| guerreros / candidatos a guerrero | 전사 / 전사 후보생 | sí (Namuwiki) | Unidad de guerreros: 전사대 |
+| zona de internamiento de Liberio | 레벨리오 수용구 | sí (Namuwiki) | |
+| brazalete | 완장 | sí (Namuwiki) | |
+| marleyanos honorarios | 명예 마레인 | sí (Namuwiki) | |
+| jaegeristas | 예거파 | sí (Namuwiki) | |
+| voluntarios antimarleyanos | 반마레파 의용병 | sí (Namuwiki) | |
 | sangre real | 왕가의 피 | — | |
-| el Pacto de Renuncia a la Guerra | 부전의 계약 | — | |
-| honorables marleyenses | 명예 마레인 | — | DeepL: 명예로운 말리 시민, 존경하는 말레이시아인 |
-| restauradores / retorno de Eldia | 엘디아 복권파 | — | DeepL: 복고 운동 |
+| el Pacto de Renuncia a la Guerra | 부전의 계약 | sí (variante) | También 부전의 조약 |
+| honorables marleyenses | 명예 마레인 | sí | DeepL: 명예로운 말리 시민, 존경하는 말레이시아인 |
+| restauradores / retorno de Eldia | 에르디아 복권파 | sí (Namuwiki) | DeepL: 복고 운동 |
 | guerra de los titanes | 거인 대전 | — | |
 | endurecimiento | 경질화 | — | |
 | usurpador | 찬탈자 | — | DeepL: 침략자 (invasor) |
@@ -163,21 +172,113 @@ capítulo salvo que la escena lo cambie a propósito.
 
 Las filas sin verificar salen del original japonés; ante la duda manda la escena.
 
-## Contexto por parte (temporada 4)
+## Qué pasa en cada episodio (temporada 4)
 
-- **Pt. 1, 01–04 — Marley.** Guerra de Marley contra una coalición; los candidatos a
-  guerrero (Gabi, Falco, Udo, Zofia) y los guerreros (Zeke, Reiner, Pieck, Porco).
-  En Liberio, Reiner conoce a un soldado herido, «Kruger», que es Eren. Willy Tybur
-  prepara su discurso.
-- **Pt. 1, 05–08 — El ataque a Liberio.** Discurso de Willy Tybur; Eren se transforma
-  y el Cuerpo de Exploración ataca. Muere Sasha (a manos de Gabi).
-- **Pt. 1, 09–16 — Paradis.** Eren encarcelado; los jaegeristas de Floch; el vino
-  con la médula de Zeke; Zeke y Levi en el bosque; los caminos; Marley contraataca
-  en Shiganshina.
-- **Pt. 2 — Shiganshina y el Retumbar.** Eren contacta con Ymir Fritz y desata el
-  Retumbar. La alianza (Mikasa, Armin, Levi, Hange, Jean, Connie, Annie, Reiner,
-  Pieck, Magath) intenta detenerlo.
-- **Pt. 3 — El final.** Batalla sobre el Fundador; desenlace.
+Para saber, al repasar, quién habla, a quién y qué se juega en la escena. Resumido de
+la Wikipedia en inglés (*Attack on Titan season 4*). El número del fichero de la
+biblioteca va primero; entre paréntesis, el número del episodio en la serie completa.
+
+### Parte 1
+
+- **01 (60) — Al otro lado del mar.** Cuatro años después, Marley contra la Alianza de
+  Medio Oriente en el Fuerte Slava. Los candidatos a guerrero (Falco, Gabi, Udo,
+  Zofia, con Colt al frente) inutilizan el tren blindado; Zeke convierte en titanes a
+  soldados eldianos con su grito. Marley gana, pero ve que tiene que hacerse con el
+  Fundador antes de que las armas de los demás superen a los titanes.
+- **02 (61) — Tren de medianoche.** Los mandos discuten el ataque a Paradis. Reiner
+  anima a Falco a heredar el Acorazado para salvar a Gabi de los 13 años. Vuelta a
+  Liberio; Reiner cuenta que en Paradis hay «todo tipo de gente», y Gabi no lo
+  entiende. Zeke planea usar al Martillo de Guerra de los Tybur para declarar la
+  guerra a Paradis.
+- **03 (62) — La puerta de la esperanza.** Reiner recuerda su infancia, su elección
+  como guerrero y la misión fallida en Paradis con Annie, Bertolt y Marcel. Deprimido,
+  intenta suicidarse, pero decide vivir por Falco y los demás candidatos. Falco
+  conoce a «Kruger», un soldado que finge amnesia.
+- **04 (63) — De una mano a otra.** Kruger le pide a Falco que eche sus cartas fuera de
+  la zona de internamiento. Willy Tybur se alía con Magath. El abuelo de Eren (el
+  médico) habla con Kruger. Willy invita a los dignatarios a una función. Al final,
+  Falco lleva a Reiner ante Kruger: es Eren.
+- **05 (64) — Declaración de guerra.** En el sótano, Eren y Reiner hablan mientras
+  Willy cuenta en el escenario que fue el rey Fritz quien inventó el mito de Helos y
+  se encerró en Paradis tras las murallas, con la amenaza del Retumbar. Willy declara
+  la guerra a Paradis y Eren se transforma.
+- **06 (65) — El titán martillo de guerra.** Eren devora a Willy y arrasa a los
+  mandos marleyanos; mueren Udo y Zofia. Lara Tybur se transforma en el Martillo de
+  Guerra y acorrala a Eren con su endurecimiento. Llega el Cuerpo de Exploración.
+  Eren encuentra el cuerpo de Lara en un cristal bajo tierra. Porco ataca y Levi
+  interviene.
+- **07 (66) — Asalto.** El Carguero de Pieck ataca con ametralladoras; llega Zeke;
+  Marley rodea Liberio. Armin se transforma en el Colosal y destruye el puerto y la
+  flota. Los exploradores derrotan a Pieck. Eren usa la Mandíbula para romper el
+  cristal de Lara y la devora. Reiner, enterrado y queriendo morir, se transforma en
+  el Acorazado por los gritos de Gabi y Falco.
+- **08 (67) — La bala del asesino.** Reiner protege a Porco en vez de luchar con Eren.
+  Eren huye con Mikasa; Levi lo arresta por ir a Marley por su cuenta. Gabi sube al
+  dirigible y dispara a Sasha, que muere. Pieck descubre que Yelena era de un barco
+  explorador desaparecido hace tres años.
+- **09 (68) — Voluntarios valientes.** Hace tres años: los exploradores capturan el
+  primer barco marleyano; Yelena, Onyankopon y los «voluntarios antimarleyanos»
+  ofrecen su ayuda y apoyan el plan de Zeke. En el presente, duelo por Sasha.
+- **10 (69) — Un argumento sólido.** Hace dos años: Kiyomi Azumabito, de Hizuru,
+  revela el linaje de Mikasa por su tatuaje. El plan de Zeke: el Retumbar como
+  amenaza y que Historia herede la Bestia; Eren lo rechaza. En el presente, Eren se
+  revuelve en el interrogatorio de Hange. Historia está embarazada.
+- **11 (70) — Impostor.** Gabi y Falco huyen de la prisión; Kaya los acoge en los
+  establos. Hange encarcela a los exploradores que filtraron información sobre Eren.
+  Kaya cuenta que un titán se comió a su madre.
+- **12 (71) — Guías.** Armin visita el cristal de Annie. Protestas por el
+  encarcelamiento de Eren; una bomba mata al generalísimo Zachary. Eren escapa con
+  ayuda de Floch. Hange sospecha de Yelena y Zeke.
+- **13 (72) — Los niños del bosque.** Zeke recuerda Ragako. En el restaurante, Gabi y
+  Falco se descubren ante Niccolo, el cocinero marleyano, que intenta matar a Gabi.
+  El vino del barco de Yelena llevaba fluido espinal de Zeke. Los jaegeristas
+  asaltan el restaurante.
+- **14 (73) — Salvajismo.** Eren humilla a Armin y a Mikasa («esclava» de su sangre
+  Ackerman). En el bosque, Zeke grita y convierte a los hombres de Levi en titanes;
+  Levi lo captura con las lanzas relámpago.
+- **15 (74) — Única salvación.** La infancia de Zeke con Grisha y Dina; Tom Xaver, el
+  anterior Bestia, y su plan de esterilizar a los eldianos. Zeke hace estallar la
+  lanza relámpago con Levi.
+- **16 (75) — Arriba y abajo.** Yelena explica el plan de eutanasia de Zeke. Pieck
+  finge unirse a los jaegeristas; Porco ataca a Eren, que se transforma y delata su
+  posición a los dirigibles de Marley.
+
+### Parte 2
+
+- **01 (76) Juicio · 02 (77) Ataque sorpresa · 03 (78) Dos hermanos.** Batalla en
+  Shiganshina: Reiner y Porco contra Eren; Magath dispara desde el Carguero; Zeke
+  vuelve. Falco se come a Porco y hereda la Mandíbula; Gabi decapita a Eren, que
+  entra en los caminos con Zeke.
+- **04 (79) Recuerdos del futuro · 05 (80) De ti, hace 2000 años.** Los recuerdos de
+  Grisha; la historia de Ymir Fritz. Eren desata el Retumbar.
+- **06 (81) Deshielo · 07 (82) Ocaso · 08 (83) Orgullo · 09 (84) Noche del fin.** Se
+  forma la alianza contra Eren: Hange, Levi, Mikasa, Armin, Jean, Connie, Annie,
+  Reiner, Pieck, Magath, Falco y Gabi. Yelena confiesa que es marleyana.
+- **10 (85) Traidor · 11 (86) Retrospectiva · 12 (87) El amanecer de la humanidad.**
+  Lucha en el puerto con los jaegeristas por el hidroavión; Magath y Shadis se
+  sacrifican. Flashback del viaje de Eren a Marley.
+
+### Parte 3
+
+- **Especiales.** Muere Hange frente a los colosales. Batalla final sobre el cuerpo de
+  Eren; desenlace.
+
+## Fuentes
+
+Para cotejar grafías y saber qué pasa en cada escena:
+
+- **Namuwiki** (wiki coreana, la más completa de la serie): nombres y términos en
+  coreano. Bloquea las lecturas automáticas; sus resultados de búsqueda sí sirven.
+  Por ejemplo: [아홉 거인](https://namu.wiki/w/%EC%95%84%ED%99%89%20%EA%B1%B0%EC%9D%B8),
+  [땅울림](https://namu.wiki/w/%EB%95%85%EC%9A%B8%EB%A6%BC),
+  [레벨리오 전투](https://namu.wiki/w/%EB%A0%88%EB%B2%A8%EB%A6%AC%EC%98%A4%20%EC%A0%84%ED%88%AC).
+- **Wikipedia en coreano**: [lista de personajes](https://ko.wikipedia.org/wiki/%EC%A7%84%EA%B2%A9%EC%9D%98_%EA%B1%B0%EC%9D%B8%EC%9D%98_%EB%93%B1%EC%9E%A5%EC%9D%B8%EB%AC%BC_%EB%AA%A9%EB%A1%9D)
+  (grafías de la edición oficial del manga) y
+  [차력 거인](https://ko.wikipedia.org/wiki/%EC%B0%A8%EB%A0%A5_%EA%B1%B0%EC%9D%B8).
+- **Wikipedia en inglés**: [Attack on Titan season 4](https://en.wikipedia.org/wiki/Attack_on_Titan_season_4),
+  resumen de cada episodio.
+- **Attack on Titan Wiki** (Fandom), resúmenes escena a escena: el más detallado, pero
+  también bloquea las lecturas automáticas.
 
 ## Errores recurrentes de DeepL (S4 Pt. 1, 01–06)
 
